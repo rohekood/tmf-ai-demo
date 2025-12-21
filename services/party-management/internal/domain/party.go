@@ -15,6 +15,7 @@ type Party struct {
 	ID        string    `gorm:"primaryKey"`
 	Type      PartyType `gorm:"not null"`
 	Href      string
+	Status    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -39,6 +40,12 @@ type Organization struct {
 type Repository interface {
 	CreateIndividual(ind *Individual) error
 	GetIndividual(id string) (*Individual, error)
+	UpdateIndividual(ind *Individual) error
+
 	CreateOrganization(org *Organization) error
 	GetOrganization(id string) (*Organization, error)
+	UpdateOrganization(org *Organization) error
+
+	DeleteParty(id string) error
+	SearchParties(criteria map[string]interface{}) ([]Party, error)
 }
