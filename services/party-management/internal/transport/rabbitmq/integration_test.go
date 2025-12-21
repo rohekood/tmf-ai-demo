@@ -214,11 +214,11 @@ func TestIntegration_CreateIndividual(t *testing.T) {
 	}
 	body, _ := json.Marshal(payload)
 
-	err := suite.Handlers.HandleCreateParty(amqp.Delivery{Body: body})
+	err := suite.Handlers.HandleCreateParty(context.Background(), amqp.Delivery{Body: body})
 	require.NoError(t, err)
 
 	// Verify DB
-	saved, err := suite.Repo.GetIndividual("int-ind-1")
+	saved, err := suite.Repo.GetIndividual(context.Background(), "int-ind-1")
 	require.NoError(t, err)
 	assert.Equal(t, "Integration", saved.GivenName)
 	assert.Equal(t, "Test", saved.FamilyName)
@@ -248,11 +248,11 @@ func TestIntegration_CreateOrganization(t *testing.T) {
 	}
 	body, _ := json.Marshal(payload)
 
-	err := suite.Handlers.HandleCreateParty(amqp.Delivery{Body: body})
+	err := suite.Handlers.HandleCreateParty(context.Background(), amqp.Delivery{Body: body})
 	require.NoError(t, err)
 
 	// Verify DB
-	saved, err := suite.Repo.GetOrganization("int-org-1")
+	saved, err := suite.Repo.GetOrganization(context.Background(), "int-org-1")
 	require.NoError(t, err)
 	assert.Equal(t, "IntegrationCorp", saved.TradingName)
 	assert.Equal(t, true, saved.IsLegalEntity)
@@ -278,7 +278,7 @@ func TestIntegration_UpdateIndividual(t *testing.T) {
 		GivenName:  "Original",
 		FamilyName: "Name",
 	}
-	require.NoError(t, suite.Repo.CreateIndividual(ind))
+	require.NoError(t, suite.Repo.CreateIndividual(context.Background(), ind))
 
 	// Update via handler
 	payload := UpdatePartyPayload{
@@ -293,11 +293,11 @@ func TestIntegration_UpdateIndividual(t *testing.T) {
 	}
 	body, _ := json.Marshal(payload)
 
-	err := suite.Handlers.HandleUpdateParty(amqp.Delivery{Body: body})
+	err := suite.Handlers.HandleUpdateParty(context.Background(), amqp.Delivery{Body: body})
 	require.NoError(t, err)
 
 	// Verify DB
-	updated, err := suite.Repo.GetIndividual("int-upd-ind-1")
+	updated, err := suite.Repo.GetIndividual(context.Background(), "int-upd-ind-1")
 	require.NoError(t, err)
 	assert.Equal(t, "Updated", updated.GivenName)
 	assert.Equal(t, "Active", updated.Status)
@@ -327,7 +327,7 @@ func TestIntegration_PatchParty(t *testing.T) {
 		GivenName:  "PatchMe",
 		FamilyName: "Please",
 	}
-	require.NoError(t, suite.Repo.CreateIndividual(ind))
+	require.NoError(t, suite.Repo.CreateIndividual(context.Background(), ind))
 
 	// Patch via handler
 	newName := "Patched"
@@ -339,11 +339,11 @@ func TestIntegration_PatchParty(t *testing.T) {
 	}
 	body, _ := json.Marshal(payload)
 
-	err := suite.Handlers.HandlePatchParty(amqp.Delivery{Body: body})
+	err := suite.Handlers.HandlePatchParty(context.Background(), amqp.Delivery{Body: body})
 	require.NoError(t, err)
 
 	// Verify DB
-	patched, err := suite.Repo.GetIndividual("int-patch-1")
+	patched, err := suite.Repo.GetIndividual(context.Background(), "int-patch-1")
 	require.NoError(t, err)
 	assert.Equal(t, "Patched", patched.GivenName)
 	assert.Equal(t, "Please", patched.FamilyName) // Unchanged
@@ -370,17 +370,17 @@ func TestIntegration_DeleteParty(t *testing.T) {
 		GivenName:  "DeleteMe",
 		FamilyName: "Soon",
 	}
-	require.NoError(t, suite.Repo.CreateIndividual(ind))
+	require.NoError(t, suite.Repo.CreateIndividual(context.Background(), ind))
 
 	// Delete via handler
 	payload := DeletePartyPayload{ID: "int-del-1"}
 	body, _ := json.Marshal(payload)
 
-	err := suite.Handlers.HandleDeleteParty(amqp.Delivery{Body: body})
+	err := suite.Handlers.HandleDeleteParty(context.Background(), amqp.Delivery{Body: body})
 	require.NoError(t, err)
 
 	// Verify DB - should not exist
-	_, err = suite.Repo.GetIndividual("int-del-1")
+	_, err = suite.Repo.GetIndividual(context.Background(), "int-del-1")
 	assert.Error(t, err)
 
 	// Verify event
@@ -404,13 +404,13 @@ func TestIntegration_GetParty(t *testing.T) {
 		GivenName:  "GetMe",
 		FamilyName: "Query",
 	}
-	require.NoError(t, suite.Repo.CreateIndividual(ind))
+	require.NoError(t, suite.Repo.CreateIndividual(context.Background(), ind))
 
 	// Query via handler (no ReplyTo, just verify no error)
 	payload := GetPartyPayload{ID: "int-get-1"}
 	body, _ := json.Marshal(payload)
 
-	err := suite.Handlers.HandleGetParty(amqp.Delivery{Body: body})
+	err := suite.Handlers.HandleGetParty(context.Background(), amqp.Delivery{Body: body})
 	require.NoError(t, err)
 }
 
@@ -440,14 +440,14 @@ func TestIntegration_SearchParty(t *testing.T) {
 		GivenName:  "SearchBob",
 		FamilyName: "Test",
 	}
-	require.NoError(t, suite.Repo.CreateIndividual(ind1))
-	require.NoError(t, suite.Repo.CreateIndividual(ind2))
+	require.NoError(t, suite.Repo.CreateIndividual(context.Background(), ind1))
+	require.NoError(t, suite.Repo.CreateIndividual(context.Background(), ind2))
 
 	// Search via handler (no ReplyTo, just verify no error)
 	givenName := "SearchAlice"
 	payload := SearchPartyPayload{GivenName: &givenName}
 	body, _ := json.Marshal(payload)
 
-	err := suite.Handlers.HandleSearchParty(amqp.Delivery{Body: body})
+	err := suite.Handlers.HandleSearchParty(context.Background(), amqp.Delivery{Body: body})
 	require.NoError(t, err)
 }

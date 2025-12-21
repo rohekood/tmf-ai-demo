@@ -1,7 +1,10 @@
 package postgres
 
 import (
+	"context"
+	"errors"
 	"time"
+
 	"tmf/services/party-management/internal/domain"
 
 	"gorm.io/gorm"
@@ -15,50 +18,45 @@ func NewPartyRepository(db *gorm.DB) *PartyRepository {
 	return &PartyRepository{db: db}
 }
 
-// Helper structs to map strictly to database tables if we want clean separation
+// Helper structs to map strictly to database tables
 type PartyTable struct {
 	ID        string `gorm:"primaryKey"`
 	Type      string
 	Href      string
-	CreatedAt *time.Time
-	UpdatedAt *time.Time
+	Status    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (PartyTable) TableName() string {
 	return "parties"
 }
 
-type IndividualTable struct {
-	ID         string `gorm:"primaryKey"`
-	GivenName  string
-	FamilyName string
+func (r *PartyRepository) GetParty(ctx context.Context, id string) (*domain.Party, error) {
+	var p PartyTable
+	if err := r.db.WithContext(ctx).First(&p, "id = ?", id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+
+	return &domain.Party{
+		ID:        p.ID,
+		Type:      domain.PartyType(p.Type),
+		Href:      p.Href,
+		Status:    p.Status,
+		CreatedAt: p.CreatedAt,
+		UpdatedAt: p.UpdatedAt,
+	}, nil
 }
 
-func (IndividualTable) TableName() string {
-	return "individuals"
-}
-
-type OrganizationTable struct {
-	ID            string `gorm:"primaryKey"`
-	TradingName   string
-	IsLegalEntity bool
-}
-
-func (OrganizationTable) TableName() string {
-	return "organizations"
-}
-
-func (r *PartyRepository) CreateIndividual(ind *domain.Individual) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
+func (r *PartyRepository) CreateIndividual(ctx context.Context, ind *domain.Individual) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 1. Create Party
 		if err := tx.Table("parties").Create(&ind.Party).Error; err != nil {
 			return err
 		}
-		// 2. Create Individual specific part
-		// We can't pass *domain.Individual directly if it has embedded Party fields that don't belong to 'individuals' table
-		// unless we use specific struct or map. using map for simplicity or struct with tags.
-		// Since domain.Individual has embedded Party, GORM might try to insert Party fields into 'individuals' table if we just pass &ind.
-		// Let's use a restricted map or struct.
 
 		individualSpecifics := map[string]interface{}{
 			"id":          ind.ID,
@@ -73,24 +71,28 @@ func (r *PartyRepository) CreateIndividual(ind *domain.Individual) error {
 	})
 }
 
-func (r *PartyRepository) GetIndividual(id string) (*domain.Individual, error) {
+func (r *PartyRepository) GetIndividual(ctx context.Context, id string) (*domain.Individual, error) {
 	var ind domain.Individual
 
-	err := r.db.Transaction(func(tx *gorm.DB) error {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Fetch Party
 		if err := tx.Table("parties").Where("id = ?", id).First(&ind.Party).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return domain.ErrNotFound
+			}
 			return err
 		}
 
-		// Fetch Individual
-		// We need to scan into a struct that matches columns
+		// Fetch Individual specifics
 		type IndSpecifics struct {
 			GivenName  string
 			FamilyName string
 		}
 		var specifics IndSpecifics
-		// Note: We already have ID in ind.Party.ID
 		if err := tx.Table("individuals").Where("id = ?", id).First(&specifics).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return domain.ErrNotFound // Should not happen if party exists, but for safety
+			}
 			return err
 		}
 
@@ -105,8 +107,8 @@ func (r *PartyRepository) GetIndividual(id string) (*domain.Individual, error) {
 	return &ind, nil
 }
 
-func (r *PartyRepository) CreateOrganization(org *domain.Organization) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
+func (r *PartyRepository) CreateOrganization(ctx context.Context, org *domain.Organization) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Table("parties").Create(&org.Party).Error; err != nil {
 			return err
 		}
@@ -124,11 +126,14 @@ func (r *PartyRepository) CreateOrganization(org *domain.Organization) error {
 	})
 }
 
-func (r *PartyRepository) GetOrganization(id string) (*domain.Organization, error) {
+func (r *PartyRepository) GetOrganization(ctx context.Context, id string) (*domain.Organization, error) {
 	var org domain.Organization
 
-	err := r.db.Transaction(func(tx *gorm.DB) error {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Table("parties").Where("id = ?", id).First(&org.Party).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return domain.ErrNotFound
+			}
 			return err
 		}
 
@@ -138,6 +143,9 @@ func (r *PartyRepository) GetOrganization(id string) (*domain.Organization, erro
 		}
 		var specifics OrgSpecifics
 		if err := tx.Table("organizations").Where("id = ?", id).First(&specifics).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return domain.ErrNotFound
+			}
 			return err
 		}
 
@@ -152,11 +160,15 @@ func (r *PartyRepository) GetOrganization(id string) (*domain.Organization, erro
 	return &org, nil
 }
 
-func (r *PartyRepository) UpdateIndividual(ind *domain.Individual) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
+func (r *PartyRepository) UpdateIndividual(ctx context.Context, ind *domain.Individual) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 1. Update Party (base)
-		if err := tx.Table("parties").Where("id = ?", ind.ID).Updates(&ind.Party).Error; err != nil {
-			return err
+		result := tx.Table("parties").Where("id = ?", ind.ID).Updates(&ind.Party)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return domain.ErrNotFound
 		}
 
 		// 2. Update Individual specifics
@@ -172,11 +184,15 @@ func (r *PartyRepository) UpdateIndividual(ind *domain.Individual) error {
 	})
 }
 
-func (r *PartyRepository) UpdateOrganization(org *domain.Organization) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
+func (r *PartyRepository) UpdateOrganization(ctx context.Context, org *domain.Organization) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 1. Update Party (base)
-		if err := tx.Table("parties").Where("id = ?", org.ID).Updates(&org.Party).Error; err != nil {
-			return err
+		result := tx.Table("parties").Where("id = ?", org.ID).Updates(&org.Party)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return domain.ErrNotFound
 		}
 
 		// 2. Update Organization specifics
@@ -192,10 +208,13 @@ func (r *PartyRepository) UpdateOrganization(org *domain.Organization) error {
 	})
 }
 
-func (r *PartyRepository) DeleteParty(id string) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
+func (r *PartyRepository) DeleteParty(ctx context.Context, id string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var p domain.Party
 		if err := tx.Table("parties").Where("id = ?", id).First(&p).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return domain.ErrNotFound
+			}
 			return err
 		}
 
@@ -217,23 +236,17 @@ func (r *PartyRepository) DeleteParty(id string) error {
 	})
 }
 
-func (r *PartyRepository) SearchParties(criteria map[string]interface{}) ([]domain.Party, error) {
+func (r *PartyRepository) SearchParties(ctx context.Context, criteria map[string]interface{}) ([]domain.Party, error) {
 	var parties []domain.Party
-	query := r.db.Table("parties")
+	query := r.db.WithContext(ctx).Table("parties")
 
 	// Apply filters
-	// 1. Filter by ID or Type inside 'parties' table
 	if val, ok := criteria["id"]; ok {
 		query = query.Where("parties.id = ?", val)
 	}
 	if val, ok := criteria["type"]; ok {
 		query = query.Where("parties.type = ?", val)
 	}
-
-	// 2. Filter by Name (requires Join)
-	// Strategy: If 'name' is present, try to match against both Individual.Given/Family and Org.TradingName
-	// OR if strict keys like 'givenName' are used, join specific table.
-	// For simplicity, let's assuming explicit keys: 'given_name', 'family_name', 'trading_name'
 
 	joinedIndividual := false
 	joinedOrganization := false

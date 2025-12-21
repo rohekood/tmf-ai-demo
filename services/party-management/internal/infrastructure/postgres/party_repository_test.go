@@ -31,7 +31,7 @@ func setupTestDB(t *testing.T) (*gorm.DB, string) {
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
 				WithOccurrence(2).
-				WithStartupTimeout(5*time.Second)),
+				WithStartupTimeout(30*time.Second)),
 	)
 	require.NoError(t, err)
 
@@ -65,6 +65,7 @@ func setupTestDB(t *testing.T) (*gorm.DB, string) {
 func TestCreateIndividual(t *testing.T) {
 	db, _ := setupTestDB(t)
 	repo := NewPartyRepository(db)
+	ctx := context.Background()
 
 	ind := &domain.Individual{
 		Party: domain.Party{
@@ -78,10 +79,10 @@ func TestCreateIndividual(t *testing.T) {
 		FamilyName: "Doe",
 	}
 
-	err := repo.CreateIndividual(ind)
+	err := repo.CreateIndividual(ctx, ind)
 	assert.NoError(t, err)
 
-	savedInd, err := repo.GetIndividual("ind-1")
+	savedInd, err := repo.GetIndividual(ctx, "ind-1")
 	assert.NoError(t, err)
 	assert.Equal(t, ind.ID, savedInd.ID)
 	assert.Equal(t, ind.GivenName, savedInd.GivenName)
@@ -91,6 +92,7 @@ func TestCreateIndividual(t *testing.T) {
 func TestCreateOrganization(t *testing.T) {
 	db, _ := setupTestDB(t)
 	repo := NewPartyRepository(db)
+	ctx := context.Background()
 
 	org := &domain.Organization{
 		Party: domain.Party{
@@ -104,10 +106,10 @@ func TestCreateOrganization(t *testing.T) {
 		IsLegalEntity: true,
 	}
 
-	err := repo.CreateOrganization(org)
+	err := repo.CreateOrganization(ctx, org)
 	assert.NoError(t, err)
 
-	savedOrg, err := repo.GetOrganization("org-1")
+	savedOrg, err := repo.GetOrganization(ctx, "org-1")
 	assert.NoError(t, err)
 	assert.Equal(t, org.ID, savedOrg.ID)
 	assert.Equal(t, org.TradingName, savedOrg.TradingName)
@@ -117,6 +119,7 @@ func TestCreateOrganization(t *testing.T) {
 func TestUpdateIndividual(t *testing.T) {
 	db, _ := setupTestDB(t)
 	repo := NewPartyRepository(db)
+	ctx := context.Background()
 
 	// Create first
 	ind := &domain.Individual{
@@ -131,7 +134,7 @@ func TestUpdateIndividual(t *testing.T) {
 		GivenName:  "Jane",
 		FamilyName: "Doe",
 	}
-	require.NoError(t, repo.CreateIndividual(ind))
+	require.NoError(t, repo.CreateIndividual(ctx, ind))
 
 	// Update
 	ind.GivenName = "Janet"
@@ -139,11 +142,11 @@ func TestUpdateIndividual(t *testing.T) {
 	ind.Status = "Active"
 	ind.UpdatedAt = time.Now()
 
-	err := repo.UpdateIndividual(ind)
+	err := repo.UpdateIndividual(ctx, ind)
 	assert.NoError(t, err)
 
 	// Verify
-	updated, err := repo.GetIndividual("ind-update-1")
+	updated, err := repo.GetIndividual(ctx, "ind-update-1")
 	assert.NoError(t, err)
 	assert.Equal(t, "Janet", updated.GivenName)
 	assert.Equal(t, "Smith", updated.FamilyName)
@@ -153,6 +156,7 @@ func TestUpdateIndividual(t *testing.T) {
 func TestUpdateOrganization(t *testing.T) {
 	db, _ := setupTestDB(t)
 	repo := NewPartyRepository(db)
+	ctx := context.Background()
 
 	// Create first
 	org := &domain.Organization{
@@ -167,7 +171,7 @@ func TestUpdateOrganization(t *testing.T) {
 		TradingName:   "Old Corp",
 		IsLegalEntity: false,
 	}
-	require.NoError(t, repo.CreateOrganization(org))
+	require.NoError(t, repo.CreateOrganization(ctx, org))
 
 	// Update
 	org.TradingName = "New Corp"
@@ -175,11 +179,11 @@ func TestUpdateOrganization(t *testing.T) {
 	org.Status = "Validated"
 	org.UpdatedAt = time.Now()
 
-	err := repo.UpdateOrganization(org)
+	err := repo.UpdateOrganization(ctx, org)
 	assert.NoError(t, err)
 
 	// Verify
-	updated, err := repo.GetOrganization("org-update-1")
+	updated, err := repo.GetOrganization(ctx, "org-update-1")
 	assert.NoError(t, err)
 	assert.Equal(t, "New Corp", updated.TradingName)
 	assert.Equal(t, true, updated.IsLegalEntity)
@@ -189,6 +193,7 @@ func TestUpdateOrganization(t *testing.T) {
 func TestDeleteParty_Individual(t *testing.T) {
 	db, _ := setupTestDB(t)
 	repo := NewPartyRepository(db)
+	ctx := context.Background()
 
 	// Create first
 	ind := &domain.Individual{
@@ -203,20 +208,21 @@ func TestDeleteParty_Individual(t *testing.T) {
 		GivenName:  "ToDelete",
 		FamilyName: "Person",
 	}
-	require.NoError(t, repo.CreateIndividual(ind))
+	require.NoError(t, repo.CreateIndividual(ctx, ind))
 
 	// Delete
-	err := repo.DeleteParty("ind-delete-1")
+	err := repo.DeleteParty(ctx, "ind-delete-1")
 	assert.NoError(t, err)
 
 	// Verify deleted
-	_, err = repo.GetIndividual("ind-delete-1")
+	_, err = repo.GetIndividual(ctx, "ind-delete-1")
 	assert.Error(t, err)
 }
 
 func TestDeleteParty_Organization(t *testing.T) {
 	db, _ := setupTestDB(t)
 	repo := NewPartyRepository(db)
+	ctx := context.Background()
 
 	// Create first
 	org := &domain.Organization{
@@ -231,20 +237,21 @@ func TestDeleteParty_Organization(t *testing.T) {
 		TradingName:   "ToDelete Corp",
 		IsLegalEntity: true,
 	}
-	require.NoError(t, repo.CreateOrganization(org))
+	require.NoError(t, repo.CreateOrganization(ctx, org))
 
 	// Delete
-	err := repo.DeleteParty("org-delete-1")
+	err := repo.DeleteParty(ctx, "org-delete-1")
 	assert.NoError(t, err)
 
 	// Verify deleted
-	_, err = repo.GetOrganization("org-delete-1")
+	_, err = repo.GetOrganization(ctx, "org-delete-1")
 	assert.Error(t, err)
 }
 
 func TestSearchParties_ByGivenName(t *testing.T) {
 	db, _ := setupTestDB(t)
 	repo := NewPartyRepository(db)
+	ctx := context.Background()
 
 	// Create test data
 	ind1 := &domain.Individual{
@@ -269,11 +276,11 @@ func TestSearchParties_ByGivenName(t *testing.T) {
 		GivenName:  "Bob",
 		FamilyName: "Builder",
 	}
-	require.NoError(t, repo.CreateIndividual(ind1))
-	require.NoError(t, repo.CreateIndividual(ind2))
+	require.NoError(t, repo.CreateIndividual(ctx, ind1))
+	require.NoError(t, repo.CreateIndividual(ctx, ind2))
 
 	// Search by GivenName
-	results, err := repo.SearchParties(map[string]interface{}{
+	results, err := repo.SearchParties(ctx, map[string]interface{}{
 		"given_name": "Alice",
 	})
 	assert.NoError(t, err)
@@ -284,6 +291,7 @@ func TestSearchParties_ByGivenName(t *testing.T) {
 func TestSearchParties_ByTradingName(t *testing.T) {
 	db, _ := setupTestDB(t)
 	repo := NewPartyRepository(db)
+	ctx := context.Background()
 
 	// Create test data
 	org1 := &domain.Organization{
@@ -308,11 +316,11 @@ func TestSearchParties_ByTradingName(t *testing.T) {
 		TradingName:   "FinanceInc",
 		IsLegalEntity: true,
 	}
-	require.NoError(t, repo.CreateOrganization(org1))
-	require.NoError(t, repo.CreateOrganization(org2))
+	require.NoError(t, repo.CreateOrganization(ctx, org1))
+	require.NoError(t, repo.CreateOrganization(ctx, org2))
 
 	// Search by TradingName
-	results, err := repo.SearchParties(map[string]interface{}{
+	results, err := repo.SearchParties(ctx, map[string]interface{}{
 		"trading_name": "TechCorp",
 	})
 	assert.NoError(t, err)
@@ -323,6 +331,7 @@ func TestSearchParties_ByTradingName(t *testing.T) {
 func TestSearchParties_ByType(t *testing.T) {
 	db, _ := setupTestDB(t)
 	repo := NewPartyRepository(db)
+	ctx := context.Background()
 
 	// Create test data
 	ind := &domain.Individual{
@@ -347,11 +356,11 @@ func TestSearchParties_ByType(t *testing.T) {
 		TradingName:   "TypeTest Org",
 		IsLegalEntity: true,
 	}
-	require.NoError(t, repo.CreateIndividual(ind))
-	require.NoError(t, repo.CreateOrganization(org))
+	require.NoError(t, repo.CreateIndividual(ctx, ind))
+	require.NoError(t, repo.CreateOrganization(ctx, org))
 
 	// Search by Type
-	results, err := repo.SearchParties(map[string]interface{}{
+	results, err := repo.SearchParties(ctx, map[string]interface{}{
 		"type": domain.PartyTypeOrganization,
 	})
 	assert.NoError(t, err)

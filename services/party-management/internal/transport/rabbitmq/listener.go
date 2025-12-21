@@ -1,27 +1,42 @@
 package rabbitmq
 
 import (
-	"log"
+	"context"
+	"log/slog"
+	"sync"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type Listener struct {
-	conn *amqp.Connection
+	conn     *amqp.Connection
+	ctx      context.Context
+	cancel   context.CancelFunc
+	wg       sync.WaitGroup
+	mu       sync.Mutex
+	channels []*amqp.Channel
 }
 
 func NewListener(conn *amqp.Connection) (*Listener, error) {
-	return &Listener{conn: conn}, nil
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Listener{
+		conn:   conn,
+		ctx:    ctx,
+		cancel: cancel,
+	}, nil
 }
 
-type MessageHandler func(d amqp.Delivery) error
+type MessageHandler func(ctx context.Context, d amqp.Delivery) error
 
 func (l *Listener) Listen(queueName string, handler MessageHandler) error {
 	ch, err := l.conn.Channel()
 	if err != nil {
 		return err
 	}
-	// Don't close channel here as we need it for consuming
+
+	l.mu.Lock()
+	l.channels = append(l.channels, ch)
+	l.mu.Unlock()
 
 	q, err := ch.QueueDeclare(
 		queueName, // name
@@ -38,7 +53,7 @@ func (l *Listener) Listen(queueName string, handler MessageHandler) error {
 	msgs, err := ch.Consume(
 		q.Name, // queue
 		"",     // consumer
-		false,  // auto-ack (we will manual ack)
+		false,  // auto-ack
 		false,  // exclusive
 		false,  // no-local
 		false,  // no-wait
@@ -48,18 +63,43 @@ func (l *Listener) Listen(queueName string, handler MessageHandler) error {
 		return err
 	}
 
+	l.wg.Add(1)
 	go func() {
+		defer l.wg.Done()
 		defer ch.Close()
-		for d := range msgs {
-			if err := handler(d); err != nil {
-				log.Printf("Error handling message: %v", err)
-				d.Nack(false, true) // Requeue
-			} else {
-				d.Ack(false)
+
+		for {
+			select {
+			case <-l.ctx.Done():
+				slog.Info("stopping listener", "queue", queueName)
+				return
+			case d, ok := <-msgs:
+				if !ok {
+					return
+				}
+
+				// Handle message with context
+				if err := handler(l.ctx, d); err != nil {
+					slog.Error("error handling message", "queue", queueName, "error", err)
+					d.Nack(false, true) // Requeue
+				} else {
+					d.Ack(false)
+				}
 			}
 		}
 	}()
 
-	log.Printf("Listening on queue %s", queueName)
+	slog.Info("listening on queue", "queue", queueName)
 	return nil
+}
+
+func (l *Listener) Close() {
+	l.cancel()
+	l.wg.Wait()
+
+	l.mu.Lock()
+	for _, ch := range l.channels {
+		ch.Close()
+	}
+	l.mu.Unlock()
 }
