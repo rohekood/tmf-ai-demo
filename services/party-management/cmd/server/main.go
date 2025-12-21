@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"os"
 	"os/signal"
@@ -9,8 +8,8 @@ import (
 	"time"
 
 	"tmf/services/party-management/internal/config"
-	"tmf/services/party-management/internal/domain"
 	"tmf/services/party-management/internal/infrastructure/postgres"
+	infraRabbit "tmf/services/party-management/internal/infrastructure/rabbitmq"
 	rabbitTransport "tmf/services/party-management/internal/transport/rabbitmq"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -35,8 +34,6 @@ func main() {
 
 	// 3. Run Migrations
 	log.Println("Running database migrations...")
-	// Note: We need a valid connection string for migrate, ensuring parameters like sslmode are correct for the driver
-	// Config DSN: "postgres://postgres:postgres@localhost:5432/party_db?sslmode=disable"
 	m, err := migrate.New(
 		"file://internal/infrastructure/postgres/migrations",
 		cfg.PostgresDSN,
@@ -67,39 +64,68 @@ func main() {
 	}
 	defer conn.Close()
 
-	// 6. Setup Listener
+	// 6. Setup Publisher
+	publisher, err := infraRabbit.NewPublisher(conn)
+	if err != nil {
+		log.Fatalf("Failed to create publisher: %v", err)
+	}
+	defer publisher.Close()
+
+	// Declare the events exchange
+	ch, _ := publisher.GetChannel()
+	err = ch.ExchangeDeclare(
+		rabbitTransport.EventExchange, // name
+		"topic",                       // type
+		true,                          // durable
+		false,                         // auto-deleted
+		false,                         // internal
+		false,                         // no-wait
+		nil,                           // arguments
+	)
+	if err != nil {
+		log.Fatalf("Failed to declare exchange: %v", err)
+	}
+
+	// 7. Setup Listener
 	listener, err := rabbitTransport.NewListener(conn)
 	if err != nil {
 		log.Fatalf("Failed to create listener: %v", err)
 	}
 
-	// Handler for creating individual
-	createIndividualHandler := func(d amqp.Delivery) error {
-		log.Printf("Received Create Individual command: %s", string(d.Body))
-		var ind domain.Individual
-		if err := json.Unmarshal(d.Body, &ind); err != nil {
-			return err
-		}
-		// Set defaults if needed
-		if ind.ID == "" {
-			ind.ID = "generated-id-" + time.Now().Format(time.RFC3339Nano)
-		}
-		ind.Type = domain.PartyTypeIndividual
-		ind.CreatedAt = time.Now()
-		ind.UpdatedAt = time.Now()
+	// 8. Setup Handlers
+	handlers := rabbitTransport.NewHandlers(repo, publisher)
 
-		if err := repo.CreateIndividual(&ind); err != nil {
-			log.Printf("Failed to create individual: %v", err)
-			return err
-		}
-		log.Printf("Successfully created individual: %s", ind.ID)
-		return nil
-	}
-
-	// Start Listening
+	// 9. Register Command Listeners
 	go func() {
-		if err := listener.Listen("cmd.party.create", createIndividualHandler); err != nil {
-			log.Printf("Failed to start listening: %v", err)
+		if err := listener.Listen(rabbitTransport.CmdPartyCreate, handlers.HandleCreateParty); err != nil {
+			log.Printf("Failed to listen on %s: %v", rabbitTransport.CmdPartyCreate, err)
+		}
+	}()
+	go func() {
+		if err := listener.Listen(rabbitTransport.CmdPartyUpdate, handlers.HandleUpdateParty); err != nil {
+			log.Printf("Failed to listen on %s: %v", rabbitTransport.CmdPartyUpdate, err)
+		}
+	}()
+	go func() {
+		if err := listener.Listen(rabbitTransport.CmdPartyPatch, handlers.HandlePatchParty); err != nil {
+			log.Printf("Failed to listen on %s: %v", rabbitTransport.CmdPartyPatch, err)
+		}
+	}()
+	go func() {
+		if err := listener.Listen(rabbitTransport.CmdPartyDelete, handlers.HandleDeleteParty); err != nil {
+			log.Printf("Failed to listen on %s: %v", rabbitTransport.CmdPartyDelete, err)
+		}
+	}()
+
+	// 10. Register Query Listeners
+	go func() {
+		if err := listener.Listen(rabbitTransport.QueryPartyGet, handlers.HandleGetParty); err != nil {
+			log.Printf("Failed to listen on %s: %v", rabbitTransport.QueryPartyGet, err)
+		}
+	}()
+	go func() {
+		if err := listener.Listen(rabbitTransport.QueryPartySearch, handlers.HandleSearchParty); err != nil {
+			log.Printf("Failed to listen on %s: %v", rabbitTransport.QueryPartySearch, err)
 		}
 	}()
 

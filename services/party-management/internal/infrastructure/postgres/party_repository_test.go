@@ -24,7 +24,7 @@ func setupTestDB(t *testing.T) (*gorm.DB, string) {
 	ctx := context.Background()
 
 	pgContainer, err := postgres.Run(ctx,
-		"postgres:15-alpine",
+		"postgres:15",
 		postgres.WithDatabase("testdb"),
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("postgres"),
@@ -112,4 +112,249 @@ func TestCreateOrganization(t *testing.T) {
 	assert.Equal(t, org.ID, savedOrg.ID)
 	assert.Equal(t, org.TradingName, savedOrg.TradingName)
 	assert.Equal(t, org.IsLegalEntity, savedOrg.IsLegalEntity)
+}
+
+func TestUpdateIndividual(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewPartyRepository(db)
+
+	// Create first
+	ind := &domain.Individual{
+		Party: domain.Party{
+			ID:        "ind-update-1",
+			Type:      domain.PartyTypeIndividual,
+			Href:      "http://example.com/ind-update-1",
+			Status:    "Initialized",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		GivenName:  "Jane",
+		FamilyName: "Doe",
+	}
+	require.NoError(t, repo.CreateIndividual(ind))
+
+	// Update
+	ind.GivenName = "Janet"
+	ind.FamilyName = "Smith"
+	ind.Status = "Active"
+	ind.UpdatedAt = time.Now()
+
+	err := repo.UpdateIndividual(ind)
+	assert.NoError(t, err)
+
+	// Verify
+	updated, err := repo.GetIndividual("ind-update-1")
+	assert.NoError(t, err)
+	assert.Equal(t, "Janet", updated.GivenName)
+	assert.Equal(t, "Smith", updated.FamilyName)
+	assert.Equal(t, "Active", updated.Status)
+}
+
+func TestUpdateOrganization(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewPartyRepository(db)
+
+	// Create first
+	org := &domain.Organization{
+		Party: domain.Party{
+			ID:        "org-update-1",
+			Type:      domain.PartyTypeOrganization,
+			Href:      "http://example.com/org-update-1",
+			Status:    "Initialized",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		TradingName:   "Old Corp",
+		IsLegalEntity: false,
+	}
+	require.NoError(t, repo.CreateOrganization(org))
+
+	// Update
+	org.TradingName = "New Corp"
+	org.IsLegalEntity = true
+	org.Status = "Validated"
+	org.UpdatedAt = time.Now()
+
+	err := repo.UpdateOrganization(org)
+	assert.NoError(t, err)
+
+	// Verify
+	updated, err := repo.GetOrganization("org-update-1")
+	assert.NoError(t, err)
+	assert.Equal(t, "New Corp", updated.TradingName)
+	assert.Equal(t, true, updated.IsLegalEntity)
+	assert.Equal(t, "Validated", updated.Status)
+}
+
+func TestDeleteParty_Individual(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewPartyRepository(db)
+
+	// Create first
+	ind := &domain.Individual{
+		Party: domain.Party{
+			ID:        "ind-delete-1",
+			Type:      domain.PartyTypeIndividual,
+			Href:      "http://example.com/ind-delete-1",
+			Status:    "Initialized",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		GivenName:  "ToDelete",
+		FamilyName: "Person",
+	}
+	require.NoError(t, repo.CreateIndividual(ind))
+
+	// Delete
+	err := repo.DeleteParty("ind-delete-1")
+	assert.NoError(t, err)
+
+	// Verify deleted
+	_, err = repo.GetIndividual("ind-delete-1")
+	assert.Error(t, err)
+}
+
+func TestDeleteParty_Organization(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewPartyRepository(db)
+
+	// Create first
+	org := &domain.Organization{
+		Party: domain.Party{
+			ID:        "org-delete-1",
+			Type:      domain.PartyTypeOrganization,
+			Href:      "http://example.com/org-delete-1",
+			Status:    "Initialized",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		TradingName:   "ToDelete Corp",
+		IsLegalEntity: true,
+	}
+	require.NoError(t, repo.CreateOrganization(org))
+
+	// Delete
+	err := repo.DeleteParty("org-delete-1")
+	assert.NoError(t, err)
+
+	// Verify deleted
+	_, err = repo.GetOrganization("org-delete-1")
+	assert.Error(t, err)
+}
+
+func TestSearchParties_ByGivenName(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewPartyRepository(db)
+
+	// Create test data
+	ind1 := &domain.Individual{
+		Party: domain.Party{
+			ID:        "search-ind-1",
+			Type:      domain.PartyTypeIndividual,
+			Status:    "Active",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		GivenName:  "Alice",
+		FamilyName: "Wonder",
+	}
+	ind2 := &domain.Individual{
+		Party: domain.Party{
+			ID:        "search-ind-2",
+			Type:      domain.PartyTypeIndividual,
+			Status:    "Active",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		GivenName:  "Bob",
+		FamilyName: "Builder",
+	}
+	require.NoError(t, repo.CreateIndividual(ind1))
+	require.NoError(t, repo.CreateIndividual(ind2))
+
+	// Search by GivenName
+	results, err := repo.SearchParties(map[string]interface{}{
+		"given_name": "Alice",
+	})
+	assert.NoError(t, err)
+	assert.Len(t, results, 1)
+	assert.Equal(t, "search-ind-1", results[0].ID)
+}
+
+func TestSearchParties_ByTradingName(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewPartyRepository(db)
+
+	// Create test data
+	org1 := &domain.Organization{
+		Party: domain.Party{
+			ID:        "search-org-1",
+			Type:      domain.PartyTypeOrganization,
+			Status:    "Active",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		TradingName:   "TechCorp",
+		IsLegalEntity: true,
+	}
+	org2 := &domain.Organization{
+		Party: domain.Party{
+			ID:        "search-org-2",
+			Type:      domain.PartyTypeOrganization,
+			Status:    "Active",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		TradingName:   "FinanceInc",
+		IsLegalEntity: true,
+	}
+	require.NoError(t, repo.CreateOrganization(org1))
+	require.NoError(t, repo.CreateOrganization(org2))
+
+	// Search by TradingName
+	results, err := repo.SearchParties(map[string]interface{}{
+		"trading_name": "TechCorp",
+	})
+	assert.NoError(t, err)
+	assert.Len(t, results, 1)
+	assert.Equal(t, "search-org-1", results[0].ID)
+}
+
+func TestSearchParties_ByType(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewPartyRepository(db)
+
+	// Create test data
+	ind := &domain.Individual{
+		Party: domain.Party{
+			ID:        "type-search-ind",
+			Type:      domain.PartyTypeIndividual,
+			Status:    "Active",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		GivenName:  "TypeTest",
+		FamilyName: "Individual",
+	}
+	org := &domain.Organization{
+		Party: domain.Party{
+			ID:        "type-search-org",
+			Type:      domain.PartyTypeOrganization,
+			Status:    "Active",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		TradingName:   "TypeTest Org",
+		IsLegalEntity: true,
+	}
+	require.NoError(t, repo.CreateIndividual(ind))
+	require.NoError(t, repo.CreateOrganization(org))
+
+	// Search by Type
+	results, err := repo.SearchParties(map[string]interface{}{
+		"type": domain.PartyTypeOrganization,
+	})
+	assert.NoError(t, err)
+	assert.Len(t, results, 1)
+	assert.Equal(t, "type-search-org", results[0].ID)
 }

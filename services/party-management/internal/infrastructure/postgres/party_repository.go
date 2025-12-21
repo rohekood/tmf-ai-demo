@@ -151,3 +151,121 @@ func (r *PartyRepository) GetOrganization(id string) (*domain.Organization, erro
 	}
 	return &org, nil
 }
+
+func (r *PartyRepository) UpdateIndividual(ind *domain.Individual) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// 1. Update Party (base)
+		if err := tx.Table("parties").Where("id = ?", ind.ID).Updates(&ind.Party).Error; err != nil {
+			return err
+		}
+
+		// 2. Update Individual specifics
+		individualSpecifics := map[string]interface{}{
+			"given_name":  ind.GivenName,
+			"family_name": ind.FamilyName,
+		}
+
+		if err := tx.Table("individuals").Where("id = ?", ind.ID).Updates(individualSpecifics).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (r *PartyRepository) UpdateOrganization(org *domain.Organization) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// 1. Update Party (base)
+		if err := tx.Table("parties").Where("id = ?", org.ID).Updates(&org.Party).Error; err != nil {
+			return err
+		}
+
+		// 2. Update Organization specifics
+		orgSpecifics := map[string]interface{}{
+			"trading_name":    org.TradingName,
+			"is_legal_entity": org.IsLegalEntity,
+		}
+
+		if err := tx.Table("organizations").Where("id = ?", org.ID).Updates(orgSpecifics).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (r *PartyRepository) DeleteParty(id string) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var p domain.Party
+		if err := tx.Table("parties").Where("id = ?", id).First(&p).Error; err != nil {
+			return err
+		}
+
+		switch p.Type {
+		case domain.PartyTypeIndividual:
+			if err := tx.Table("individuals").Where("id = ?", id).Delete(nil).Error; err != nil {
+				return err
+			}
+		case domain.PartyTypeOrganization:
+			if err := tx.Table("organizations").Where("id = ?", id).Delete(nil).Error; err != nil {
+				return err
+			}
+		}
+
+		if err := tx.Table("parties").Where("id = ?", id).Delete(nil).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (r *PartyRepository) SearchParties(criteria map[string]interface{}) ([]domain.Party, error) {
+	var parties []domain.Party
+	query := r.db.Table("parties")
+
+	// Apply filters
+	// 1. Filter by ID or Type inside 'parties' table
+	if val, ok := criteria["id"]; ok {
+		query = query.Where("parties.id = ?", val)
+	}
+	if val, ok := criteria["type"]; ok {
+		query = query.Where("parties.type = ?", val)
+	}
+
+	// 2. Filter by Name (requires Join)
+	// Strategy: If 'name' is present, try to match against both Individual.Given/Family and Org.TradingName
+	// OR if strict keys like 'givenName' are used, join specific table.
+	// For simplicity, let's assuming explicit keys: 'given_name', 'family_name', 'trading_name'
+
+	joinedIndividual := false
+	joinedOrganization := false
+
+	if val, ok := criteria["given_name"]; ok {
+		query = query.Joins("JOIN individuals ON individuals.id = parties.id").Where("individuals.given_name = ?", val)
+		joinedIndividual = true
+	}
+	if val, ok := criteria["family_name"]; ok {
+		if !joinedIndividual {
+			query = query.Joins("JOIN individuals ON individuals.id = parties.id")
+			joinedIndividual = true
+		}
+		query = query.Where("individuals.family_name = ?", val)
+	}
+
+	if val, ok := criteria["trading_name"]; ok {
+		query = query.Joins("JOIN organizations ON organizations.id = parties.id").Where("organizations.trading_name = ?", val)
+		joinedOrganization = true
+	}
+
+	if val, ok := criteria["is_legal_entity"]; ok {
+		if !joinedOrganization {
+			query = query.Joins("JOIN organizations ON organizations.id = parties.id")
+			joinedOrganization = true
+		}
+		query = query.Where("organizations.is_legal_entity = ?", val)
+	}
+
+	if err := query.Find(&parties).Error; err != nil {
+		return nil, err
+	}
+
+	return parties, nil
+}
