@@ -12,7 +12,7 @@ The service manages the abstract concept of a **Party**, which has two concrete 
 
 ### 1. Party Lifecycle Management
 *   **Create Party**: Register a new Individual or Organization in the ecosystem. This acts as the initial "identity creation" step before they become a customer.
-*   **Retreive Party**: Fetch detailed information about a specific party using their unique identifier.
+*   **Retrieve Party**: Fetch detailed information about a specific party using their unique identifier.
 *   **Update Party**: Modify attributes such as names, identifying information, or status.
 *   **Delete Party**: Remove party records (critical for GDPR/Right-to-be-Forgotten compliance).
 
@@ -26,9 +26,21 @@ The service manages the abstract concept of a **Party**, which has two concrete 
     *   External Reference IDs (e.g., National ID, Passport Number)
     *   Contact information (e.g., "Find party with email X")
 
-### 4. External Reference Management
-*   Link parties to external systems (e.g., Legacy CRM ID, SSO ID, Government ID).
-*   Essential for maintain consistency across a brownfield landscape.
+### 4. Party Identification
+*   Manage official identifiers like Passport Number, Social Security Number, or Tax ID.
+*   Supports multiple identifiers per party with validity periods and issuing authorities.
+
+### 5. Related Party Management
+*   Define relationships between individuals and organizations (e.g., "Employee of", "Board Member of", "Legal Representative of").
+*   Establish "Next of Kin" or "Guardian" relationships between individuals.
+
+### 6. Credit & Tax Profiling
+*   **Credit Management**: Track `creditRating` and `creditLimit` for parties to support risk assessment in order management.
+*   **Tax Exemption**: Manage tax exemption certificates and validity for organizations or eligible individuals.
+
+### 7. External Reference Management
+*   Link parties to external systems (e.g., Legacy CRM ID, SSO ID).
+*   Essential for maintaining consistency across a brownfield landscape.
 
 ## Relationship to Customer Management (TMF629)
 It is crucial to distinguish between **Party** and **Customer**:
