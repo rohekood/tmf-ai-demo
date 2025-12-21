@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 // PartyType defines the type of party (Individual or Organization)
 type PartyType string
@@ -36,16 +39,20 @@ type Organization struct {
 	IsLegalEntity bool
 }
 
-// Repository defines the interface for Party storage
+// Repository defines the interface for Party storage.
+// All methods require context.Context for timeout control, cancellation, and tracing.
 type Repository interface {
-	CreateIndividual(ind *Individual) error
-	GetIndividual(id string) (*Individual, error)
-	UpdateIndividual(ind *Individual) error
+	// GetParty retrieves any party by ID, regardless of type
+	GetParty(ctx context.Context, id string) (*Party, error)
 
-	CreateOrganization(org *Organization) error
-	GetOrganization(id string) (*Organization, error)
-	UpdateOrganization(org *Organization) error
+	CreateIndividual(ctx context.Context, ind *Individual) error
+	GetIndividual(ctx context.Context, id string) (*Individual, error)
+	UpdateIndividual(ctx context.Context, ind *Individual) error
 
-	DeleteParty(id string) error
-	SearchParties(criteria map[string]interface{}) ([]Party, error)
+	CreateOrganization(ctx context.Context, org *Organization) error
+	GetOrganization(ctx context.Context, id string) (*Organization, error)
+	UpdateOrganization(ctx context.Context, org *Organization) error
+
+	DeleteParty(ctx context.Context, id string) error
+	SearchParties(ctx context.Context, criteria map[string]interface{}) ([]Party, error)
 }
