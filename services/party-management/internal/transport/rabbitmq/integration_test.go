@@ -3,6 +3,9 @@ package rabbitmq
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"log"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -26,22 +29,33 @@ import (
 	"gorm.io/gorm"
 )
 
-// IntegrationTestSuite holds all resources for integration tests
+// Shared test infrastructure - initialized once in TestMain
+var (
+	sharedDB        *gorm.DB
+	sharedRepo      *postgres.PartyRepository
+	sharedConn      *amqp.Connection
+	sharedPublisher *infraRabbit.Publisher
+	pgInstance      testcontainers.Container
+	rabbitInstance  testcontainers.Container
+)
+
+// IntegrationTestSuite holds resources for a single test
 type IntegrationTestSuite struct {
 	DB        *gorm.DB
 	Repo      *postgres.PartyRepository
-	RabbitURL string
 	Conn      *amqp.Connection
 	Publisher *infraRabbit.Publisher
 	Listener  *Listener
 	Handlers  *Handlers
 	EventChan <-chan amqp.Delivery
+	channel   *amqp.Channel
 }
 
-func setupIntegrationTest(t *testing.T) *IntegrationTestSuite {
+func TestMain(m *testing.M) {
 	ctx := context.Background()
 
 	// 1. Start Postgres container
+	var err error
 	pg, err := pgContainer.Run(ctx,
 		"postgres:15",
 		pgContainer.WithDatabase("testdb"),
@@ -52,29 +66,34 @@ func setupIntegrationTest(t *testing.T) *IntegrationTestSuite {
 				WithOccurrence(2).
 				WithStartupTimeout(30*time.Second)),
 	)
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		if err := pg.Terminate(ctx); err != nil {
-			t.Logf("failed to terminate postgres container: %s", err)
-		}
-	})
+	if err != nil {
+		log.Fatalf("failed to start postgres: %s", err)
+	}
+	pgInstance = pg
 
 	pgConnStr, err := pg.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
+	if err != nil {
+		log.Fatalf("failed to get postgres connection string: %s", err)
+	}
 
 	// Run migrations
 	_, filename, _, _ := runtime.Caller(0)
 	migrationsPath := filepath.Join(filepath.Dir(filename), "..", "..", "infrastructure", "postgres", "migrations")
 
-	m, err := migrate.New("file://"+migrationsPath, pgConnStr)
-	require.NoError(t, err)
-	require.NoError(t, m.Up())
+	mig, err := migrate.New("file://"+migrationsPath, pgConnStr)
+	if err != nil {
+		log.Fatalf("failed to create migrate: %s", err)
+	}
+	if err := mig.Up(); err != nil && err != migrate.ErrNoChange {
+		log.Fatalf("failed to run migrations: %s", err)
+	}
 
-	db, err := gorm.Open(gormPostgres.Open(pgConnStr), &gorm.Config{})
-	require.NoError(t, err)
+	sharedDB, err = gorm.Open(gormPostgres.Open(pgConnStr), &gorm.Config{})
+	if err != nil {
+		log.Fatalf("failed to connect to postgres: %s", err)
+	}
 
-	repo := postgres.NewPartyRepository(db)
+	sharedRepo = postgres.NewPartyRepository(sharedDB)
 
 	// 2. Start RabbitMQ container
 	rabbit, err := rabbitContainer.Run(ctx,
@@ -83,65 +102,89 @@ func setupIntegrationTest(t *testing.T) *IntegrationTestSuite {
 			wait.ForLog("Server startup complete").
 				WithStartupTimeout(60*time.Second)),
 	)
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		if err := rabbit.Terminate(ctx); err != nil {
-			t.Logf("failed to terminate rabbitmq container: %s", err)
-		}
-	})
+	if err != nil {
+		log.Fatalf("failed to start rabbitmq: %s", err)
+	}
+	rabbitInstance = rabbit
 
 	rabbitURL, err := rabbit.AmqpURL(ctx)
-	require.NoError(t, err)
+	if err != nil {
+		log.Fatalf("failed to get rabbitmq URL: %s", err)
+	}
 
-	// Connect to RabbitMQ
-	var conn *amqp.Connection
+	// Connect to RabbitMQ with retry
 	for i := 0; i < 10; i++ {
-		conn, err = amqp.Dial(rabbitURL)
+		sharedConn, err = amqp.Dial(rabbitURL)
 		if err == nil {
 			break
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
+	if err != nil {
+		log.Fatalf("failed to connect to rabbitmq: %s", err)
+	}
+
+	// Create shared Publisher
+	sharedPublisher, err = infraRabbit.NewPublisher(sharedConn)
+	if err != nil {
+		log.Fatalf("failed to create publisher: %s", err)
+	}
+
+	// Declare exchange once
+	ch, _ := sharedPublisher.GetChannel()
+	if err := ch.ExchangeDeclare(EventExchange, "topic", true, false, false, false, nil); err != nil {
+		log.Fatalf("failed to declare exchange: %s", err)
+	}
+
+	// Run tests
+	code := m.Run()
+
+	// Cleanup
+	sharedConn.Close()
+	pgInstance.Terminate(ctx)
+	rabbitInstance.Terminate(ctx)
+
+	os.Exit(code)
+}
+
+// setupTestSuite creates a per-test suite using shared containers
+// It creates a fresh event queue for each test to avoid event cross-pollution
+func setupTestSuite(t *testing.T) *IntegrationTestSuite {
+	// Create a new channel for this test's event queue
+	ch, err := sharedConn.Channel()
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		conn.Close()
+		ch.Close()
 	})
 
-	// Create Publisher
-	publisher, err := infraRabbit.NewPublisher(conn)
+	// Create a unique event queue for this test
+	queueName := fmt.Sprintf("test.events.%s", t.Name())
+	eventQueue, err := ch.QueueDeclare(queueName, false, true, false, false, nil)
 	require.NoError(t, err)
 
-	// Declare exchange
-	ch, _ := publisher.GetChannel()
-	err = ch.ExchangeDeclare(EventExchange, "topic", true, false, false, false, nil)
-	require.NoError(t, err)
-
-	// Create Listener
-	listener, err := NewListener(conn)
-	require.NoError(t, err)
-
-	// Create Handlers
-	handlers := NewHandlers(repo, publisher)
-
-	// Setup event consumer to verify events
-	eventQueue, err := ch.QueueDeclare("test.events", false, true, false, false, nil)
-	require.NoError(t, err)
 	err = ch.QueueBind(eventQueue.Name, "evt.party.*", EventExchange, false, nil)
 	require.NoError(t, err)
+
 	events, err := ch.Consume(eventQueue.Name, "", true, false, false, false, nil)
 	require.NoError(t, err)
 
+	// Create Listener for this test
+	listener, err := NewListener(sharedConn)
+	require.NoError(t, err)
+
+	// Create Handlers
+	handlers := NewHandlers(sharedRepo, sharedPublisher)
+
 	return &IntegrationTestSuite{
-		DB:        db,
-		Repo:      repo,
-		RabbitURL: rabbitURL,
-		Conn:      conn,
-		Publisher: publisher,
+		DB:        sharedDB,
+		Repo:      sharedRepo,
+		Conn:      sharedConn,
+		Publisher: sharedPublisher,
 		Listener:  listener,
 		Handlers:  handlers,
 		EventChan: events,
+		channel:   ch,
 	}
 }
 
@@ -158,7 +201,7 @@ func (s *IntegrationTestSuite) waitForEvent(t *testing.T, timeout time.Duration)
 // --- Integration Tests ---
 
 func TestIntegration_CreateIndividual(t *testing.T) {
-	suite := setupIntegrationTest(t)
+	suite := setupTestSuite(t)
 
 	payload := CreatePartyPayload{
 		Type: "Individual",
@@ -192,7 +235,7 @@ func TestIntegration_CreateIndividual(t *testing.T) {
 }
 
 func TestIntegration_CreateOrganization(t *testing.T) {
-	suite := setupIntegrationTest(t)
+	suite := setupTestSuite(t)
 
 	payload := CreatePartyPayload{
 		Type: "Organization",
@@ -221,7 +264,7 @@ func TestIntegration_CreateOrganization(t *testing.T) {
 }
 
 func TestIntegration_UpdateIndividual(t *testing.T) {
-	suite := setupIntegrationTest(t)
+	suite := setupTestSuite(t)
 
 	// Create first
 	ind := &domain.Individual{
@@ -270,7 +313,7 @@ func TestIntegration_UpdateIndividual(t *testing.T) {
 }
 
 func TestIntegration_PatchParty(t *testing.T) {
-	suite := setupIntegrationTest(t)
+	suite := setupTestSuite(t)
 
 	// Create first
 	ind := &domain.Individual{
@@ -313,7 +356,7 @@ func TestIntegration_PatchParty(t *testing.T) {
 }
 
 func TestIntegration_DeleteParty(t *testing.T) {
-	suite := setupIntegrationTest(t)
+	suite := setupTestSuite(t)
 
 	// Create first
 	ind := &domain.Individual{
@@ -347,7 +390,7 @@ func TestIntegration_DeleteParty(t *testing.T) {
 }
 
 func TestIntegration_GetParty(t *testing.T) {
-	suite := setupIntegrationTest(t)
+	suite := setupTestSuite(t)
 
 	// Create test data
 	ind := &domain.Individual{
@@ -372,7 +415,7 @@ func TestIntegration_GetParty(t *testing.T) {
 }
 
 func TestIntegration_SearchParty(t *testing.T) {
-	suite := setupIntegrationTest(t)
+	suite := setupTestSuite(t)
 
 	// Create test data
 	ind1 := &domain.Individual{
