@@ -451,3 +451,40 @@ func TestIntegration_SearchParty(t *testing.T) {
 	err := suite.Handlers.HandleSearchParty(context.Background(), amqp.Delivery{Body: body})
 	require.NoError(t, err)
 }
+func TestIntegration_AuditTrail(t *testing.T) {
+	suite := setupTestSuite(t)
+
+	userID := "party-audit-123"
+	payload := CreatePartyPayload{
+		Type: "Individual",
+		Individual: &CreateIndividualPayload{
+			ID:         "audit-ind-1",
+			GivenName:  "Audit",
+			FamilyName: "Test",
+		},
+	}
+	body, _ := json.Marshal(payload)
+
+	err := suite.Handlers.HandleCreateParty(context.Background(), amqp.Delivery{
+		Body:    body,
+		Headers: amqp.Table{"user": userID},
+	})
+	require.NoError(t, err)
+
+	// Verify Audit Log
+	type LoggedAction struct {
+		TableName string `gorm:"column:table_name"`
+		UserName  string `gorm:"column:user_name"`
+		Action    string `gorm:"column:action"`
+	}
+
+	var auditLog LoggedAction
+	err = suite.DB.Table("audit.logged_actions").
+		Where("table_name = ? AND action = ?", "parties", "I").
+		Order("action_tstamp_clk DESC").
+		First(&auditLog).Error
+
+	require.NoError(t, err)
+	assert.Equal(t, userID, auditLog.UserName)
+	assert.Equal(t, "I", auditLog.Action)
+}

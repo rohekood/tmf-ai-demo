@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+type contextKey string
+
+const UserContextKey contextKey = "user_id"
+
 // PartyType defines the type of party (Individual or Organization)
 type PartyType string
 

@@ -67,6 +67,7 @@ type GetCustomerPayload struct {
 // Handlers
 
 func (h *Handlers) HandleOnboardCustomer(ctx context.Context, d amqp.Delivery) error {
+	ctx = h.extractUser(ctx, d)
 	var payload OnboardCustomerPayload
 	if err := json.Unmarshal(d.Body, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
@@ -123,34 +124,33 @@ func (h *Handlers) HandleOnboardCustomer(ctx context.Context, d amqp.Delivery) e
 }
 
 func (h *Handlers) HandleUpdateCustomer(ctx context.Context, d amqp.Delivery) error {
+	ctx = h.extractUser(ctx, d)
 	var payload UpdateCustomerPayload
 	if err := json.Unmarshal(d.Body, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
 
-	customer, err := h.repo.GetCustomer(ctx, payload.ID)
-	if err != nil {
-		return fmt.Errorf("failed to get customer: %w", err)
+	updates := make(map[string]interface{})
+	if payload.Status != "" {
+		updates["status"] = payload.Status
+	}
+	if payload.Name != "" {
+		updates["name"] = payload.Name
 	}
 
-	oldStatus := customer.Status
-	customer.Name = payload.Name
-	customer.Status = payload.Status
+	if len(updates) == 0 {
+		return fmt.Errorf("no valid fields to update provided")
+	}
 
-	if err := h.repo.UpdateCustomer(ctx, customer); err != nil {
+	if err := h.repo.PatchCustomer(ctx, payload.ID, updates); err != nil {
 		return fmt.Errorf("failed to update customer: %w", err)
-	}
-
-	// Publish events
-	h.publisher.Publish(ctx, d.Exchange, EvtCustomerUpdated, customer)
-	if oldStatus != customer.Status {
-		h.publisher.Publish(ctx, d.Exchange, EvtCustomerStateChange, customer)
 	}
 
 	return nil
 }
 
 func (h *Handlers) HandleGetCustomer(ctx context.Context, d amqp.Delivery) error {
+	ctx = h.extractUser(ctx, d)
 	var payload GetCustomerPayload
 	if err := json.Unmarshal(d.Body, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
@@ -180,6 +180,12 @@ type PartyEventPayload struct {
 }
 
 func (h *Handlers) HandlePartyEvent(ctx context.Context, d amqp.Delivery) error {
+	// For events, we might have a user or use system user
+	ctx = h.extractUser(ctx, d)
+	if ctx.Value(domain.UserContextKey) == nil {
+		ctx = context.WithValue(ctx, domain.UserContextKey, "system.customer-management")
+	}
+
 	var payload PartyEventPayload
 	if err := json.Unmarshal(d.Body, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal party event: %w", err)
@@ -236,4 +242,13 @@ func (h *Handlers) handlePartyDeleted(ctx context.Context, p PartyEventPayload) 
 		}
 	}
 	return nil
+}
+
+// Helpers
+
+func (h *Handlers) extractUser(ctx context.Context, d amqp.Delivery) context.Context {
+	if user, ok := d.Headers["user"].(string); ok && user != "" {
+		return context.WithValue(ctx, domain.UserContextKey, user)
+	}
+	return ctx
 }

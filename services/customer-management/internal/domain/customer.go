@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+type contextKey string
+
+const UserContextKey contextKey = "user_id"
+
 // CustomerStatus represents the lifecycle state of a customer.
 type CustomerStatus string
 
@@ -29,6 +33,10 @@ type Customer struct {
 	Accounts       []CustomerAccount `gorm:"foreignKey:CustomerID"`
 	CreditProfiles []CreditProfile   `gorm:"foreignKey:CustomerID"`
 	ContactMediums []ContactMedium   `gorm:"foreignKey:CustomerID"`
+}
+
+func (Customer) TableName() string {
+	return "customers"
 }
 
 // IsActive checks if the customer is active at the given time.
@@ -56,6 +64,10 @@ type CustomerAccount struct {
 	UpdatedAt     time.Time
 }
 
+func (CustomerAccount) TableName() string {
+	return "customer_accounts"
+}
+
 // CreditProfile provides information regarding the customer's creditworthiness.
 type CreditProfile struct {
 	ID                string `gorm:"primaryKey"`
@@ -69,6 +81,10 @@ type CreditProfile struct {
 	UpdatedAt         time.Time
 }
 
+func (CreditProfile) TableName() string {
+	return "credit_profiles"
+}
+
 // ContactMedium represents customer-specific contact information.
 type ContactMedium struct {
 	ID            string `gorm:"primaryKey"`
@@ -80,6 +96,10 @@ type ContactMedium struct {
 	ValidForEnd   *time.Time
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+}
+
+func (ContactMedium) TableName() string {
+	return "contact_mediums"
 }
 
 // Repository defines the interface for Customer storage.

@@ -17,7 +17,9 @@ func NewCustomerRepository(db *gorm.DB) *CustomerRepository {
 }
 
 func (r *CustomerRepository) CreateCustomer(ctx context.Context, c *domain.Customer) error {
-	return r.db.WithContext(ctx).Create(c).Error
+	return r.withUser(ctx, func(tx *gorm.DB) error {
+		return tx.Create(c).Error
+	})
 }
 
 func (r *CustomerRepository) GetCustomer(ctx context.Context, id string) (*domain.Customer, error) {
@@ -34,27 +36,21 @@ func (r *CustomerRepository) GetCustomer(ctx context.Context, id string) (*domai
 }
 
 func (r *CustomerRepository) UpdateCustomer(ctx context.Context, c *domain.Customer) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Update main customer record
-		if err := tx.Save(c).Error; err != nil {
-			return err
-		}
-
-		// Update associated entities - standard GORM Save handles this if using full objects,
-		// but explicit management is often safer for complex relations.
-		// For now we assume the full object is passed and GORM's full save logic applies.
-		// If we need more granular control (like preventing deletion of unrelated accounts),
-		// we'd add it here.
-		return nil
+	return r.withUser(ctx, func(tx *gorm.DB) error {
+		return tx.Save(c).Error
 	})
 }
 
 func (r *CustomerRepository) PatchCustomer(ctx context.Context, id string, updates map[string]interface{}) error {
-	return r.db.WithContext(ctx).Model(&domain.Customer{}).Where("id = ?", id).Updates(updates).Error
+	return r.withUser(ctx, func(tx *gorm.DB) error {
+		return tx.Model(&domain.Customer{}).Where("id = ?", id).Updates(updates).Error
+	})
 }
 
 func (r *CustomerRepository) DeleteCustomer(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&domain.Customer{}, "id = ?", id).Error
+	return r.withUser(ctx, func(tx *gorm.DB) error {
+		return tx.Delete(&domain.Customer{}, "id = ?", id).Error
+	})
 }
 
 func (r *CustomerRepository) SearchCustomers(ctx context.Context, criteria map[string]interface{}) ([]domain.Customer, error) {
@@ -67,4 +63,21 @@ func (r *CustomerRepository) SearchCustomers(ctx context.Context, criteria map[s
 
 	err := query.Find(&customers).Error
 	return customers, err
+}
+
+// Helpers
+
+func (r *CustomerRepository) withUser(ctx context.Context, fn func(tx *gorm.DB) error) error {
+	userID, _ := ctx.Value(domain.UserContextKey).(string)
+	if userID == "" {
+		userID = "unknown"
+	}
+
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Set local session variable for audit trigger
+		if err := tx.Exec("SELECT set_config('app.current_user', ?, true)", userID).Error; err != nil {
+			return err
+		}
+		return fn(tx)
+	})
 }

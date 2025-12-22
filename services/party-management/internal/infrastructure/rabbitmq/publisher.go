@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"tmf/services/party-management/internal/domain"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -30,6 +31,11 @@ func (p *Publisher) Publish(ctx context.Context, exchange, routingKey string, ev
 		return fmt.Errorf("failed to marshal event: %w", err)
 	}
 
+	headers := amqp.Table{}
+	if userID, ok := ctx.Value(domain.UserContextKey).(string); ok {
+		headers["user"] = userID
+	}
+
 	err = p.ch.PublishWithContext(ctx,
 		exchange,   // exchange
 		routingKey, // routing key
@@ -37,6 +43,7 @@ func (p *Publisher) Publish(ctx context.Context, exchange, routingKey string, ev
 		false,      // immediate
 		amqp.Publishing{
 			ContentType: "application/json",
+			Headers:     headers,
 			Body:        body,
 		})
 	if err != nil {

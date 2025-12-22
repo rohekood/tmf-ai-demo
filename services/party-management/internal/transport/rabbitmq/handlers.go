@@ -159,6 +159,7 @@ type SearchPartyPayload struct {
 // --- Handlers ---
 
 func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error {
+	ctx = h.extractUser(ctx, d)
 	var payload CreatePartyPayload
 	if err := json.Unmarshal(d.Body, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal CreatePartyPayload: %w", err)
@@ -224,6 +225,7 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 }
 
 func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error {
+	ctx = h.extractUser(ctx, d)
 	var payload UpdatePartyPayload
 	if err := json.Unmarshal(d.Body, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal UpdatePartyPayload: %w", err)
@@ -306,6 +308,7 @@ func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error
 }
 
 func (h *Handlers) HandlePatchParty(ctx context.Context, d amqp.Delivery) error {
+	ctx = h.extractUser(ctx, d)
 	var payload PatchPartyPayload
 	if err := json.Unmarshal(d.Body, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal PatchPartyPayload: %w", err)
@@ -383,6 +386,7 @@ func (h *Handlers) HandlePatchParty(ctx context.Context, d amqp.Delivery) error 
 }
 
 func (h *Handlers) HandleDeleteParty(ctx context.Context, d amqp.Delivery) error {
+	ctx = h.extractUser(ctx, d)
 	var payload DeletePartyPayload
 	if err := json.Unmarshal(d.Body, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal DeletePartyPayload: %w", err)
@@ -404,6 +408,7 @@ func (h *Handlers) HandleDeleteParty(ctx context.Context, d amqp.Delivery) error
 }
 
 func (h *Handlers) HandleGetParty(ctx context.Context, d amqp.Delivery) error {
+	ctx = h.extractUser(ctx, d)
 	var payload GetPartyPayload
 	if err := json.Unmarshal(d.Body, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal GetPartyPayload: %w", err)
@@ -428,6 +433,7 @@ func (h *Handlers) HandleGetParty(ctx context.Context, d amqp.Delivery) error {
 }
 
 func (h *Handlers) HandleSearchParty(ctx context.Context, d amqp.Delivery) error {
+	ctx = h.extractUser(ctx, d)
 	var payload SearchPartyPayload
 	if err := json.Unmarshal(d.Body, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal SearchPartyPayload: %w", err)
@@ -490,7 +496,15 @@ func (h *Handlers) replyTo(ctx context.Context, d amqp.Delivery, response interf
 		false,
 		amqp.Publishing{
 			ContentType:   "application/json",
+			Headers:       amqp.Table{"user": ctx.Value(domain.UserContextKey)},
 			CorrelationId: d.CorrelationId,
 			Body:          body,
 		})
+}
+
+func (h *Handlers) extractUser(ctx context.Context, d amqp.Delivery) context.Context {
+	if user, ok := d.Headers["user"].(string); ok && user != "" {
+		return context.WithValue(ctx, domain.UserContextKey, user)
+	}
+	return ctx
 }

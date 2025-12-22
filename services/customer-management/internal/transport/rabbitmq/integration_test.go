@@ -42,7 +42,7 @@ func TestMain(m *testing.M) {
 
 	// 1. Start Postgres container
 	pg, err := pgContainer.Run(ctx,
-		"postgres:15-alpine",
+		"postgres:15",
 		pgContainer.WithDatabase("testdb"),
 		pgContainer.WithUsername("postgres"),
 		pgContainer.WithPassword("password"),
@@ -176,4 +176,69 @@ func TestIntegration_UpdateCustomer(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "Updated Name", updated.Name)
 	assert.Equal(t, domain.CustomerStatusSuspended, updated.Status)
+}
+func TestIntegration_AuditTrail(t *testing.T) {
+	ctx := context.Background()
+	handlers := NewHandlers(sharedRepo, sharedPublisher)
+
+	userID := "audit-user-123"
+	payload := OnboardCustomerPayload{
+		ID:   "audit-cust-1",
+		Name: "Audit Test Customer",
+	}
+	body, _ := json.Marshal(payload)
+
+	err := handlers.HandleOnboardCustomer(ctx, amqp.Delivery{
+		Body:    body,
+		Headers: amqp.Table{"user": userID},
+	})
+	require.NoError(t, err)
+
+	// Verify Audit Log
+	type LoggedAction struct {
+		TableName string `gorm:"column:table_name"`
+		UserName  string `gorm:"column:user_name"`
+		Action    string `gorm:"column:action"`
+	}
+
+	var auditLog LoggedAction
+	err = sharedDB.Table("audit.logged_actions").
+		Where("table_name = ? AND action = ?", "customers", "I").
+		Order("action_tstamp_clk DESC").
+		First(&auditLog).Error
+
+	require.NoError(t, err)
+	assert.Equal(t, userID, auditLog.UserName)
+	assert.Equal(t, "customers", auditLog.TableName)
+	assert.Equal(t, "I", auditLog.Action)
+
+	// Test System User on Event
+	eventPayload := PartyEventPayload{
+		ID:         "party-1",
+		GivenName:  "Jane",
+		FamilyName: "Doe",
+		Type:       "Individual",
+	}
+	// Pre-create customer linked to this party
+	require.NoError(t, sharedRepo.CreateCustomer(ctx, &domain.Customer{
+		ID:      "cust-party-1",
+		Name:    "Old Name",
+		PartyID: "party-1",
+	}))
+
+	evtBody, _ := json.Marshal(eventPayload)
+	err = handlers.HandlePartyEvent(ctx, amqp.Delivery{
+		Body:       evtBody,
+		RoutingKey: EvtPartyUpdated,
+	})
+	require.NoError(t, err)
+
+	var systemAudit LoggedAction
+	err = sharedDB.Table("audit.logged_actions").
+		Where("table_name = ? AND action = ?", "customers", "U").
+		Order("action_tstamp_clk DESC").
+		First(&systemAudit).Error
+
+	require.NoError(t, err)
+	assert.Equal(t, "system.customer-management", systemAudit.UserName)
 }
