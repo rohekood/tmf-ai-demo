@@ -52,7 +52,7 @@ func (r *PartyRepository) GetParty(ctx context.Context, id string) (*domain.Part
 }
 
 func (r *PartyRepository) CreateIndividual(ctx context.Context, ind *domain.Individual) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.withUser(ctx, func(tx *gorm.DB) error {
 		// 1. Create Party
 		if err := tx.Table("parties").Create(&ind.Party).Error; err != nil {
 			return err
@@ -108,7 +108,7 @@ func (r *PartyRepository) GetIndividual(ctx context.Context, id string) (*domain
 }
 
 func (r *PartyRepository) CreateOrganization(ctx context.Context, org *domain.Organization) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.withUser(ctx, func(tx *gorm.DB) error {
 		if err := tx.Table("parties").Create(&org.Party).Error; err != nil {
 			return err
 		}
@@ -161,7 +161,7 @@ func (r *PartyRepository) GetOrganization(ctx context.Context, id string) (*doma
 }
 
 func (r *PartyRepository) UpdateIndividual(ctx context.Context, ind *domain.Individual) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.withUser(ctx, func(tx *gorm.DB) error {
 		// 1. Update Party (base)
 		result := tx.Table("parties").Where("id = ?", ind.ID).Updates(&ind.Party)
 		if result.Error != nil {
@@ -185,7 +185,7 @@ func (r *PartyRepository) UpdateIndividual(ctx context.Context, ind *domain.Indi
 }
 
 func (r *PartyRepository) UpdateOrganization(ctx context.Context, org *domain.Organization) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.withUser(ctx, func(tx *gorm.DB) error {
 		// 1. Update Party (base)
 		result := tx.Table("parties").Where("id = ?", org.ID).Updates(&org.Party)
 		if result.Error != nil {
@@ -209,7 +209,7 @@ func (r *PartyRepository) UpdateOrganization(ctx context.Context, org *domain.Or
 }
 
 func (r *PartyRepository) DeleteParty(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.withUser(ctx, func(tx *gorm.DB) error {
 		var p domain.Party
 		if err := tx.Table("parties").Where("id = ?", id).First(&p).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -281,4 +281,21 @@ func (r *PartyRepository) SearchParties(ctx context.Context, criteria map[string
 	}
 
 	return parties, nil
+}
+
+// Helpers
+
+func (r *PartyRepository) withUser(ctx context.Context, fn func(tx *gorm.DB) error) error {
+	userID, _ := ctx.Value(domain.UserContextKey).(string)
+	if userID == "" {
+		userID = "unknown"
+	}
+
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Set local session variable for audit trigger
+		if err := tx.Exec("SELECT set_config('app.current_user', ?, true)", userID).Error; err != nil {
+			return err
+		}
+		return fn(tx)
+	})
 }
