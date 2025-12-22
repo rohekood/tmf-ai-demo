@@ -32,6 +32,43 @@ It is crucial to distinguish between a **Party** and a **Customer**:
 **Goal**: Search for customers based on criteria.
 - **Criteria**: Name (via Party), ID, Status.
 
+## Technical Implementation
+
+This service is built using Go and follows a hexagonal architecture pattern.
+
+- **Persistence**: PostgreSQL with GORM.
+- **Messaging**: RabbitMQ (AMQP 0.9.1).
+- **Architecture**:
+    - `cmd/server/main.go`: Application entry point and dependency injection.
+    - `internal/domain`: Core entities and repository interfaces.
+    - `internal/infrastructure/postgres`: GORM repository implementations and SQL migrations.
+    - `internal/transport/rabbitmq`: Message consumers (Listener) and producers (Publisher).
+
+## Messaging Specification
+
+### Exchange: `tmf.commands` (Topic)
+
+| Function | Routing Key | Payload |
+| :--- | :--- | :--- |
+| Onboard Customer | `cmd.customer.onboard` | `OnboardCustomerPayload` |
+| Update Customer | `cmd.customer.update` | `UpdateCustomerPayload` |
+| Get Customer | `query.customer.get` | `GetCustomerPayload` |
+
+### Exchange: `tmf.events` (Topic)
+
+| Event | Routing Key | Description |
+| :--- | :--- | :--- |
+| Customer Created | `evt.customer.created` | Emitted after successful onboarding. |
+| Customer Updated | `evt.customer.updated` | Emitted after any profile change. |
+| State Change | `evt.customer.stateChange` | Emitted when customer status changes. |
+| Party Sync | Subscribes to `evt.party.*` | Reacts to identity changes in TMF632. |
+
+## Getting Started
+
+1. **Prerequisites**: Docker & Docker Compose.
+2. **Database**: The service automatically runs migrations on startup.
+3. **Run**: `go run cmd/server/main.go` Or use Docker Compose at the root.
+
 ## TMF Alignment
 This service implements **TMF629 Customer Management**.
 - **Key Resources**: `Customer`
