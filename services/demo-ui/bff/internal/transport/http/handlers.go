@@ -3,96 +3,195 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"time"
-	"tmf/services/demo-ui/bff/internal/transport/rabbitmq"
 
 	"github.com/go-chi/chi/v5"
 )
 
+const (
+	// Customer Management RabbitMQ topics
+	customerExchange    = "tmf.customer"
+	cmdCustomerOnboard  = "cmd.customer.onboard"
+	cmdCustomerUpdate   = "cmd.customer.update"
+	cmdCustomerDelete   = "cmd.customer.delete"
+	queryCustomerGet    = "query.customer.get"
+	queryCustomerSearch = "query.customer.search"
+
+	customerRPCTimeout = 10 * time.Second
+)
+
+// Handler handles Customer Management API endpoints
 type Handler struct {
-	rpcClient *rabbitmq.Client
+	rpcClient    RPCClient
+	partyHandler *PartyHandler
+	hub          *Hub
 }
 
-func NewHandler(client *rabbitmq.Client) *Handler {
-	return &Handler{rpcClient: client}
+// NewHandler creates a new Handler
+func NewHandler(client RPCClient, hub *Hub) *Handler {
+	return &Handler{
+		rpcClient:    client,
+		partyHandler: NewPartyHandler(client),
+		hub:          hub,
+	}
 }
 
+// RegisterRoutes registers all API routes
 func (h *Handler) RegisterRoutes(r chi.Router) {
+	// WebSocket route (outside /api to avoid auth if needed, or included)
+	// For demo, we keep it unsecured or basic auth.
+	r.Get("/ws/debug", func(w http.ResponseWriter, r *http.Request) {
+		h.hub.ServeWs(w, r)
+	})
+
 	r.Route("/api", func(r chi.Router) {
+		// Customer routes
 		r.Route("/customers", func(r chi.Router) {
-			r.Get("/", h.GetCustomers)
+			r.Get("/", h.SearchCustomers)
 			r.Post("/", h.CreateCustomer)
+			r.Get("/{id}", h.GetCustomer)
+			r.Put("/{id}", h.UpdateCustomer)
 			r.Delete("/{id}", h.DeleteCustomer)
 		})
+
+		// Party routes (delegated to PartyHandler)
+		h.partyHandler.RegisterRoutes(r)
 	})
 }
 
-// GetCustomers handles searching/listing customers via RabbitMQ RPC
-func (h *Handler) GetCustomers(w http.ResponseWriter, r *http.Request) {
-	// 1. Construct RPC Payload
-	payload := map[string]string{
-		"name": r.URL.Query().Get("name"),
+// SearchCustomers handles GET /api/customers
+// Query params: name, status, partyId
+func (h *Handler) SearchCustomers(w http.ResponseWriter, r *http.Request) {
+	payload := map[string]string{}
+
+	if v := r.URL.Query().Get("name"); v != "" {
+		payload["name"] = v
+	}
+	if v := r.URL.Query().Get("status"); v != "" {
+		payload["status"] = v
+	}
+	if v := r.URL.Query().Get("partyId"); v != "" {
+		payload["partyId"] = v
 	}
 
-	// 2. Call RabbitMQ RPC
-	// Exchange: "", RoutingKey: "tmf.customer.search" (Assumed queue name for existing service)
-	// IMPORTANT: Checking existing service for actual queue names
-	// The customer service listens on queue "q.customer.search" with routing key "cmd.customer.search" ?
-	// Let's assume standard direct binding for now based on Architecture.
-	// We need to look at customer-management RabbitMQ config to be sure.
-	// For now, using implicit exchange or direct queue name.
-	// Based on customer-management/internal/transport/rabbitmq/listener.go:
-	// It likely binds to specific routing keys.
-	// Let's assume we publish to "customer.events" exchange with routing key "cmd.customer.search"
-
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), customerRPCTimeout)
 	defer cancel()
 
-	responseBytes, err := h.rpcClient.CallRPC(ctx, "tmf.customer", "cmd.customer.search", payload)
+	responseBytes, err := h.rpcClient.CallRPC(ctx, customerExchange, queryCustomerSearch, payload)
 	if err != nil {
-		http.Error(w, "Failed to fetch customers: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to search customers: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// 3. Return JSON
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(responseBytes)
 }
 
-func (h *Handler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
-	var payload interface{}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+// GetCustomer handles GET /api/customers/:id
+func (h *Handler) GetCustomer(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		http.Error(w, "Customer ID is required", http.StatusBadRequest)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	payload := map[string]string{"id": id}
+
+	ctx, cancel := context.WithTimeout(r.Context(), customerRPCTimeout)
 	defer cancel()
 
-	// RPC is useful here to get the Created ID back immediately if the service supports it.
-	// Or we can just fire command.
-	// Assuming "cmd.customer.create"
-	responseBytes, err := h.rpcClient.CallRPC(ctx, "tmf.customer", "cmd.customer.create", payload)
+	responseBytes, err := h.rpcClient.CallRPC(ctx, customerExchange, queryCustomerGet, payload)
+	if err != nil {
+		http.Error(w, "Failed to get customer: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(responseBytes)
+}
+
+// CreateCustomer handles POST /api/customers
+func (h *Handler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	var payload interface{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), customerRPCTimeout)
+	defer cancel()
+
+	responseBytes, err := h.rpcClient.CallRPC(ctx, customerExchange, cmdCustomerOnboard, payload)
 	if err != nil {
 		http.Error(w, "Failed to create customer: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated) // Or 200 depending on RPC response
+	w.WriteHeader(http.StatusCreated)
 	w.Write(responseBytes)
 }
 
-func (h *Handler) DeleteCustomer(w http.ResponseWriter, r *http.Request) {
+// UpdateCustomer handles PUT /api/customers/:id
+func (h *Handler) UpdateCustomer(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	payload := map[string]string{"id": id}
+	if id == "" {
+		http.Error(w, "Customer ID is required", http.StatusBadRequest)
+		return
+	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	// Ensure ID is set in payload
+	payload["id"] = id
+
+	ctx, cancel := context.WithTimeout(r.Context(), customerRPCTimeout)
 	defer cancel()
 
-	// Using CallRPC to wait for confirmation
-	_, err := h.rpcClient.CallRPC(ctx, "tmf.customer", "cmd.customer.delete", payload)
+	responseBytes, err := h.rpcClient.CallRPC(ctx, customerExchange, cmdCustomerUpdate, payload)
+	if err != nil {
+		http.Error(w, "Failed to update customer: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(responseBytes)
+}
+
+// DeleteCustomer handles DELETE /api/customers/:id
+func (h *Handler) DeleteCustomer(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		http.Error(w, "Customer ID is required", http.StatusBadRequest)
+		return
+	}
+
+	payload := map[string]string{"id": id}
+
+	ctx, cancel := context.WithTimeout(r.Context(), customerRPCTimeout)
+	defer cancel()
+
+	_, err := h.rpcClient.CallRPC(ctx, customerExchange, cmdCustomerDelete, payload)
 	if err != nil {
 		http.Error(w, "Failed to delete customer: "+err.Error(), http.StatusInternalServerError)
 		return

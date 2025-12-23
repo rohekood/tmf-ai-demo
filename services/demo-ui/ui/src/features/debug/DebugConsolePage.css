@@ -1,0 +1,108 @@
+.debug-console {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 4rem);
+    /* Subtract header height roughly */
+    margin: -2rem;
+    /* Negate the container padding to be full screen */
+}
+
+.console-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: var(--color-bg-dark);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.console-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.connection-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.25rem 0.625rem;
+    border-radius: 99px;
+}
+
+.connection-status.connected {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.connection-status.disconnected {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.message-count {
+    font-size: 0.875rem;
+    color: #64748b;
+}
+
+/* Layout */
+.console-layout {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 280px 400px 1fr;
+    overflow: hidden;
+}
+
+.console-sidebar {
+    background: rgba(0, 0, 0, 0.2);
+    border-right: 1px solid var(--color-border);
+    overflow-y: auto;
+}
+
+.console-feed {
+    background: rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    /* MessageFeed handles scrolling */
+}
+
+.console-details {
+    background: var(--color-bg-dark);
+    overflow: hidden;
+    /* MessageDetail handles scrolling */
+}
+
+/* Responsive */
+@media (max-width: 1280px) {
+    .console-layout {
+        grid-template-columns: 250px 350px 1fr;
+    }
+}
+
+@media (max-width: 1024px) {
+    .console-layout {
+        grid-template-columns: 240px 1fr;
+    }
+
+    .console-details {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 500px;
+        z-index: 50;
+        transform: translateX(100%);
+        transition: transform 0.3s;
+        border-left: 1px solid var(--color-border);
+        box-shadow: -4px 0 12px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Show details when selected (could add class via JS but for now just hide) */
+    /* This is a simplification; optimal would be responsive layout handling */
+}

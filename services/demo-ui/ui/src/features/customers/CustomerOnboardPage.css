@@ -1,0 +1,126 @@
+.customer-onboard-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.section-description {
+    color: #94a3b8;
+    font-size: 0.875rem;
+    margin: 0 0 1rem 0;
+}
+
+/* Party Search */
+.party-search {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.search-input-full {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #f8fafc;
+    font-size: 0.9375rem;
+}
+
+.search-input-full:focus {
+    outline: none;
+}
+
+.search-input-full::placeholder {
+    color: #64748b;
+}
+
+/* Selected Party */
+.selected-party {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 8px;
+}
+
+.selected-party-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.selected-party-name {
+    font-weight: 500;
+    color: #f8fafc;
+}
+
+/* Party Results */
+.party-results {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.party-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.party-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.party-item:hover {
+    background: rgba(99, 102, 241, 0.05);
+    border-color: var(--color-border);
+}
+
+.party-item.selected {
+    background: rgba(99, 102, 241, 0.1);
+    border-color: var(--color-primary);
+}
+
+.party-item-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.party-item-name {
+    color: #f8fafc;
+}
+
+.check-icon {
+    color: var(--color-primary);
+}
+
+.loading-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    color: #64748b;
+}
+
+.form-hint {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: 0.375rem;
+}

@@ -1,0 +1,46 @@
+.customer-list-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.customer-name {
+    font-weight: 500;
+    color: #f8fafc;
+}
+
+.party-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: color 0.15s;
+}
+
+.party-link:hover {
+    color: #818cf8;
+    text-decoration: underline;
+}
+
+.count-text {
+    font-size: 0.8125rem;
+    color: #64748b;
+}
+
+/* Status badges */
+.status-badge.prospecting {
+    background: rgba(234, 179, 8, 0.1);
+    color: #eab308;
+}
+
+.status-badge.suspended {
+    background: rgba(249, 115, 22, 0.1);
+    color: #f97316;
+}
+
+.status-badge.deleted {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}

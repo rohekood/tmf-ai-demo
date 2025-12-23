@@ -2,5 +2,6 @@ go 1.24.11
 
 use (
 	./services/customer-management
+	./services/demo-ui/bff
 	./services/party-management
 )

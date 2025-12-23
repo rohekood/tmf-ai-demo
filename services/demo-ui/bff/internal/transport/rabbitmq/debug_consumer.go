@@ -1,0 +1,158 @@
+package rabbitmq
+
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+
+	amqp "github.com/rabbitmq/amqp091-go"
+)
+
+// DebugMessage represents a captured RabbitMQ message for the UI
+type DebugMessage struct {
+	ID            string                 `json:"id"` // Unique ID for UI tracking
+	Timestamp     time.Time              `json:"timestamp"`
+	Type          string                 `json:"type"` // cmd, evt, query
+	Topic         string                 `json:"topic"`
+	CorrelationID string                 `json:"correlationId,omitempty"`
+	ReplyTo       string                 `json:"replyTo,omitempty"`
+	Payload       map[string]interface{} `json:"payload"`
+	Service       string                 `json:"service"` // derived from topic prefix
+}
+
+// Broadcaster interface for decoupling from HTTP package
+type Broadcaster interface {
+	Broadcast(msg interface{})
+}
+
+// DebugConsumer consumes all messages for debugging purposes
+type DebugConsumer struct {
+	client      *Client
+	broadcaster Broadcaster
+}
+
+func NewDebugConsumer(client *Client, broadcaster Broadcaster) *DebugConsumer {
+	return &DebugConsumer{
+		client:      client,
+		broadcaster: broadcaster,
+	}
+}
+
+// StartSubscribing sets up a queue to listen to everything on the topic exchange
+func (dc *DebugConsumer) StartSubscribing(exchangeName string) error {
+	ch, err := dc.client.conn.Channel()
+	if err != nil {
+		return fmt.Errorf("failed updates channel: %w", err)
+	}
+
+	// Declare a temporary exclusive queue for debugging
+	q, err := ch.QueueDeclare(
+		"",    // name - generated
+		false, // durable
+		true,  // delete when unused
+		true,  // exclusive
+		false, // no-wait
+		nil,   // arguments
+	)
+	if err != nil {
+		return fmt.Errorf("failed declare debug queue: %w", err)
+	}
+
+	// Bind to all topics
+	// We assume a topic exchange "tmf.events" or similar is used for everything?
+	// Based on implementation we have "tmf.party" and "tmf.customer".
+	// We need to bind to specific exchanges.
+
+	exchanges := []string{"tmf.party", "tmf.customer"}
+
+	for _, exchange := range exchanges {
+		// Ensure exchange exists (should be declared by services, but safer here)
+		err = ch.ExchangeDeclare(
+			exchange,
+			"topic",
+			true,  // durable
+			false, // auto-deleted
+			false, // internal
+			false, // no-wait
+			nil,   // args
+		)
+		if err != nil {
+			// Log error but continue? Or fail?
+			// Services might not be up yet.
+			// Let's assume they are responsible for creating them, we just bind.
+			// Actually we probably shouldn't declare here to avoid config mismatch.
+			// Just trying to bind.
+		}
+
+		err = ch.QueueBind(
+			q.Name,
+			"#",      // routing key - listen to everything
+			exchange, // exchange
+			false,
+			nil,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to bind debug queue to %s: %w", exchange, err)
+		}
+	}
+
+	msgs, err := ch.Consume(
+		q.Name, // queue
+		"",     // consumer
+		true,   // auto-ack
+		false,  // exclusive
+		false,  // no-local
+		false,  // no-wait
+		nil,    // args
+	)
+	if err != nil {
+		return fmt.Errorf("failed register debug consumer: %w", err)
+	}
+
+	go dc.handleMessages(msgs)
+
+	return nil
+}
+
+func (dc *DebugConsumer) handleMessages(msgs <-chan amqp.Delivery) {
+	for d := range msgs {
+		msgType := "unknown"
+		if len(d.RoutingKey) > 4 {
+			if d.RoutingKey[:3] == "cmd" {
+				msgType = "command"
+			} else if d.RoutingKey[:3] == "evt" {
+				msgType = "event"
+			} else if d.RoutingKey[:5] == "query" {
+				msgType = "query"
+			}
+		}
+
+		service := "unknown"
+		if len(d.Exchange) > 4 && d.Exchange[:4] == "tmf." {
+			service = d.Exchange[4:]
+		}
+
+		var payload map[string]interface{}
+		_ = json.Unmarshal(d.Body, &payload) // Ignore error, payload might be raw string or empty
+
+		// If payload failed to unmarshal, store as raw string if possible or empty
+		if payload == nil {
+			payload = map[string]interface{}{
+				"raw": string(d.Body),
+			}
+		}
+
+		debugMsg := DebugMessage{
+			ID:            fmt.Sprintf("%s-%d", d.MessageId, time.Now().UnixNano()), // Generate ID if missing
+			Timestamp:     time.Now(),
+			Type:          msgType,
+			Topic:         d.RoutingKey,
+			CorrelationID: d.CorrelationId,
+			ReplyTo:       d.ReplyTo,
+			Payload:       payload,
+			Service:       service,
+		}
+
+		dc.broadcaster.Broadcast(debugMsg)
+	}
+}

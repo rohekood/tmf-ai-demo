@@ -40,8 +40,20 @@ func main() {
 	// TODO: Configure with real Okta credentials from env
 	r.Use(auth.Middleware)
 
-	// 5. Register Routes
-	handler := httpTransport.NewHandler(rpcClient)
+	// 5. Initialize WebSocket Hub
+	hub := httpTransport.NewHub()
+	go hub.Run()
+
+	// 6. Initialize Debug Consumer
+	debugConsumer := rabbitmq.NewDebugConsumer(rpcClient, hub)
+	go func() {
+		if err := debugConsumer.StartSubscribing("tmf.events"); err != nil {
+			log.Printf("Failed to start debug subscriber: %v", err)
+		}
+	}()
+
+	// 7. Register Routes
+	handler := httpTransport.NewHandler(rpcClient, hub)
 	handler.RegisterRoutes(r)
 
 	// 6. Start Server
