@@ -58,7 +58,18 @@ func (r *CustomerRepository) SearchCustomers(ctx context.Context, criteria map[s
 	query := r.db.WithContext(ctx)
 
 	for key, value := range criteria {
-		query = query.Where(fmt.Sprintf("%s = ?", key), value)
+		switch key {
+		case "id":
+			query = query.Where("id = ?", value)
+		case "name":
+			query = query.Where("name = ?", value)
+		case "status":
+			query = query.Where("status = ?", value)
+		case "party_id":
+			query = query.Where("party_id = ?", value)
+		default:
+			return nil, fmt.Errorf("invalid search criteria: %s", key)
+		}
 	}
 
 	err := query.Find(&customers).Error

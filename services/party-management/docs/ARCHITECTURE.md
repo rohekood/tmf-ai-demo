@@ -99,3 +99,34 @@ graph LR
     Consumer -- "Reply: Party JSON" --> Broker
     Broker -- "Reply: Party JSON" --> Client2
 ```
+## 7. Security & Best Practices
+
+### 7.1 Database Security (Anti-Injection)
+When implementing dynamic search or filtering, we strictly prohibit string interpolation for SQL identifiers (column names, table names).
+
+**The "Safe Dynamic Query" Pattern**:
+To prevent **Identifier Injection**, we use an explicit `switch` statement that maps input keys to hardcoded SQL strings.
+
+```go
+// SAFE PATTERN
+for key, value := range criteria {
+    switch key {
+    case "id":
+        query = query.Where("id = ?", value)
+    case "type":
+        query = query.Where("type = ?", value)
+    default:
+        return nil, fmt.Errorf("invalid criteria: %s", key)
+    }
+}
+```
+
+**Rationale**:
+- Standard SQL parameterization (`?`) only protects **values**.
+- Using `fmt.Sprintf("%s = ?", key)` is dangerous even with an allow-list, as it still allows dynamic construction of the query structure.
+- Hardcoded strings in `switch` cases ensure only developer-vetted identifiers can ever reach the database.
+
+### 7.2 Audit Logging
+All database modifications MUST be traceable to a user identity.
+- **Identity Propagation**: User identity is extracted from RabbitMQ headers (`user` field) and injected into the Go `context`.
+- **Session Attribution**: The Repository layer MUST use `set_config('app.current_user', userID, true)` within the transaction to propagate the identity to the PostgreSQL session for audit triggers.
