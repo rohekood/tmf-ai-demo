@@ -15,17 +15,17 @@ Implement the Demo UI based on the [ANALYSIS.md](./ANALYSIS.md) document, delive
 ### BFF (Golang)
 - ✅ RPC Client implemented (`internal/transport/rabbitmq/`)
 - ✅ Customer handlers: `GetCustomers`, `CreateCustomer`, `DeleteCustomer`
-- ❌ Party handlers: Not implemented
-- ❌ WebSocket for Debug View: Not implemented
-- ❌ Redis for session externalization: Not implemented
+- ✅ Party handlers: Implemented (`Search`, `Get`, `Create`, `Update`, `Patch`, `Delete`)
+- ✅ WebSocket for Debug View: Implemented (`/ws/debug` and `DebugConsumer`)
+
 
 ### UI (React)
 - ✅ Base setup with Vite + TypeScript
 - ✅ Dependencies: TanStack Query, TanStack Table, Radix UI, Lucide
 - ✅ Customer feature skeleton (`features/customers/CustomerList`)
-- ❌ Party feature: Not implemented
-- ❌ Routing: Not implemented (single-page)
-- ❌ Debug View: Not implemented
+- ✅ Party feature: Implemented (List, Detail, Forms)
+- ✅ Routing: Implemented (`router.tsx`, `Layout`)
+- ✅ Debug View: Implemented (`DebugConsolePage`, WebSocket integration)
 
 ---
 

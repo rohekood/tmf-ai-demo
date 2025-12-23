@@ -1,0 +1,123 @@
+.customer-detail-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.customer-meta {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    align-items: center;
+}
+
+.party-ref {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: color 0.15s;
+}
+
+.party-ref:hover {
+    color: var(--color-primary);
+}
+
+.party-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+.party-link:hover {
+    text-decoration: underline;
+}
+
+.score-value {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-primary);
+}
+
+/* Account List */
+.account-list,
+.consent-list,
+.exemption-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.account-item,
+.consent-item,
+.exemption-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+}
+
+.account-content,
+.consent-content,
+.exemption-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.account-name,
+.consent-type,
+.exemption-cert {
+    color: #f8fafc;
+    font-weight: 500;
+}
+
+.account-type,
+.exemption-jurisdiction {
+    font-size: 0.8125rem;
+    color: #64748b;
+}
+
+/* Consent Status */
+.consent-status {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 500;
+    text-transform: capitalize;
+}
+
+.consent-status--given {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.consent-status--revoked {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.consent-status--pending {
+    background: rgba(234, 179, 8, 0.1);
+    color: #eab308;
+}
+
+/* Detail card h3 with icon */
+.detail-card h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.detail-card h3 svg {
+    color: #64748b;
+}

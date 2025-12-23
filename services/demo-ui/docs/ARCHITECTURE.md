@@ -47,7 +47,7 @@ graph TD
         Rabbit <-->|Consumer/Publisher| Party[Party Management Service]
     end
     
-    BFF <-->|OIDC| Okta[Okta Identity Provider]
+    BFF <-->|OIDC| Auth0[Auth0 Identity Provider]
 ```
 
 ### 3.1 Backend-for-Frontend (BFF) Pattern
@@ -67,18 +67,12 @@ The BFF behaves as an API Gateway for the Frontend.
 -   **Client State (UI)**: usage of **React Context + useReducer** for global UI state (e.g., theme, sidebar toggle, toast notifications). Local component state uses `useState`.
 
 ### 4.2 Authentication & Authorization
--   **Provider**: Okta.
+-   **Provider**: Auth0.
 -   **Flow**: Authorization Code Flow with PKCE.
 -   **Implementation**:
-    -   The BFF handles the OIDC exchange to keep tokens secure on the server side (Session Cookie pattern recommended for best security).
-    -   Alternatively, if Client-Side Auth is preferred, the React app uses `@okta/okta-react`, but the BFF approach is safer.
-    -   *Decision*: **BFF-handled Auth** (Session Cookie) is proposed for higher security, but Client-Side Auth is simpler for a "demo". Given the requirement for a Golang BFF, we will leverage it for security.
-
-### 4.3 Testing Strategy
--   **Unit Tests**: Business logic functions (hooks, reducers, utils) tested with **Vitest**.
--   **Component Tests**: Rendered components tested with **React Testing Library**.
--   **Integration/E2E**: Critical user flows tested with **Playwright** against a running stack.
--   **Coverage**: 100% test coverage goal for business logic.
+    -   **Stateless Auth**: The Client (Browser) holds the tokens (localStorage or HTTP-only cookies).
+    -   The BFF validates the Access Token (JWT) statelessly on every request.
+    -   *Decision*: **Client-Side / Stateless Auth**. No server-side session storage (Redis) is required.
 
 ### 4.4 Stateless Architecture & Cluster Deployment
 
@@ -91,7 +85,7 @@ Both the **UI** and **BFF** components are designed to be **stateless** and **ho
 
 #### BFF (Golang)
 -   **No Local State**: All state is externalized:
-    -   **Session Data**: Stored in external Redis (not in-memory).
+    -   **Session Data**: None (Stateless JWT validation).
     -   **Correlation Data**: Stored in RabbitMQ reply queues (auto-deleted).
 -   **Stateless Request Handling**: Each HTTP request is independent; any BFF instance can handle any request.
 -   **Horizontal Scaling**:
@@ -103,7 +97,7 @@ Both the **UI** and **BFF** components are designed to be **stateless** and **ho
 | Component | Scaling Strategy | Session Affinity | State Storage |
 |:----------|:-----------------|:-----------------|:--------------|
 | UI (Nginx) | Horizontal (N replicas) | Not Required | None (static files) |
-| BFF (Go) | Horizontal (N replicas) | Not Required | Redis (sessions), RabbitMQ (RPC) |
+| BFF (Go) | Horizontal (N replicas) | Not Required | RabbitMQ (RPC) |
 
 #### Kubernetes Considerations
 -   **ReplicaSet/Deployment**: Both UI and BFF should be deployed as Kubernetes Deployments with `replicas >= 2` for high availability.
