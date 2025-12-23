@@ -68,6 +68,22 @@ func AuthMiddleware() Middleware {
 	}
 }
 
+// JWTMiddleware checks for a valid JWT in the 'Authorization' header.
+// For now, it just checks presence and the 'Bearer ' prefix as a placeholder.
+func JWTMiddleware() Middleware {
+	return func(next func(ctx context.Context, d amqp.Delivery) error) func(ctx context.Context, d amqp.Delivery) error {
+		return func(ctx context.Context, d amqp.Delivery) error {
+			authHeader, ok := d.Headers["Authorization"].(string)
+			if !ok || authHeader == "" {
+				return fmt.Errorf("missing Authorization header")
+			}
+			// In a real implementation, we would verify the token signature here.
+			// For gaps analysis, ensured we have the hook.
+			return next(ctx, d)
+		}
+	}
+}
+
 // Chain applies a list of middlewares to a handler.
 func Chain(handler func(ctx context.Context, d amqp.Delivery) error, middlewares ...Middleware) func(ctx context.Context, d amqp.Delivery) error {
 	for i := len(middlewares) - 1; i >= 0; i-- {

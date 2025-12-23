@@ -49,7 +49,7 @@ It is crucial to distinguish between **Party** and **Customer**:
 *   **Use Case**: When a new customer signs up, a **Party** (Individual) is created first. Then, a **Customer** entity is created which references that Party.
 
 ## Implementation Recommendations
-Per the agreed asynchronous architecture, this service will **NOT** expose REST APIs. Instead, it will use **CQRS** (Command Query Responsibility Segregation) over a Message Broker (RabbitMQ).
+Per the agreed asynchronous architecture, this service will **NOT** expose REST APIs. This is a deliberate architectural decision to prioritize event-driven patterns over REST compatibility. The service uses **CQRS** (Command Query Responsibility Segregation) over a Message Broker (RabbitMQ).
 
 ### Async Commands (Write)
 Operations that change state are handled via Command Messages:

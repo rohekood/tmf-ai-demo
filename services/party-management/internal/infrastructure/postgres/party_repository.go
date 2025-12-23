@@ -38,6 +38,7 @@ func (r *PartyRepository) GetParty(ctx context.Context, id string) (*domain.Part
 		Preload("ContactMediums").
 		Preload("Identifications").
 		Preload("RelatedParties").
+		Preload("Characteristics").
 		First(&p, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrNotFound
@@ -77,6 +78,7 @@ func (r *PartyRepository) GetIndividual(ctx context.Context, id string) (*domain
 			Preload("ContactMediums").
 			Preload("Identifications").
 			Preload("RelatedParties").
+			Preload("Characteristics").
 			Where("id = ?", id).First(&ind.Party).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return domain.ErrNotFound
@@ -136,6 +138,7 @@ func (r *PartyRepository) GetOrganization(ctx context.Context, id string) (*doma
 			Preload("ContactMediums").
 			Preload("Identifications").
 			Preload("RelatedParties").
+			Preload("Characteristics").
 			Where("id = ?", id).First(&org.Party).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return domain.ErrNotFound
@@ -186,6 +189,12 @@ func (r *PartyRepository) UpdateIndividual(ctx context.Context, ind *domain.Indi
 		if err := tx.Table("individuals").Where("id = ?", ind.ID).Updates(individualSpecifics).Error; err != nil {
 			return err
 		}
+
+		// 3. Update Sub-resources (Replace Strategy)
+		if err := r.updateSubResources(tx, ind.ID, &ind.Party); err != nil {
+			return err
+		}
+
 		return nil
 	})
 }
@@ -210,6 +219,12 @@ func (r *PartyRepository) UpdateOrganization(ctx context.Context, org *domain.Or
 		if err := tx.Table("organizations").Where("id = ?", org.ID).Updates(orgSpecifics).Error; err != nil {
 			return err
 		}
+
+		// 3. Update Sub-resources (Replace Strategy)
+		if err := r.updateSubResources(tx, org.ID, &org.Party); err != nil {
+			return err
+		}
+
 		return nil
 	})
 }
@@ -290,6 +305,62 @@ func (r *PartyRepository) SearchParties(ctx context.Context, criteria map[string
 }
 
 // Helpers
+
+func (r *PartyRepository) updateSubResources(tx *gorm.DB, partyID string, p *domain.Party) error {
+	// ContactMediums
+	if err := tx.Delete(&domain.ContactMedium{}, "party_id = ?", partyID).Error; err != nil {
+		return err
+	}
+	if len(p.ContactMediums) > 0 {
+		for i := range p.ContactMediums {
+			p.ContactMediums[i].PartyID = partyID // Ensure link
+		}
+		if err := tx.Create(&p.ContactMediums).Error; err != nil {
+			return err
+		}
+	}
+
+	// Identifications
+	if err := tx.Delete(&domain.Identification{}, "party_id = ?", partyID).Error; err != nil {
+		return err
+	}
+	if len(p.Identifications) > 0 {
+		for i := range p.Identifications {
+			p.Identifications[i].PartyID = partyID
+		}
+		if err := tx.Create(&p.Identifications).Error; err != nil {
+			return err
+		}
+	}
+
+	// RelatedParties
+	if err := tx.Delete(&domain.RelatedParty{}, "party_id = ?", partyID).Error; err != nil {
+		return err
+	}
+	if len(p.RelatedParties) > 0 {
+		for i := range p.RelatedParties {
+			p.RelatedParties[i].PartyID = partyID
+		}
+		if err := tx.Create(&p.RelatedParties).Error; err != nil {
+			return err
+		}
+	}
+
+	// Characteristics
+	if err := tx.Delete(&domain.PartyCharacteristic{}, "party_id = ?", partyID).Error; err != nil {
+		return err
+	}
+	if len(p.Characteristics) > 0 {
+		for i := range p.Characteristics {
+			p.Characteristics[i].PartyID = partyID
+		}
+		if err := tx.Create(&p.Characteristics).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 
 func (r *PartyRepository) withUser(ctx context.Context, fn func(tx *gorm.DB) error) error {
 	userID, _ := ctx.Value(domain.UserContextKey).(string)

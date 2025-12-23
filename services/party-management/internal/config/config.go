@@ -6,13 +6,13 @@ import (
 
 type Config struct {
 	RabbitMQURL string
-	PostgresDSN string
+	PostgresURL string
 }
 
 func Load() *Config {
 	return &Config{
 		RabbitMQURL: getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"),
-		PostgresDSN: getEnv("POSTGRES_DSN", "postgres://postgres:postgres@localhost:5432/party_db?sslmode=disable"),
+		PostgresURL: getEnv("POSTGRES_URL", "postgres://postgres:postgres@localhost:5432/party_db?sslmode=disable"),
 	}
 }
 

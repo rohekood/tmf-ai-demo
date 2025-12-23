@@ -40,7 +40,7 @@ func main() {
 	cfg := config.Load()
 
 	// 1. Database Connection
-	db, err := gorm.Open(gormPostgres.Open(cfg.PostgresDSN), &gorm.Config{})
+	db, err := gorm.Open(gormPostgres.Open(cfg.PostgresURL), &gorm.Config{})
 	if err != nil {
 		slog.Error("failed to connect to database", "error", err)
 		os.Exit(1)
@@ -49,7 +49,7 @@ func main() {
 	// 2. Database Migrations
 	m, err := migrate.New(
 		"file://internal/infrastructure/postgres/migrations",
-		cfg.PostgresDSN,
+		cfg.PostgresURL,
 	)
 	if err != nil {
 		slog.Error("failed to initialize migrations", "error", err)
@@ -88,9 +88,15 @@ func main() {
 
 	// 6. Start Health Check Server
 	healthHandler := transportHttp.NewHealthHandler(db, connMgr)
+	metricsHandler := transportHttp.MetricsHandler()
+
 	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/health", healthHandler)
+		mux.Handle("/metrics", metricsHandler)
+
 		slog.Info("starting health check server", "addr", ":8080")
-		if err := http.ListenAndServe(":8080", healthHandler); err != nil && err != http.ErrServerClosed {
+		if err := http.ListenAndServe(":8080", mux); err != nil && err != http.ErrServerClosed {
 			slog.Error("health check server failed", "error", err)
 		}
 	}()
@@ -99,24 +105,30 @@ func main() {
 	// Command Handlers
 	listener.Listen(rabbitTransport.CmdPartyCreate, rabbitTransport.Chain(handlers.HandleCreateParty,
 		rabbitTransport.TracingMiddleware("party-management"),
-		rabbitTransport.AuthMiddleware()))
+		rabbitTransport.AuthMiddleware(),
+		rabbitTransport.JWTMiddleware()))
 	listener.Listen(rabbitTransport.CmdPartyUpdate, rabbitTransport.Chain(handlers.HandleUpdateParty,
 		rabbitTransport.TracingMiddleware("party-management"),
-		rabbitTransport.AuthMiddleware()))
+		rabbitTransport.AuthMiddleware(),
+		rabbitTransport.JWTMiddleware()))
 	listener.Listen(rabbitTransport.CmdPartyPatch, rabbitTransport.Chain(handlers.HandlePatchParty,
 		rabbitTransport.TracingMiddleware("party-management"),
-		rabbitTransport.AuthMiddleware()))
+		rabbitTransport.AuthMiddleware(),
+		rabbitTransport.JWTMiddleware()))
 	listener.Listen(rabbitTransport.CmdPartyDelete, rabbitTransport.Chain(handlers.HandleDeleteParty,
 		rabbitTransport.TracingMiddleware("party-management"),
-		rabbitTransport.AuthMiddleware()))
+		rabbitTransport.AuthMiddleware(),
+		rabbitTransport.JWTMiddleware()))
 
 	// Query Handlers
 	listener.Listen(rabbitTransport.QueryPartyGet, rabbitTransport.Chain(handlers.HandleGetParty,
 		rabbitTransport.TracingMiddleware("party-management"),
-		rabbitTransport.AuthMiddleware()))
+		rabbitTransport.AuthMiddleware(),
+		rabbitTransport.JWTMiddleware()))
 	listener.Listen(rabbitTransport.QueryPartySearch, rabbitTransport.Chain(handlers.HandleSearchParty,
 		rabbitTransport.TracingMiddleware("party-management"),
-		rabbitTransport.AuthMiddleware()))
+		rabbitTransport.AuthMiddleware(),
+		rabbitTransport.JWTMiddleware()))
 
 	// Wait for termination signal
 	stop := make(chan os.Signal, 1)

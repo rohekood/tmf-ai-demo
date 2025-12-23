@@ -1,6 +1,4 @@
-# Analysis: TMF Compliance & Production Readiness
-
-This document evaluates the current implementation against TM Forum Open API standards and industry best practices for production-grade microservices.
+This document evaluates the current implementation against TM Forum Open API **domain models**. Note that per architectural decision, this system implements an **asynchronous-only** interface via RabbitMQ and does not follow TMF REST transport specifications.
 
 ## 1. Domain Coverage (TMF Gap Analysis)
 
@@ -36,7 +34,7 @@ This document evaluates the current implementation against TM Forum Open API sta
 ### Security & Compliance
 - **AuthN/AuthZ**: **Missing**. Services communicate without JWT validation or scope checking.
 - **PII Protection**: **Missing**. Personally Identifiable Information is not explicitly encrypted at rest or masked in logs.
-- **API Versioning**: **Missing**. No header or URL-based versioning strategy (`/v1/`).
+- **API Versioning**: **Not Applicable**. Versioning is handled via message types/routing keys in RabbitMQ rather than URL-based strategies.
 
 ---
 

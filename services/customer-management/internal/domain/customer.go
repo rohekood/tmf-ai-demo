@@ -34,6 +34,8 @@ type Customer struct {
 	CreditProfiles  []CreditProfile          `gorm:"foreignKey:CustomerID"`
 	ContactMediums  []ContactMedium          `gorm:"foreignKey:CustomerID"`
 	Characteristics []CustomerCharacteristic `gorm:"foreignKey:CustomerID"`
+	TaxExemptions   []TaxExemption           `gorm:"foreignKey:CustomerID"`
+	PrivacyConsents []PrivacyConsent         `gorm:"foreignKey:CustomerID"`
 }
 
 func (Customer) TableName() string {
@@ -122,6 +124,36 @@ type CustomerCharacteristic struct {
 
 func (CustomerCharacteristic) TableName() string {
 	return "customer_characteristics"
+}
+
+type TaxExemption struct {
+	ID                  string `gorm:"primaryKey"`
+	CustomerID          string `gorm:"not null;index"`
+	CertificateNumber   string
+	IssuingJurisdiction string
+	ValidForStart       time.Time
+	ValidForEnd         *time.Time
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
+func (TaxExemption) TableName() string {
+	return "tax_exemptions"
+}
+
+type PrivacyConsent struct {
+	ID            string `gorm:"primaryKey"`
+	CustomerID    string `gorm:"not null;index"`
+	ConsentType   string
+	Status        string
+	ValidForStart time.Time
+	ValidForEnd   *time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+func (PrivacyConsent) TableName() string {
+	return "privacy_consents"
 }
 
 // Repository defines the interface for Customer storage.

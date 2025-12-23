@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"tmf/services/party-management/internal/infrastructure/rabbitmq"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"gorm.io/gorm"
 )
 
@@ -52,4 +54,8 @@ func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"status":  status,
 		"details": details,
 	})
+}
+
+func MetricsHandler() http.Handler {
+	return promhttp.Handler()
 }
