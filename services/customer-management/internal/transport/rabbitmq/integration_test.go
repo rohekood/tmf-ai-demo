@@ -165,6 +165,21 @@ func TestIntegration_UpdateCustomer(t *testing.T) {
 		ID:     "cust-upd-1",
 		Name:   "Updated Name",
 		Status: domain.CustomerStatusSuspended,
+		TaxExemptions: []TaxExemptionDTO{
+			{
+				ID:                "tax-1",
+				CertificateNumber: "CERT-UPD-1",
+				ValidForStart:     time.Now().Format(time.RFC3339),
+			},
+		},
+		PrivacyConsents: []PrivacyConsentDTO{
+			{
+				ID:            "privacy-1",
+				ConsentType:   "Marketing",
+				Status:        "Given",
+				ValidForStart: time.Now().Format(time.RFC3339),
+			},
+		},
 	}
 	body, _ := json.Marshal(payload)
 
@@ -176,6 +191,12 @@ func TestIntegration_UpdateCustomer(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "Updated Name", updated.Name)
 	assert.Equal(t, domain.CustomerStatusSuspended, updated.Status)
+
+	assert.Len(t, updated.TaxExemptions, 1)
+	assert.Equal(t, "CERT-UPD-1", updated.TaxExemptions[0].CertificateNumber)
+
+	assert.Len(t, updated.PrivacyConsents, 1)
+	assert.Equal(t, "Marketing", updated.PrivacyConsents[0].ConsentType)
 }
 func TestIntegration_AuditTrail(t *testing.T) {
 	ctx := context.Background()

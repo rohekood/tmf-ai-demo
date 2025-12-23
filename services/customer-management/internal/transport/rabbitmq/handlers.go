@@ -87,9 +87,11 @@ type PrivacyConsentDTO struct {
 }
 
 type UpdateCustomerPayload struct {
-	ID     string                `json:"id"`
-	Status domain.CustomerStatus `json:"status"`
-	Name   string                `json:"name"`
+	ID              string                `json:"id"`
+	Status          domain.CustomerStatus `json:"status"`
+	Name            string                `json:"name"`
+	TaxExemptions   []TaxExemptionDTO     `json:"taxExemptions"`
+	PrivacyConsents []PrivacyConsentDTO   `json:"privacyConsents"`
 }
 
 type GetCustomerPayload struct {
@@ -202,6 +204,20 @@ func (h *Handlers) HandleUpdateCustomer(ctx context.Context, d amqp.Delivery) er
 	}
 	if payload.Name != "" {
 		updates["name"] = payload.Name
+	}
+	if len(payload.TaxExemptions) > 0 {
+		var taxes []domain.TaxExemption
+		for _, t := range payload.TaxExemptions {
+			taxes = append(taxes, h.mapTaxExemption(t, payload.ID))
+		}
+		updates["tax_exemptions"] = taxes
+	}
+	if len(payload.PrivacyConsents) > 0 {
+		var privacy []domain.PrivacyConsent
+		for _, p := range payload.PrivacyConsents {
+			privacy = append(privacy, h.mapPrivacyConsent(p, payload.ID))
+		}
+		updates["privacy_consents"] = privacy
 	}
 
 	if len(updates) == 0 {

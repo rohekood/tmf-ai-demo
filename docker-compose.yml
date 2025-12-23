@@ -27,15 +27,25 @@ services:
 
   demo-ui:
     build:
-      context: ./services/demo-ui
+      context: ./services/demo-ui/ui
       dockerfile: Dockerfile
     container_name: tmf-demo-ui
     ports:
-      - "5173:5173"
+      - "80:80"
+    depends_on:
+      - bff
+
+  bff:
+    build:
+      context: ./services/demo-ui/bff
+      dockerfile: Dockerfile
+    container_name: tmf-bff
+    ports:
+      - "8080:8080"
     environment:
-      - VITE_API_URL=http://localhost:8080
-    volumes:
-      - ./services/demo-ui:/app
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      - rabbitmq
 
 volumes:
   rabbitmq_data:
