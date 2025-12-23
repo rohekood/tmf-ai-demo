@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"tmf/services/customer-management/internal/domain"
 	infraRabbit "tmf/services/customer-management/internal/infrastructure/rabbitmq"
 
@@ -25,13 +25,14 @@ func NewHandlers(repo domain.Repository, publisher *infraRabbit.Publisher) *Hand
 // Payloads
 
 type OnboardCustomerPayload struct {
-	ID             string               `json:"id"`
-	Name           string               `json:"name"`
-	PartyID        string               `json:"partyId"`
-	PartyType      string               `json:"partyType"`
-	Accounts       []CustomerAccountDTO `json:"accounts"`
-	CreditProfiles []CreditProfileDTO   `json:"creditProfiles"`
-	ContactMediums []ContactMediumDTO   `json:"contactMediums"`
+	ID              string               `json:"id"`
+	Name            string               `json:"name"`
+	PartyID         string               `json:"partyId"`
+	PartyType       string               `json:"partyType"`
+	Accounts        []CustomerAccountDTO `json:"accounts"`
+	CreditProfiles  []CreditProfileDTO   `json:"creditProfiles"`
+	ContactMediums  []ContactMediumDTO   `json:"contactMediums"`
+	Characteristics []CharacteristicDTO  `json:"characteristics"`
 }
 
 type CustomerAccountDTO struct {
@@ -48,10 +49,23 @@ type CreditProfileDTO struct {
 }
 
 type ContactMediumDTO struct {
-	ID         string `json:"id"`
-	MediumType string `json:"mediumType"`
-	Preferred  bool   `json:"preferred"`
-	Value      string `json:"value"`
+	ID              string `json:"id"`
+	MediumType      string `json:"mediumType"`
+	Preferred       bool   `json:"preferred"`
+	Value           string `json:"value"`
+	Street1         string `json:"street1"`
+	Street2         string `json:"street2"`
+	City            string `json:"city"`
+	StateOrProvince string `json:"stateOrProvince"`
+	Postcode        string `json:"postcode"`
+	Country         string `json:"country"`
+}
+
+type CharacteristicDTO struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Value     string `json:"value"`
+	ValueType string `json:"valueType"`
 }
 
 type UpdateCustomerPayload struct {
@@ -104,10 +118,25 @@ func (h *Handlers) HandleOnboardCustomer(ctx context.Context, d amqp.Delivery) e
 
 	for _, cm := range payload.ContactMediums {
 		customer.ContactMediums = append(customer.ContactMediums, domain.ContactMedium{
-			ID:         cm.ID,
-			MediumType: cm.MediumType,
-			Preferred:  cm.Preferred,
-			Value:      cm.Value,
+			ID:              cm.ID,
+			MediumType:      cm.MediumType,
+			Preferred:       cm.Preferred,
+			Value:           cm.Value,
+			Street1:         cm.Street1,
+			Street2:         cm.Street2,
+			City:            cm.City,
+			StateOrProvince: cm.StateOrProvince,
+			Postcode:        cm.Postcode,
+			Country:         cm.Country,
+		})
+	}
+
+	for _, ch := range payload.Characteristics {
+		customer.Characteristics = append(customer.Characteristics, domain.CustomerCharacteristic{
+			ID:        ch.ID,
+			Name:      ch.Name,
+			Value:     ch.Value,
+			ValueType: ch.ValueType,
 		})
 	}
 
@@ -117,7 +146,7 @@ func (h *Handlers) HandleOnboardCustomer(ctx context.Context, d amqp.Delivery) e
 
 	// Publish event
 	if err := h.publisher.Publish(ctx, d.Exchange, EvtCustomerCreated, customer); err != nil {
-		log.Printf("failed to publish event: %v", err)
+		slog.Error("failed to publish event", "error", err)
 	}
 
 	return nil
@@ -219,7 +248,7 @@ func (h *Handlers) handlePartyUpdated(ctx context.Context, p PartyEventPayload) 
 		if cust.Name != newName {
 			updates := map[string]interface{}{"name": newName}
 			if err := h.repo.PatchCustomer(ctx, cust.ID, updates); err != nil {
-				log.Printf("failed to sync party update to customer %s: %v", cust.ID, err)
+				slog.Error("failed to sync party update to customer", "customer_id", cust.ID, "error", err)
 			}
 		}
 	}
@@ -238,7 +267,7 @@ func (h *Handlers) handlePartyDeleted(ctx context.Context, p PartyEventPayload) 
 			"status_reason": "Linked party was deleted",
 		}
 		if err := h.repo.PatchCustomer(ctx, cust.ID, updates); err != nil {
-			log.Printf("failed to close customer %s on party deletion: %v", cust.ID, err)
+			slog.Error("failed to close customer on party deletion", "customer_id", cust.ID, "error", err)
 		}
 	}
 	return nil

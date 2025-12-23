@@ -25,6 +25,69 @@ type Party struct {
 	Status    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+
+	ContactMediums  []ContactMedium  `gorm:"foreignKey:PartyID"`
+	Identifications []Identification `gorm:"foreignKey:PartyID"`
+	RelatedParties  []RelatedParty   `gorm:"foreignKey:PartyID"`
+}
+
+func (Party) TableName() string {
+	return "parties"
+}
+
+type ContactMedium struct {
+	ID              string `gorm:"primaryKey"`
+	PartyID         string `gorm:"not null;index"`
+	MediumType      string
+	Preferred       bool
+	Value           string
+	Street1         string
+	Street2         string
+	City            string
+	StateOrProvince string
+	Postcode        string
+	Country         string
+	ValidForStart   time.Time
+	ValidForEnd     *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+func (ContactMedium) TableName() string {
+	return "party_contact_mediums"
+}
+
+type Identification struct {
+	ID                 string `gorm:"primaryKey"`
+	PartyID            string `gorm:"not null;index"`
+	IdentificationType string
+	IdentificationID   string
+	IssuingAuthority   string
+	IssuingDate        time.Time
+	ValidForStart      time.Time
+	ValidForEnd        *time.Time
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
+func (Identification) TableName() string {
+	return "identifications"
+}
+
+type RelatedParty struct {
+	ID               string `gorm:"primaryKey"`
+	PartyID          string `gorm:"not null;index"`
+	RelatedPartyID   string
+	RelatedPartyName string
+	Role             string
+	ValidForStart    time.Time
+	ValidForEnd      *time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+func (RelatedParty) TableName() string {
+	return "related_parties"
 }
 
 // Individual represents a natural person.

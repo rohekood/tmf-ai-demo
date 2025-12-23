@@ -34,6 +34,17 @@ func (l *Listener) Listen(queueName string, handler MessageHandler) error {
 		return err
 	}
 
+	// Declare DLX and DLQ (idempotent)
+	err = ch.ExchangeDeclare(DeadLetterExchange, "fanout", true, false, false, false, nil)
+	if err != nil {
+		slog.Warn("failed to declare DLX", "error", err)
+	}
+	_, err = ch.QueueDeclare(DeadLetterQueue, true, false, false, false, nil)
+	if err != nil {
+		slog.Warn("failed to declare DLQ", "error", err)
+	}
+	_ = ch.QueueBind(DeadLetterQueue, "", DeadLetterExchange, false, nil)
+
 	l.mu.Lock()
 	l.channels = append(l.channels, ch)
 	l.mu.Unlock()
@@ -44,7 +55,9 @@ func (l *Listener) Listen(queueName string, handler MessageHandler) error {
 		false,     // delete when unused
 		false,     // exclusive
 		false,     // no-wait
-		nil,       // arguments
+		amqp.Table{
+			"x-dead-letter-exchange": DeadLetterExchange,
+		}, // arguments
 	)
 	if err != nil {
 		return err
@@ -81,7 +94,7 @@ func (l *Listener) Listen(queueName string, handler MessageHandler) error {
 				// Handle message with context
 				if err := handler(l.ctx, d); err != nil {
 					slog.Error("error handling message", "queue", queueName, "error", err)
-					d.Nack(false, true) // Requeue
+					d.Nack(false, false) // Send to DLX
 				} else {
 					d.Ack(false)
 				}

@@ -14,7 +14,9 @@ import (
 )
 
 const (
-	EventExchange = "tmf.events"
+	EventExchange      = "tmf.events"
+	DeadLetterExchange = "tmf.dlx"
+	DeadLetterQueue    = "party.dlq"
 
 	// Commands
 	CmdPartyCreate = "cmd.party.create"
@@ -49,10 +51,13 @@ func NewHandlers(repo domain.Repository, publisher *infraRabbit.Publisher) *Hand
 // --- Command Payloads ---
 
 type CreateIndividualPayload struct {
-	ID         string `json:"id"`
-	GivenName  string `json:"givenName"`
-	FamilyName string `json:"familyName"`
-	Href       string `json:"href"`
+	ID              string              `json:"id"`
+	GivenName       string              `json:"givenName"`
+	FamilyName      string              `json:"familyName"`
+	Href            string              `json:"href"`
+	ContactMediums  []ContactMediumDTO  `json:"contactMediums,omitempty"`
+	Identifications []IdentificationDTO `json:"identifications,omitempty"`
+	RelatedParties  []RelatedPartyDTO   `json:"relatedParties,omitempty"`
 }
 
 func (p *CreateIndividualPayload) Validate() error {
@@ -63,10 +68,13 @@ func (p *CreateIndividualPayload) Validate() error {
 }
 
 type CreateOrganizationPayload struct {
-	ID            string `json:"id"`
-	TradingName   string `json:"tradingName"`
-	IsLegalEntity bool   `json:"isLegalEntity"`
-	Href          string `json:"href"`
+	ID              string              `json:"id"`
+	TradingName     string              `json:"tradingName"`
+	IsLegalEntity   bool                `json:"isLegalEntity"`
+	Href            string              `json:"href"`
+	ContactMediums  []ContactMediumDTO  `json:"contactMediums,omitempty"`
+	Identifications []IdentificationDTO `json:"identifications,omitempty"`
+	RelatedParties  []RelatedPartyDTO   `json:"relatedParties,omitempty"`
 }
 
 func (p *CreateOrganizationPayload) Validate() error {
@@ -156,6 +164,34 @@ type SearchPartyPayload struct {
 	Type        *string `json:"type,omitempty"`
 }
 
+type ContactMediumDTO struct {
+	ID              string `json:"id"`
+	MediumType      string `json:"mediumType"`
+	Preferred       bool   `json:"preferred"`
+	Value           string `json:"value"`
+	Street1         string `json:"street1"`
+	Street2         string `json:"street2"`
+	City            string `json:"city"`
+	StateOrProvince string `json:"stateOrProvince"`
+	Postcode        string `json:"postcode"`
+	Country         string `json:"country"`
+}
+
+type IdentificationDTO struct {
+	ID                 string `json:"id"`
+	IdentificationType string `json:"identificationType"`
+	IdentificationID   string `json:"identificationId"`
+	IssuingAuthority   string `json:"issuingAuthority"`
+	IssuingDate        string `json:"issuingDate"` // string for parsing
+}
+
+type RelatedPartyDTO struct {
+	ID               string `json:"id"`
+	RelatedPartyID   string `json:"relatedPartyId"`
+	RelatedPartyName string `json:"relatedPartyName"`
+	Role             string `json:"role"`
+}
+
 // --- Handlers ---
 
 func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error {
@@ -184,6 +220,10 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 			GivenName:  payload.Individual.GivenName,
 			FamilyName: payload.Individual.FamilyName,
 		}
+
+		ind.ContactMediums = h.mapContactMediums(payload.Individual.ContactMediums, ind.ID)
+		ind.Identifications = h.mapIdentifications(payload.Individual.Identifications, ind.ID)
+		ind.RelatedParties = h.mapRelatedParties(payload.Individual.RelatedParties, ind.ID)
 		if err := h.repo.CreateIndividual(ctx, ind); err != nil {
 			return fmt.Errorf("failed to create individual: %w", err)
 		}
@@ -209,6 +249,10 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 			TradingName:   payload.Organization.TradingName,
 			IsLegalEntity: payload.Organization.IsLegalEntity,
 		}
+
+		org.ContactMediums = h.mapContactMediums(payload.Organization.ContactMediums, org.ID)
+		org.Identifications = h.mapIdentifications(payload.Organization.Identifications, org.ID)
+		org.RelatedParties = h.mapRelatedParties(payload.Organization.RelatedParties, org.ID)
 		if err := h.repo.CreateOrganization(ctx, org); err != nil {
 			return fmt.Errorf("failed to create organization: %w", err)
 		}
@@ -507,4 +551,56 @@ func (h *Handlers) extractUser(ctx context.Context, d amqp.Delivery) context.Con
 		return context.WithValue(ctx, domain.UserContextKey, user)
 	}
 	return ctx
+}
+func (h *Handlers) mapContactMediums(dtos []ContactMediumDTO, partyID string) []domain.ContactMedium {
+	res := make([]domain.ContactMedium, 0, len(dtos))
+	for _, dto := range dtos {
+		res = append(res, domain.ContactMedium{
+			ID:              dto.ID,
+			PartyID:         partyID,
+			MediumType:      dto.MediumType,
+			Preferred:       dto.Preferred,
+			Value:           dto.Value,
+			Street1:         dto.Street1,
+			Street2:         dto.Street2,
+			City:            dto.City,
+			StateOrProvince: dto.StateOrProvince,
+			Postcode:        dto.Postcode,
+			Country:         dto.Country,
+		})
+	}
+	return res
+}
+
+func (h *Handlers) mapIdentifications(dtos []IdentificationDTO, partyID string) []domain.Identification {
+	res := make([]domain.Identification, 0, len(dtos))
+	for _, dto := range dtos {
+		var issuingDate time.Time
+		if dto.IssuingDate != "" {
+			issuingDate, _ = time.Parse(time.RFC3339, dto.IssuingDate)
+		}
+		res = append(res, domain.Identification{
+			ID:                 dto.ID,
+			PartyID:            partyID,
+			IdentificationType: dto.IdentificationType,
+			IdentificationID:   dto.IdentificationID,
+			IssuingAuthority:   dto.IssuingAuthority,
+			IssuingDate:        issuingDate,
+		})
+	}
+	return res
+}
+
+func (h *Handlers) mapRelatedParties(dtos []RelatedPartyDTO, partyID string) []domain.RelatedParty {
+	res := make([]domain.RelatedParty, 0, len(dtos))
+	for _, dto := range dtos {
+		res = append(res, domain.RelatedParty{
+			ID:               dto.ID,
+			PartyID:          partyID,
+			RelatedPartyID:   dto.RelatedPartyID,
+			RelatedPartyName: dto.RelatedPartyName,
+			Role:             dto.Role,
+		})
+	}
+	return res
 }

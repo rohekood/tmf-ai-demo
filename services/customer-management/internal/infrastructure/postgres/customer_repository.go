@@ -28,6 +28,7 @@ func (r *CustomerRepository) GetCustomer(ctx context.Context, id string) (*domai
 		Preload("Accounts").
 		Preload("CreditProfiles").
 		Preload("ContactMediums").
+		Preload("Characteristics").
 		First(&customer, "id = ?", id).Error
 	if err != nil {
 		return nil, err

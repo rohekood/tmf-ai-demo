@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"tmf/services/party-management/internal/config"
 	infraPostgres "tmf/services/party-management/internal/infrastructure/postgres"
 	infraRabbit "tmf/services/party-management/internal/infrastructure/rabbitmq"
+	"tmf/services/party-management/internal/infrastructure/telemetry"
 	transportHttp "tmf/services/party-management/internal/transport/http"
 	rabbitTransport "tmf/services/party-management/internal/transport/rabbitmq"
 
@@ -26,6 +28,14 @@ func main() {
 	slog.SetDefault(logger)
 
 	slog.Info("starting party management service")
+
+	// Initialize OpenTelemetry
+	shutdown, err := telemetry.InitTracer("party-management")
+	if err != nil {
+		slog.Error("failed to initialize tracer", "error", err)
+	} else {
+		defer shutdown(context.Background())
+	}
 
 	cfg := config.Load()
 
@@ -87,14 +97,26 @@ func main() {
 
 	// 7. Subscribe to Queues
 	// Command Handlers
-	listener.Listen(rabbitTransport.CmdPartyCreate, handlers.HandleCreateParty)
-	listener.Listen(rabbitTransport.CmdPartyUpdate, handlers.HandleUpdateParty)
-	listener.Listen(rabbitTransport.CmdPartyPatch, handlers.HandlePatchParty)
-	listener.Listen(rabbitTransport.CmdPartyDelete, handlers.HandleDeleteParty)
+	listener.Listen(rabbitTransport.CmdPartyCreate, rabbitTransport.Chain(handlers.HandleCreateParty,
+		rabbitTransport.TracingMiddleware("party-management"),
+		rabbitTransport.AuthMiddleware()))
+	listener.Listen(rabbitTransport.CmdPartyUpdate, rabbitTransport.Chain(handlers.HandleUpdateParty,
+		rabbitTransport.TracingMiddleware("party-management"),
+		rabbitTransport.AuthMiddleware()))
+	listener.Listen(rabbitTransport.CmdPartyPatch, rabbitTransport.Chain(handlers.HandlePatchParty,
+		rabbitTransport.TracingMiddleware("party-management"),
+		rabbitTransport.AuthMiddleware()))
+	listener.Listen(rabbitTransport.CmdPartyDelete, rabbitTransport.Chain(handlers.HandleDeleteParty,
+		rabbitTransport.TracingMiddleware("party-management"),
+		rabbitTransport.AuthMiddleware()))
 
 	// Query Handlers
-	listener.Listen(rabbitTransport.QueryPartyGet, handlers.HandleGetParty)
-	listener.Listen(rabbitTransport.QueryPartySearch, handlers.HandleSearchParty)
+	listener.Listen(rabbitTransport.QueryPartyGet, rabbitTransport.Chain(handlers.HandleGetParty,
+		rabbitTransport.TracingMiddleware("party-management"),
+		rabbitTransport.AuthMiddleware()))
+	listener.Listen(rabbitTransport.QueryPartySearch, rabbitTransport.Chain(handlers.HandleSearchParty,
+		rabbitTransport.TracingMiddleware("party-management"),
+		rabbitTransport.AuthMiddleware()))
 
 	// Wait for termination signal
 	stop := make(chan os.Signal, 1)
