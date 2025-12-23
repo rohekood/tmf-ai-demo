@@ -1,10 +1,12 @@
 package rabbitmq
 
 const (
-	CommandExchange = "tmf.commands"
-	EventExchange   = "tmf.events"
-	EventQueue      = "customer.events"
-	CustomerQueue   = "customer.commands"
+	CommandExchange    = "tmf.commands"
+	EventExchange      = "tmf.events"
+	DeadLetterExchange = "tmf.dlx"
+	EventQueue         = "customer.events"
+	CustomerQueue      = "customer.commands"
+	DeadLetterQueue    = "customer.dlq"
 
 	// Customer Events
 	EvtCustomerCreated     = "evt.customer.created"

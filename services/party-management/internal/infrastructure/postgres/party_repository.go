@@ -33,28 +33,25 @@ func (PartyTable) TableName() string {
 }
 
 func (r *PartyRepository) GetParty(ctx context.Context, id string) (*domain.Party, error) {
-	var p PartyTable
-	if err := r.db.WithContext(ctx).First(&p, "id = ?", id).Error; err != nil {
+	var p domain.Party
+	if err := r.db.WithContext(ctx).
+		Preload("ContactMediums").
+		Preload("Identifications").
+		Preload("RelatedParties").
+		First(&p, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrNotFound
 		}
 		return nil, err
 	}
 
-	return &domain.Party{
-		ID:        p.ID,
-		Type:      domain.PartyType(p.Type),
-		Href:      p.Href,
-		Status:    p.Status,
-		CreatedAt: p.CreatedAt,
-		UpdatedAt: p.UpdatedAt,
-	}, nil
+	return &p, nil
 }
 
 func (r *PartyRepository) CreateIndividual(ctx context.Context, ind *domain.Individual) error {
 	return r.withUser(ctx, func(tx *gorm.DB) error {
-		// 1. Create Party
-		if err := tx.Table("parties").Create(&ind.Party).Error; err != nil {
+		// 1. Create Party (with sub-resources)
+		if err := tx.Create(&ind.Party).Error; err != nil {
 			return err
 		}
 
@@ -75,8 +72,12 @@ func (r *PartyRepository) GetIndividual(ctx context.Context, id string) (*domain
 	var ind domain.Individual
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Fetch Party
-		if err := tx.Table("parties").Where("id = ?", id).First(&ind.Party).Error; err != nil {
+		// Fetch Party with sub-resources
+		if err := tx.Table("parties").
+			Preload("ContactMediums").
+			Preload("Identifications").
+			Preload("RelatedParties").
+			Where("id = ?", id).First(&ind.Party).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return domain.ErrNotFound
 			}
@@ -109,7 +110,8 @@ func (r *PartyRepository) GetIndividual(ctx context.Context, id string) (*domain
 
 func (r *PartyRepository) CreateOrganization(ctx context.Context, org *domain.Organization) error {
 	return r.withUser(ctx, func(tx *gorm.DB) error {
-		if err := tx.Table("parties").Create(&org.Party).Error; err != nil {
+		// 1. Create Party (with sub-resources)
+		if err := tx.Create(&org.Party).Error; err != nil {
 			return err
 		}
 
@@ -130,7 +132,11 @@ func (r *PartyRepository) GetOrganization(ctx context.Context, id string) (*doma
 	var org domain.Organization
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Table("parties").Where("id = ?", id).First(&org.Party).Error; err != nil {
+		if err := tx.Table("parties").
+			Preload("ContactMediums").
+			Preload("Identifications").
+			Preload("RelatedParties").
+			Where("id = ?", id).First(&org.Party).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return domain.ErrNotFound
 			}

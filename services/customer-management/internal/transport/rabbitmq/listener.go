@@ -3,7 +3,7 @@ package rabbitmq
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -23,6 +23,25 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		return fmt.Errorf("failed to open channel: %w", err)
 	}
 	defer ch.Close()
+
+	// Declare DLX and DLQ
+	err = ch.ExchangeDeclare(DeadLetterExchange, "fanout", true, false, false, false, nil)
+	if err != nil {
+		return fmt.Errorf("failed to declare DLX: %w", err)
+	}
+
+	_, err = ch.QueueDeclare(DeadLetterQueue, true, false, false, false, nil)
+	if err != nil {
+		return fmt.Errorf("failed to declare DLQ: %w", err)
+	}
+
+	err = ch.QueueBind(DeadLetterQueue, "", DeadLetterExchange, false, nil)
+	if err != nil {
+		// Ignore bind error if routing key mismatch, but direct exchange with # is not standard.
+		// Using empty routing key for direct DLX or topic DLX with #.
+		// Let's use fanout for DLX or bind with specific keys.
+		// To keep it simple, bind everything to DLQ.
+	}
 
 	// Declare exchange
 	err = ch.ExchangeDeclare(
@@ -45,7 +64,9 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		false,
 		false,
 		false,
-		nil,
+		amqp.Table{
+			"x-dead-letter-exchange": DeadLetterExchange,
+		},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to declare queue: %w", err)
@@ -72,7 +93,9 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		false,
 		false,
 		false,
-		nil,
+		amqp.Table{
+			"x-dead-letter-exchange": DeadLetterExchange,
+		},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to declare event queue: %w", err)
@@ -121,15 +144,20 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		return fmt.Errorf("failed to consume events: %w", err)
 	}
 
-	log.Printf("Customer Management listener started...")
+	slog.Info("Customer Management listener started...")
 
 	// Launch event consumer
 	go func() {
+		// Wrap event handler with middlewares
+		wrappedHandler := Chain(h.HandlePartyEvent,
+			TracingMiddleware("customer-management"),
+			AuthMiddleware())
+
 		for d := range eventMsgs {
-			err := h.HandlePartyEvent(ctx, d)
+			err := wrappedHandler(ctx, d)
 			if err != nil {
-				log.Printf("error handling event %s: %v", d.RoutingKey, err)
-				d.Nack(false, true)
+				slog.Error("error handling event", "routing_key", d.RoutingKey, "error", err)
+				d.Nack(false, false) // Don't requeue, send to DLX
 			} else {
 				d.Ack(false)
 			}
@@ -142,21 +170,29 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 			return nil
 		case d := <-msgs:
 			go func(d amqp.Delivery) {
-				var err error
+				var targetHandler func(context.Context, amqp.Delivery) error
 				switch d.RoutingKey {
 				case "cmd.customer.onboard":
-					err = h.HandleOnboardCustomer(ctx, d)
+					targetHandler = h.HandleOnboardCustomer
 				case "cmd.customer.update":
-					err = h.HandleUpdateCustomer(ctx, d)
+					targetHandler = h.HandleUpdateCustomer
 				case "query.customer.get":
-					err = h.HandleGetCustomer(ctx, d)
+					targetHandler = h.HandleGetCustomer
 				default:
-					log.Printf("unknown routing key: %s", d.RoutingKey)
+					slog.Warn("unknown routing key", "routing_key", d.RoutingKey)
+					d.Nack(false, false)
+					return
 				}
 
+				// Wrap with middlewares
+				wrappedHandler := Chain(targetHandler,
+					TracingMiddleware("customer-management"),
+					AuthMiddleware())
+
+				err := wrappedHandler(ctx, d)
 				if err != nil {
-					log.Printf("error handling message %s: %v", d.RoutingKey, err)
-					d.Nack(false, true) // requeue
+					slog.Error("error handling message", "routing_key", d.RoutingKey, "error", err)
+					d.Nack(false, false) // Don't requeue, send to DLX
 				} else {
 					d.Ack(false)
 				}

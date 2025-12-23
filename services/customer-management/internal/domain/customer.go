@@ -20,19 +20,20 @@ const (
 
 // Customer represents a party playing a customer role.
 type Customer struct {
-	ID             string         `gorm:"primaryKey"`
-	Name           string         // Display name
-	Status         CustomerStatus `gorm:"not null"`
-	StatusReason   string
-	ValidForStart  time.Time
-	ValidForEnd    *time.Time
-	PartyID        string `gorm:"not null;index"` // Reference to TMF632 Party
-	PartyType      string // Individual or Organization
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	Accounts       []CustomerAccount `gorm:"foreignKey:CustomerID"`
-	CreditProfiles []CreditProfile   `gorm:"foreignKey:CustomerID"`
-	ContactMediums []ContactMedium   `gorm:"foreignKey:CustomerID"`
+	ID              string         `gorm:"primaryKey"`
+	Name            string         // Display name
+	Status          CustomerStatus `gorm:"not null"`
+	StatusReason    string
+	ValidForStart   time.Time
+	ValidForEnd     *time.Time
+	PartyID         string `gorm:"not null;index"` // Reference to TMF632 Party
+	PartyType       string // Individual or Organization
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	Accounts        []CustomerAccount        `gorm:"foreignKey:CustomerID"`
+	CreditProfiles  []CreditProfile          `gorm:"foreignKey:CustomerID"`
+	ContactMediums  []ContactMedium          `gorm:"foreignKey:CustomerID"`
+	Characteristics []CustomerCharacteristic `gorm:"foreignKey:CustomerID"`
 }
 
 func (Customer) TableName() string {
@@ -87,19 +88,40 @@ func (CreditProfile) TableName() string {
 
 // ContactMedium represents customer-specific contact information.
 type ContactMedium struct {
-	ID            string `gorm:"primaryKey"`
-	CustomerID    string `gorm:"not null;index"`
-	MediumType    string // e.g., Email, Phone
-	Preferred     bool
-	Value         string
-	ValidForStart time.Time
-	ValidForEnd   *time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID              string `gorm:"primaryKey"`
+	CustomerID      string `gorm:"not null;index"`
+	MediumType      string // e.g., Email, Phone
+	Preferred       bool
+	Value           string
+	Street1         string
+	Street2         string
+	City            string
+	StateOrProvince string
+	Postcode        string
+	Country         string
+	ValidForStart   time.Time
+	ValidForEnd     *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 func (ContactMedium) TableName() string {
 	return "contact_mediums"
+}
+
+// CustomerCharacteristic represents a dynamic attribute of a customer.
+type CustomerCharacteristic struct {
+	ID         string `gorm:"primaryKey"`
+	CustomerID string `gorm:"not null;index"`
+	Name       string
+	Value      string
+	ValueType  string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+func (CustomerCharacteristic) TableName() string {
+	return "customer_characteristics"
 }
 
 // Repository defines the interface for Customer storage.
