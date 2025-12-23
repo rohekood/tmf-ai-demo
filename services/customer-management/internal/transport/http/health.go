@@ -3,20 +3,22 @@ package http
 import (
 	"encoding/json"
 	"net/http"
-	"tmf/services/party-management/internal/infrastructure/rabbitmq"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
+	amqp "github.com/rabbitmq/amqp091-go"
 	"gorm.io/gorm"
 )
 
 type HealthHandler struct {
-	db     *gorm.DB
-	rabbit *rabbitmq.ConnectionManager
+	db         *gorm.DB
+	rabbitConn *amqp.Connection
 }
 
-func NewHealthHandler(db *gorm.DB, rabbit *rabbitmq.ConnectionManager) *HealthHandler {
-	return &HealthHandler{db: db, rabbit: rabbit}
+func NewHealthHandler(db *gorm.DB, rabbitConn *amqp.Connection) *HealthHandler {
+	return &HealthHandler{
+		db:         db,
+		rabbitConn: rabbitConn,
+	}
 }
 
 func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -25,22 +27,19 @@ func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Check DB
 	sqlDB, err := h.db.DB()
-	if err != nil {
+	if err != nil || sqlDB.Ping() != nil {
 		status = "DOWN"
-		details["db"] = "failed to get sql.DB"
-	} else if err := sqlDB.Ping(); err != nil {
-		status = "DOWN"
-		details["db"] = err.Error()
+		details["database"] = "unreachable"
 	} else {
-		details["db"] = "OK"
+		details["database"] = "connected"
 	}
 
-	// Check Rabbit
-	if h.rabbit.GetConnection() == nil || h.rabbit.GetConnection().IsClosed() {
+	// Check RabbitMQ
+	if h.rabbitConn == nil || h.rabbitConn.IsClosed() {
 		status = "DOWN"
-		details["rabbitmq"] = "connection closed"
+		details["rabbitmq"] = "disconnected"
 	} else {
-		details["rabbitmq"] = "OK"
+		details["rabbitmq"] = "connected"
 	}
 
 	w.Header().Set("Content-Type", "application/json")

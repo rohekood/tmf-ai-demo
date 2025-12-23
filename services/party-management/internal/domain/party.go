@@ -26,9 +26,10 @@ type Party struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
-	ContactMediums  []ContactMedium  `gorm:"foreignKey:PartyID"`
-	Identifications []Identification `gorm:"foreignKey:PartyID"`
-	RelatedParties  []RelatedParty   `gorm:"foreignKey:PartyID"`
+	ContactMediums  []ContactMedium       `gorm:"foreignKey:PartyID"`
+	Identifications []Identification      `gorm:"foreignKey:PartyID"`
+	RelatedParties  []RelatedParty        `gorm:"foreignKey:PartyID"`
+	Characteristics []PartyCharacteristic `gorm:"foreignKey:PartyID"`
 }
 
 func (Party) TableName() string {
@@ -88,6 +89,20 @@ type RelatedParty struct {
 
 func (RelatedParty) TableName() string {
 	return "related_parties"
+}
+
+type PartyCharacteristic struct {
+	ID        string `gorm:"primaryKey"`
+	PartyID   string `gorm:"not null;index"`
+	Name      string
+	Value     string
+	ValueType string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (PartyCharacteristic) TableName() string {
+	return "party_characteristics"
 }
 
 // Individual represents a natural person.

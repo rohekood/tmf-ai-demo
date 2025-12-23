@@ -151,7 +151,8 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		// Wrap event handler with middlewares
 		wrappedHandler := Chain(h.HandlePartyEvent,
 			TracingMiddleware("customer-management"),
-			AuthMiddleware())
+			AuthMiddleware(),
+			JWTMiddleware())
 
 		for d := range eventMsgs {
 			err := wrappedHandler(ctx, d)
@@ -178,6 +179,10 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 					targetHandler = h.HandleUpdateCustomer
 				case "query.customer.get":
 					targetHandler = h.HandleGetCustomer
+				case "query.customer.search":
+					targetHandler = h.HandleSearchCustomer
+				case "cmd.customer.delete":
+					targetHandler = h.HandleDeleteCustomer
 				default:
 					slog.Warn("unknown routing key", "routing_key", d.RoutingKey)
 					d.Nack(false, false)
@@ -187,7 +192,8 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 				// Wrap with middlewares
 				wrappedHandler := Chain(targetHandler,
 					TracingMiddleware("customer-management"),
-					AuthMiddleware())
+					AuthMiddleware(),
+					JWTMiddleware())
 
 				err := wrappedHandler(ctx, d)
 				if err != nil {

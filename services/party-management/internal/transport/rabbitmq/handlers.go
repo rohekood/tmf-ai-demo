@@ -58,6 +58,7 @@ type CreateIndividualPayload struct {
 	ContactMediums  []ContactMediumDTO  `json:"contactMediums,omitempty"`
 	Identifications []IdentificationDTO `json:"identifications,omitempty"`
 	RelatedParties  []RelatedPartyDTO   `json:"relatedParties,omitempty"`
+	Characteristics []CharacteristicDTO `json:"characteristics,omitempty"`
 }
 
 func (p *CreateIndividualPayload) Validate() error {
@@ -75,6 +76,7 @@ type CreateOrganizationPayload struct {
 	ContactMediums  []ContactMediumDTO  `json:"contactMediums,omitempty"`
 	Identifications []IdentificationDTO `json:"identifications,omitempty"`
 	RelatedParties  []RelatedPartyDTO   `json:"relatedParties,omitempty"`
+	Characteristics []CharacteristicDTO `json:"characteristics,omitempty"`
 }
 
 func (p *CreateOrganizationPayload) Validate() error {
@@ -192,6 +194,13 @@ type RelatedPartyDTO struct {
 	Role             string `json:"role"`
 }
 
+type CharacteristicDTO struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Value     string `json:"value"`
+	ValueType string `json:"valueType"`
+}
+
 // --- Handlers ---
 
 func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error {
@@ -224,6 +233,7 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 		ind.ContactMediums = h.mapContactMediums(payload.Individual.ContactMediums, ind.ID)
 		ind.Identifications = h.mapIdentifications(payload.Individual.Identifications, ind.ID)
 		ind.RelatedParties = h.mapRelatedParties(payload.Individual.RelatedParties, ind.ID)
+		ind.Characteristics = h.mapCharacteristics(payload.Individual.Characteristics, ind.ID)
 		if err := h.repo.CreateIndividual(ctx, ind); err != nil {
 			return fmt.Errorf("failed to create individual: %w", err)
 		}
@@ -253,6 +263,7 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 		org.ContactMediums = h.mapContactMediums(payload.Organization.ContactMediums, org.ID)
 		org.Identifications = h.mapIdentifications(payload.Organization.Identifications, org.ID)
 		org.RelatedParties = h.mapRelatedParties(payload.Organization.RelatedParties, org.ID)
+		org.Characteristics = h.mapCharacteristics(payload.Organization.Characteristics, org.ID)
 		if err := h.repo.CreateOrganization(ctx, org); err != nil {
 			return fmt.Errorf("failed to create organization: %w", err)
 		}
@@ -603,4 +614,18 @@ func (h *Handlers) mapRelatedParties(dtos []RelatedPartyDTO, partyID string) []d
 		})
 	}
 	return res
+}
+
+func (h *Handlers) mapCharacteristics(dtos []CharacteristicDTO, partyID string) []domain.PartyCharacteristic {
+res := make([]domain.PartyCharacteristic, 0, len(dtos))
+for _, dto := range dtos {
+res = append(res, domain.PartyCharacteristic{
+ID:        dto.ID,
+PartyID:   partyID,
+Name:      dto.Name,
+Value:     dto.Value,
+ValueType: dto.ValueType,
+})
+}
+return res
 }

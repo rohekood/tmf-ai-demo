@@ -25,6 +25,18 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  demo-ui:
+    build:
+      context: ./services/demo-ui
+      dockerfile: Dockerfile
+    container_name: tmf-demo-ui
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8080
+    volumes:
+      - ./services/demo-ui:/app
+
 volumes:
   rabbitmq_data:
   postgres_data:

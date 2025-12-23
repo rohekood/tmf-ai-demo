@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,6 +12,7 @@ import (
 	"tmf/services/customer-management/internal/infrastructure/postgres"
 	infraRabbit "tmf/services/customer-management/internal/infrastructure/rabbitmq"
 	"tmf/services/customer-management/internal/infrastructure/telemetry"
+	transportHttp "tmf/services/customer-management/internal/transport/http"
 	"tmf/services/customer-management/internal/transport/rabbitmq"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -82,6 +84,21 @@ func main() {
 		if err := listener.Start(ctx, handlers); err != nil {
 			slog.Error("listener stopped", "error", err)
 			cancel()
+		}
+	}()
+
+	// 6. Start Health Check Server
+	healthHandler := transportHttp.NewHealthHandler(db, conn)
+	metricsHandler := transportHttp.MetricsHandler()
+
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/health", healthHandler)
+		mux.Handle("/metrics", metricsHandler)
+
+		slog.Info("starting health check server", "addr", ":8081")
+		if err := http.ListenAndServe(":8081", mux); err != nil && err != http.ErrServerClosed {
+			slog.Error("health check server failed", "error", err)
 		}
 	}()
 

@@ -242,3 +242,71 @@ func TestIntegration_AuditTrail(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "system.customer-management", systemAudit.UserName)
 }
+
+func TestIntegration_GetCustomer(t *testing.T) {
+	ctx := context.Background()
+	handlers := NewHandlers(sharedRepo, sharedPublisher)
+
+	// Pre-create customer
+	custID := "get-cust-1"
+	require.NoError(t, sharedRepo.CreateCustomer(ctx, &domain.Customer{
+		ID:      custID,
+		Name:    "Get Me",
+		Status:  domain.CustomerStatusActive,
+		PartyID: "p-get-1",
+	}))
+
+	// Query via handler
+	payload := GetCustomerPayload{ID: custID}
+	body, _ := json.Marshal(payload)
+
+	err := handlers.HandleGetCustomer(ctx, amqp.Delivery{Body: body})
+	require.NoError(t, err)
+}
+
+func TestIntegration_SearchCustomer(t *testing.T) {
+	ctx := context.Background()
+	handlers := NewHandlers(sharedRepo, sharedPublisher)
+
+	// Pre-create customers
+	require.NoError(t, sharedRepo.CreateCustomer(ctx, &domain.Customer{
+		ID:      "s-cust-1",
+		Name:    "Searchable One",
+		Status:  domain.CustomerStatusActive,
+		PartyID: "p-s-1",
+	}))
+
+	// Search via handler
+	payload := SearchCustomerPayload{Name: "Searchable One"}
+	body, _ := json.Marshal(payload)
+
+	err := handlers.HandleSearchCustomer(ctx, amqp.Delivery{Body: body})
+	require.NoError(t, err)
+}
+
+func TestIntegration_DeleteCustomer(t *testing.T) {
+	ctx := context.Background()
+	handlers := NewHandlers(sharedRepo, sharedPublisher)
+
+	// Pre-create
+	custID := "del-cust-int-1"
+	require.NoError(t, sharedRepo.CreateCustomer(ctx, &domain.Customer{
+		ID:     custID,
+		Name:   "Delete Me",
+		Status: domain.CustomerStatusActive,
+	}))
+
+	// Delete via handler
+	payload := DeleteCustomerPayload{ID: custID}
+	body, _ := json.Marshal(payload)
+
+	err := handlers.HandleDeleteCustomer(ctx, amqp.Delivery{
+		Body:     body,
+		Exchange: "tmf.events",
+	})
+	require.NoError(t, err)
+
+	// Verify deleted
+	_, err = sharedRepo.GetCustomer(ctx, custID)
+	assert.Error(t, err)
+}

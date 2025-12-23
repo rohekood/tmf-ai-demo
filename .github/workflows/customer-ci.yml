@@ -1,0 +1,111 @@
+name: Customer Management CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+      - 'feat/**'
+      - 'fix/**'
+    paths:
+      - 'services/customer-management/**'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        if: github.actor != 'dependabot[bot]'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine Version
+        id: version
+        shell: bash
+        run: |
+          SERVICE_PREFIX="customer-management-v"
+          
+          # Get the latest tag matching the prefix
+          # usage of 'sort -V' handles version sorting correctly
+          LATEST_TAG=$(git tag -l "${SERVICE_PREFIX}*" | sort -V | tail -n1)
+          
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No existing tag found. Defaulting to ${SERVICE_PREFIX}0.0.0"
+            LATEST_TAG="${SERVICE_PREFIX}0.0.0"
+          fi
+          
+          # Extract version number (everything after prefix)
+          VERSION=${LATEST_TAG#$SERVICE_PREFIX}
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          
+          # Logic for Next Version
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            # Bump patch on main
+            NEW_PATCH=$((PATCH + 1))
+            NEW_TAG="${SERVICE_PREFIX}${MAJOR}.${MINOR}.${NEW_PATCH}"
+            echo "NEXT_TAG=${NEW_TAG}" >> $GITHUB_ENV
+            echo "IS_RELEASE=true" >> $GITHUB_ENV
+          else
+            # Feature branch: use latest tag + branch info (no bump)
+            BRANCH_CLEAN=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9._-]/-/g')
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+            NEW_TAG="${LATEST_TAG}-${BRANCH_CLEAN}-${SHORT_SHA}"
+            echo "NEXT_TAG=${NEW_TAG}" >> $GITHUB_ENV
+            echo "IS_RELEASE=false" >> $GITHUB_ENV
+          fi
+
+      - name: Push Git Tag
+        if: env.IS_RELEASE == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ env.NEXT_TAG }}
+          git push origin ${{ env.NEXT_TAG }}
+
+      - name: Calculate Docker Tags
+        id: meta
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          SERVICE="customer-management"
+          
+          if [ "${{ env.IS_RELEASE }}" == "true" ]; then
+            echo "DOCKER_TAGS=ghcr.io/${OWNER}/${SERVICE}:latest,ghcr.io/${OWNER}/${SERVICE}:${{ env.NEXT_TAG }}" >> $GITHUB_ENV
+          else
+            echo "DOCKER_TAGS=ghcr.io/${OWNER}/${SERVICE}:${{ env.NEXT_TAG }}" >> $GITHUB_ENV
+          fi
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/customer-management
+          file: ./services/customer-management/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.actor != 'dependabot[bot]' }}
+          tags: ${{ env.DOCKER_TAGS }}
+
+      - name: Create Release
+        if: env.IS_RELEASE == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ env.NEXT_TAG }}" \
+            --title "Customer Management ${{ env.NEXT_TAG }}" \
+            --generate-notes

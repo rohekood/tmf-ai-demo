@@ -29,6 +29,8 @@ func (r *CustomerRepository) GetCustomer(ctx context.Context, id string) (*domai
 		Preload("CreditProfiles").
 		Preload("ContactMediums").
 		Preload("Characteristics").
+		Preload("TaxExemptions").
+		Preload("PrivacyConsents").
 		First(&customer, "id = ?", id).Error
 	if err != nil {
 		return nil, err
@@ -38,7 +40,11 @@ func (r *CustomerRepository) GetCustomer(ctx context.Context, id string) (*domai
 
 func (r *CustomerRepository) UpdateCustomer(ctx context.Context, c *domain.Customer) error {
 	return r.withUser(ctx, func(tx *gorm.DB) error {
-		return tx.Save(c).Error
+		if err := tx.Save(c).Error; err != nil {
+			return err
+		}
+		// Replace sub-resources
+		return r.updateSubResources(tx, c.ID, c)
 	})
 }
 
@@ -92,4 +98,86 @@ func (r *CustomerRepository) withUser(ctx context.Context, fn func(tx *gorm.DB) 
 		}
 		return fn(tx)
 	})
+}
+
+func (r *CustomerRepository) updateSubResources(tx *gorm.DB, customerID string, c *domain.Customer) error {
+// 1. Accounts
+if err := tx.Delete(&domain.CustomerAccount{}, "customer_id = ?", customerID).Error; err != nil {
+return err
+}
+if len(c.Accounts) > 0 {
+for i := range c.Accounts {
+c.Accounts[i].CustomerID = customerID
+}
+if err := tx.Create(&c.Accounts).Error; err != nil {
+return err
+}
+}
+
+// 2. CreditProfiles
+if err := tx.Delete(&domain.CreditProfile{}, "customer_id = ?", customerID).Error; err != nil {
+return err
+}
+if len(c.CreditProfiles) > 0 {
+for i := range c.CreditProfiles {
+c.CreditProfiles[i].CustomerID = customerID
+}
+if err := tx.Create(&c.CreditProfiles).Error; err != nil {
+return err
+}
+}
+
+// 3. ContactMediums
+if err := tx.Delete(&domain.ContactMedium{}, "customer_id = ?", customerID).Error; err != nil {
+return err
+}
+if len(c.ContactMediums) > 0 {
+for i := range c.ContactMediums {
+c.ContactMediums[i].CustomerID = customerID
+}
+if err := tx.Create(&c.ContactMediums).Error; err != nil {
+return err
+}
+}
+
+// 4. Characteristics
+if err := tx.Delete(&domain.CustomerCharacteristic{}, "customer_id = ?", customerID).Error; err != nil {
+return err
+}
+if len(c.Characteristics) > 0 {
+for i := range c.Characteristics {
+c.Characteristics[i].CustomerID = customerID
+}
+if err := tx.Create(&c.Characteristics).Error; err != nil {
+return err
+}
+}
+
+// 5. TaxExemptions
+if err := tx.Delete(&domain.TaxExemption{}, "customer_id = ?", customerID).Error; err != nil {
+return err
+}
+if len(c.TaxExemptions) > 0 {
+for i := range c.TaxExemptions {
+c.TaxExemptions[i].CustomerID = customerID
+}
+if err := tx.Create(&c.TaxExemptions).Error; err != nil {
+return err
+}
+}
+
+// 6. PrivacyConsents
+if err := tx.Delete(&domain.PrivacyConsent{}, "customer_id = ?", customerID).Error; err != nil {
+return err
+}
+if len(c.PrivacyConsents) > 0 {
+for i := range c.PrivacyConsents {
+c.PrivacyConsents[i].CustomerID = customerID
+}
+if err := tx.Create(&c.PrivacyConsents).Error; err != nil {
+return err
+}
+}
+
+return nil
 }

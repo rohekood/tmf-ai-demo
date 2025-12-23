@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 	"tmf/services/customer-management/internal/domain"
 	infraRabbit "tmf/services/customer-management/internal/infrastructure/rabbitmq"
 
@@ -33,6 +34,8 @@ type OnboardCustomerPayload struct {
 	CreditProfiles  []CreditProfileDTO   `json:"creditProfiles"`
 	ContactMediums  []ContactMediumDTO   `json:"contactMediums"`
 	Characteristics []CharacteristicDTO  `json:"characteristics"`
+	TaxExemptions   []TaxExemptionDTO    `json:"taxExemptions"`
+	PrivacyConsents []PrivacyConsentDTO  `json:"privacyConsents"`
 }
 
 type CustomerAccountDTO struct {
@@ -68,6 +71,21 @@ type CharacteristicDTO struct {
 	ValueType string `json:"valueType"`
 }
 
+type TaxExemptionDTO struct {
+	ID                  string `json:"id"`
+	CertificateNumber   string `json:"certificateNumber"`
+	IssuingJurisdiction string `json:"issuingJurisdiction"`
+	ValidForStart       string `json:"validForStart"`
+	ValidForEnd         string `json:"validForEnd"`
+}
+
+type PrivacyConsentDTO struct {
+	ID            string `json:"id"`
+	ConsentType   string `json:"consentType"`
+	Status        string `json:"status"`
+	ValidForStart string `json:"validForStart"`
+}
+
 type UpdateCustomerPayload struct {
 	ID     string                `json:"id"`
 	Status domain.CustomerStatus `json:"status"`
@@ -75,6 +93,17 @@ type UpdateCustomerPayload struct {
 }
 
 type GetCustomerPayload struct {
+	ID string `json:"id"`
+}
+
+type SearchCustomerPayload struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Status  string `json:"status"`
+	PartyID string `json:"partyId"`
+}
+
+type DeleteCustomerPayload struct {
 	ID string `json:"id"`
 }
 
@@ -140,6 +169,14 @@ func (h *Handlers) HandleOnboardCustomer(ctx context.Context, d amqp.Delivery) e
 		})
 	}
 
+	for _, t := range payload.TaxExemptions {
+		customer.TaxExemptions = append(customer.TaxExemptions, h.mapTaxExemption(t, customer.ID))
+	}
+
+	for _, p := range payload.PrivacyConsents {
+		customer.PrivacyConsents = append(customer.PrivacyConsents, h.mapPrivacyConsent(p, customer.ID))
+	}
+
 	if err := h.repo.CreateCustomer(ctx, customer); err != nil {
 		return fmt.Errorf("failed to create customer: %w", err)
 	}
@@ -193,6 +230,58 @@ func (h *Handlers) HandleGetCustomer(ctx context.Context, d amqp.Delivery) error
 	// If ReplyTo is set, send the customer back
 	if d.ReplyTo != "" {
 		return h.publisher.Publish(ctx, "", d.ReplyTo, customer)
+	}
+
+	return nil
+}
+
+func (h *Handlers) HandleSearchCustomer(ctx context.Context, d amqp.Delivery) error {
+	ctx = h.extractUser(ctx, d)
+	var payload SearchCustomerPayload
+	if err := json.Unmarshal(d.Body, &payload); err != nil {
+		return fmt.Errorf("failed to unmarshal payload: %w", err)
+	}
+
+	criteria := make(map[string]interface{})
+	if payload.ID != "" {
+		criteria["id"] = payload.ID
+	}
+	if payload.Name != "" {
+		criteria["name"] = payload.Name
+	}
+	if payload.Status != "" {
+		criteria["status"] = payload.Status
+	}
+	if payload.PartyID != "" {
+		criteria["party_id"] = payload.PartyID
+	}
+
+	customers, err := h.repo.SearchCustomers(ctx, criteria)
+	if err != nil {
+		return fmt.Errorf("failed to search customers: %w", err)
+	}
+
+	if d.ReplyTo != "" {
+		return h.publisher.Publish(ctx, "", d.ReplyTo, customers)
+	}
+
+	return nil
+}
+
+func (h *Handlers) HandleDeleteCustomer(ctx context.Context, d amqp.Delivery) error {
+	ctx = h.extractUser(ctx, d)
+	var payload DeleteCustomerPayload
+	if err := json.Unmarshal(d.Body, &payload); err != nil {
+		return fmt.Errorf("failed to unmarshal payload: %w", err)
+	}
+
+	if err := h.repo.DeleteCustomer(ctx, payload.ID); err != nil {
+		return fmt.Errorf("failed to delete customer: %w", err)
+	}
+
+	// Publish event
+	if err := h.publisher.Publish(ctx, d.Exchange, EvtCustomerDeleted, payload); err != nil {
+		slog.Error("failed to publish delete event", "error", err)
 	}
 
 	return nil
@@ -280,4 +369,42 @@ func (h *Handlers) extractUser(ctx context.Context, d amqp.Delivery) context.Con
 		return context.WithValue(ctx, domain.UserContextKey, user)
 	}
 	return ctx
+}
+
+func (h *Handlers) mapTaxExemption(dto TaxExemptionDTO, customerID string) domain.TaxExemption {
+	var start, end time.Time
+	if dto.ValidForStart != "" {
+		start, _ = time.Parse(time.RFC3339, dto.ValidForStart)
+	}
+	if dto.ValidForEnd != "" {
+		parsedEnd, _ := time.Parse(time.RFC3339, dto.ValidForEnd)
+		end = parsedEnd
+	}
+
+	res := domain.TaxExemption{
+		ID:                  dto.ID,
+		CustomerID:          customerID,
+		CertificateNumber:   dto.CertificateNumber,
+		IssuingJurisdiction: dto.IssuingJurisdiction,
+		ValidForStart:       start,
+	}
+	if !end.IsZero() {
+		res.ValidForEnd = &end
+	}
+	return res
+}
+
+func (h *Handlers) mapPrivacyConsent(dto PrivacyConsentDTO, customerID string) domain.PrivacyConsent {
+	var start time.Time
+	if dto.ValidForStart != "" {
+		start, _ = time.Parse(time.RFC3339, dto.ValidForStart)
+	}
+
+	return domain.PrivacyConsent{
+		ID:            dto.ID,
+		CustomerID:    customerID,
+		ConsentType:   dto.ConsentType,
+		Status:        dto.Status,
+		ValidForStart: start,
+	}
 }
