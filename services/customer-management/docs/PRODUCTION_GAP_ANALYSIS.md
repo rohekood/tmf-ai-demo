@@ -5,36 +5,34 @@ This document evaluates the current implementation against TM Forum Open API **d
 ### TMF632 Party Management
 | Feature | Status | Missing Details |
 | :--- | :--- | :--- |
-| **Identification** | 🔴 Missing | Storing Passport, Tax ID, National IDs with validation dates. |
-| **Contact Mediums** | 🟡 Partial | Needs structured physical addresses (Street, City, PostalCode). |
-| **Related Party** | 🔴 Missing | Linkages between parties (e.g., "Manager of", "Parent Company"). |
-| **Characteristics** | 🔴 Missing | Dynamic key-value attributes for custom business needs. |
-| **Role Management** | 🔴 Missing | Integration with TMF669 Party Role Management. |
+| **Identification** | 🟢 Implemented | Supported via `Identification` sub-resource. |
+| **Contact Mediums** | 🟢 Implemented | Structured physical addresses supported. |
+| **Related Party** | 🟢 Implemented | Linkages between parties supported. |
+| **Characteristics** | 🟢 Implemented | Dynamic key-value attributes supported. |
+| **Role Management** | ⚪ Out of Scope | TMF669 Party Role Management is a separate domain. |
 
 ### TMF629 Customer Management
 | Feature | Status | Missing Details |
 | :--- | :--- | :--- |
-| **Characteristics** | 🔴 Missing | Segment-specific attributes (e.g., VIP level, Revenue Tier). |
-| **Tax Exemption** | 🔴 Missing | Managing tax certificates for corporate customers. |
-| **Consent & Privacy** | 🔴 Missing | References to Data Privacy Profiles (GDPR/CCPA compliance). |
-| **Account Financials** | 🟡 Partial | Linking to Payment Methods and Balance sub-resources. |
+| **Characteristics** | 🟢 Implemented | Segment-specific attributes supported. |
+| **Tax Exemption** | 🟢 Implemented | Managing tax certificates supported. |
+| **Consent & Privacy** | 🟢 Implemented | Privacy consents supported. |
+| **Account Financials** | 🟡 Partial | Customer Account exists, but Payment Methods and Balance are future work. |
 
 ---
 
 ## 2. Production Readiness Assessment
 
 ### Technical Infrastructure
-- **Audit Logging**: **Missing**. No persistent record of "who changed what and when" for regulatory compliance.
-- **Observability**: **Missing**. Lack of OpenTelemetry (Tracing) and Prometheus (Metrics) instrumentation.
-- **Resilience**: **Partial**. While RabbitMQ supports basic retries, the system lacks:
-    - **Dead Letter Queues (DLQ)** for unprocessable commands.
-    - **Circuit Breakers** for inter-service queries (Customer -> Party).
-    - **Rate Limiting** to prevent system overload.
+### Technical Infrastructure
+- **Audit Logging**: 🟡 Partial. Basic audit fields created, but full audit trail service is future work.
+- **Observability**: 🟢 Implemented. Prometheus Metrics (`/metrics`) and OpenTelemetry Tracing.
+- **Resilience**: **Partial**. DLQ configured, but Circuit Breakers/Rate Limiting are future work.
 
 ### Security & Compliance
-- **AuthN/AuthZ**: **Missing**. Services communicate without JWT validation or scope checking.
-- **PII Protection**: **Missing**. Personally Identifiable Information is not explicitly encrypted at rest or masked in logs.
-- **API Versioning**: **Not Applicable**. Versioning is handled via message types/routing keys in RabbitMQ rather than URL-based strategies.
+- **AuthN/AuthZ**: 🟢 Implemented. JWT Middleware added for RabbitMQ consumers.
+- **PII Protection**: 🟡 Partial. PII is isolated in specific tables but not encrypted at rest.
+- **API Versioning**: **Not Applicable**. Versioning is handled via message types/routing keys.
 
 ---
 

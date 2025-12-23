@@ -50,7 +50,25 @@ func (r *CustomerRepository) UpdateCustomer(ctx context.Context, c *domain.Custo
 
 func (r *CustomerRepository) PatchCustomer(ctx context.Context, id string, updates map[string]interface{}) error {
 	return r.withUser(ctx, func(tx *gorm.DB) error {
-		return tx.Model(&domain.Customer{}).Where("id = ?", id).Updates(updates).Error
+		// Handle associations separately
+		if taxes, ok := updates["tax_exemptions"]; ok {
+			if err := tx.Model(&domain.Customer{ID: id}).Association("TaxExemptions").Replace(taxes); err != nil {
+				return err
+			}
+			delete(updates, "tax_exemptions")
+		}
+		if privacy, ok := updates["privacy_consents"]; ok {
+			if err := tx.Model(&domain.Customer{ID: id}).Association("PrivacyConsents").Replace(privacy); err != nil {
+				return err
+			}
+			delete(updates, "privacy_consents")
+		}
+
+		// Update scalar fields if any remain
+		if len(updates) > 0 {
+			return tx.Model(&domain.Customer{}).Where("id = ?", id).Updates(updates).Error
+		}
+		return nil
 	})
 }
 
@@ -101,83 +119,83 @@ func (r *CustomerRepository) withUser(ctx context.Context, fn func(tx *gorm.DB) 
 }
 
 func (r *CustomerRepository) updateSubResources(tx *gorm.DB, customerID string, c *domain.Customer) error {
-// 1. Accounts
-if err := tx.Delete(&domain.CustomerAccount{}, "customer_id = ?", customerID).Error; err != nil {
-return err
-}
-if len(c.Accounts) > 0 {
-for i := range c.Accounts {
-c.Accounts[i].CustomerID = customerID
-}
-if err := tx.Create(&c.Accounts).Error; err != nil {
-return err
-}
-}
+	// 1. Accounts
+	if err := tx.Delete(&domain.CustomerAccount{}, "customer_id = ?", customerID).Error; err != nil {
+		return err
+	}
+	if len(c.Accounts) > 0 {
+		for i := range c.Accounts {
+			c.Accounts[i].CustomerID = customerID
+		}
+		if err := tx.Create(&c.Accounts).Error; err != nil {
+			return err
+		}
+	}
 
-// 2. CreditProfiles
-if err := tx.Delete(&domain.CreditProfile{}, "customer_id = ?", customerID).Error; err != nil {
-return err
-}
-if len(c.CreditProfiles) > 0 {
-for i := range c.CreditProfiles {
-c.CreditProfiles[i].CustomerID = customerID
-}
-if err := tx.Create(&c.CreditProfiles).Error; err != nil {
-return err
-}
-}
+	// 2. CreditProfiles
+	if err := tx.Delete(&domain.CreditProfile{}, "customer_id = ?", customerID).Error; err != nil {
+		return err
+	}
+	if len(c.CreditProfiles) > 0 {
+		for i := range c.CreditProfiles {
+			c.CreditProfiles[i].CustomerID = customerID
+		}
+		if err := tx.Create(&c.CreditProfiles).Error; err != nil {
+			return err
+		}
+	}
 
-// 3. ContactMediums
-if err := tx.Delete(&domain.ContactMedium{}, "customer_id = ?", customerID).Error; err != nil {
-return err
-}
-if len(c.ContactMediums) > 0 {
-for i := range c.ContactMediums {
-c.ContactMediums[i].CustomerID = customerID
-}
-if err := tx.Create(&c.ContactMediums).Error; err != nil {
-return err
-}
-}
+	// 3. ContactMediums
+	if err := tx.Delete(&domain.ContactMedium{}, "customer_id = ?", customerID).Error; err != nil {
+		return err
+	}
+	if len(c.ContactMediums) > 0 {
+		for i := range c.ContactMediums {
+			c.ContactMediums[i].CustomerID = customerID
+		}
+		if err := tx.Create(&c.ContactMediums).Error; err != nil {
+			return err
+		}
+	}
 
-// 4. Characteristics
-if err := tx.Delete(&domain.CustomerCharacteristic{}, "customer_id = ?", customerID).Error; err != nil {
-return err
-}
-if len(c.Characteristics) > 0 {
-for i := range c.Characteristics {
-c.Characteristics[i].CustomerID = customerID
-}
-if err := tx.Create(&c.Characteristics).Error; err != nil {
-return err
-}
-}
+	// 4. Characteristics
+	if err := tx.Delete(&domain.CustomerCharacteristic{}, "customer_id = ?", customerID).Error; err != nil {
+		return err
+	}
+	if len(c.Characteristics) > 0 {
+		for i := range c.Characteristics {
+			c.Characteristics[i].CustomerID = customerID
+		}
+		if err := tx.Create(&c.Characteristics).Error; err != nil {
+			return err
+		}
+	}
 
-// 5. TaxExemptions
-if err := tx.Delete(&domain.TaxExemption{}, "customer_id = ?", customerID).Error; err != nil {
-return err
-}
-if len(c.TaxExemptions) > 0 {
-for i := range c.TaxExemptions {
-c.TaxExemptions[i].CustomerID = customerID
-}
-if err := tx.Create(&c.TaxExemptions).Error; err != nil {
-return err
-}
-}
+	// 5. TaxExemptions
+	if err := tx.Delete(&domain.TaxExemption{}, "customer_id = ?", customerID).Error; err != nil {
+		return err
+	}
+	if len(c.TaxExemptions) > 0 {
+		for i := range c.TaxExemptions {
+			c.TaxExemptions[i].CustomerID = customerID
+		}
+		if err := tx.Create(&c.TaxExemptions).Error; err != nil {
+			return err
+		}
+	}
 
-// 6. PrivacyConsents
-if err := tx.Delete(&domain.PrivacyConsent{}, "customer_id = ?", customerID).Error; err != nil {
-return err
-}
-if len(c.PrivacyConsents) > 0 {
-for i := range c.PrivacyConsents {
-c.PrivacyConsents[i].CustomerID = customerID
-}
-if err := tx.Create(&c.PrivacyConsents).Error; err != nil {
-return err
-}
-}
+	// 6. PrivacyConsents
+	if err := tx.Delete(&domain.PrivacyConsent{}, "customer_id = ?", customerID).Error; err != nil {
+		return err
+	}
+	if len(c.PrivacyConsents) > 0 {
+		for i := range c.PrivacyConsents {
+			c.PrivacyConsents[i].CustomerID = customerID
+		}
+		if err := tx.Create(&c.PrivacyConsents).Error; err != nil {
+			return err
+		}
+	}
 
-return nil
+	return nil
 }
