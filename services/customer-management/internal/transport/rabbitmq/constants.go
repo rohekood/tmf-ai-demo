@@ -1,7 +1,7 @@
 package rabbitmq
 
 const (
-	CommandExchange    = "tmf.commands"
+	CommandExchange    = "tmf.customer"
 	EventExchange      = "tmf.events"
 	DeadLetterExchange = "tmf.dlx"
 	EventQueue         = "customer.events"

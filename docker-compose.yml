@@ -12,9 +12,14 @@ services:
       RABBITMQ_DEFAULT_PASS: guest
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15
     container_name: tmf-postgres
     ports:
       - "5432:5432"
@@ -24,6 +29,12 @@ services:
       POSTGRES_DB: tmf_party_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./scripts/db-init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   demo-ui:
     build:
@@ -45,7 +56,40 @@ services:
     environment:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
+
+  customer-management:
+    build:
+      context: ./services/customer-management
+      dockerfile: Dockerfile
+    container_name: tmf-customer-management
+    ports:
+      - "8081:8081"
+    environment:
+      - DB_URL=postgres://postgres:password@postgres:5432/tmf_customer_db?sslmode=disable
+      - RABBIT_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  party-management:
+    build:
+      context: ./services/party-management
+      dockerfile: Dockerfile
+    container_name: tmf-party-management
+    ports:
+      - "8082:8080"
+    environment:
+      - POSTGRES_URL=postgres://postgres:password@postgres:5432/tmf_party_db?sslmode=disable
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
 volumes:
   rabbitmq_data:

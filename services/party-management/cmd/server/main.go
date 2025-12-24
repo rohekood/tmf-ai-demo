@@ -102,33 +102,16 @@ func main() {
 	}()
 
 	// 7. Subscribe to Queues
-	// Command Handlers
-	listener.Listen(rabbitTransport.CmdPartyCreate, rabbitTransport.Chain(handlers.HandleCreateParty,
-		rabbitTransport.TracingMiddleware("party-management"),
-		rabbitTransport.AuthMiddleware(),
-		rabbitTransport.JWTMiddleware()))
-	listener.Listen(rabbitTransport.CmdPartyUpdate, rabbitTransport.Chain(handlers.HandleUpdateParty,
-		rabbitTransport.TracingMiddleware("party-management"),
-		rabbitTransport.AuthMiddleware(),
-		rabbitTransport.JWTMiddleware()))
-	listener.Listen(rabbitTransport.CmdPartyPatch, rabbitTransport.Chain(handlers.HandlePatchParty,
-		rabbitTransport.TracingMiddleware("party-management"),
-		rabbitTransport.AuthMiddleware(),
-		rabbitTransport.JWTMiddleware()))
-	listener.Listen(rabbitTransport.CmdPartyDelete, rabbitTransport.Chain(handlers.HandleDeleteParty,
-		rabbitTransport.TracingMiddleware("party-management"),
-		rabbitTransport.AuthMiddleware(),
-		rabbitTransport.JWTMiddleware()))
+	// Start listener in a goroutine
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// Query Handlers
-	listener.Listen(rabbitTransport.QueryPartyGet, rabbitTransport.Chain(handlers.HandleGetParty,
-		rabbitTransport.TracingMiddleware("party-management"),
-		rabbitTransport.AuthMiddleware(),
-		rabbitTransport.JWTMiddleware()))
-	listener.Listen(rabbitTransport.QueryPartySearch, rabbitTransport.Chain(handlers.HandleSearchParty,
-		rabbitTransport.TracingMiddleware("party-management"),
-		rabbitTransport.AuthMiddleware(),
-		rabbitTransport.JWTMiddleware()))
+	go func() {
+		if err := listener.Start(ctx, handlers); err != nil {
+			slog.Error("listener stopped", "error", err)
+			cancel()
+		}
+	}()
 
 	// Wait for termination signal
 	stop := make(chan os.Signal, 1)
@@ -140,7 +123,7 @@ func main() {
 	slog.Info("shutting down gracefully...")
 
 	// 8. Graceful Shutdown
-	listener.Close()
+	// Listener stops when context is cancelled or main exits
 	connMgr.Close()
 
 	slog.Info("service stopped")

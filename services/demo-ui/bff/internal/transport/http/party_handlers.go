@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -66,8 +67,9 @@ func (h *PartyHandler) SearchParties(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), defaultRPCTimeout)
 	defer cancel()
 
-	responseBytes, err := h.rpcClient.CallRPC(ctx, partyExchange, queryPartySearch, payload)
+	responseBytes, err := h.rpcClient.CallRPC(ctx, partyExchange, queryPartySearch, payload, getHeaders(r))
 	if err != nil {
+		slog.Error("error searching parties", "error", err)
 		http.Error(w, "Failed to search parties: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -89,8 +91,9 @@ func (h *PartyHandler) GetParty(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), defaultRPCTimeout)
 	defer cancel()
 
-	responseBytes, err := h.rpcClient.CallRPC(ctx, partyExchange, queryPartyGet, payload)
+	responseBytes, err := h.rpcClient.CallRPC(ctx, partyExchange, queryPartyGet, payload, getHeaders(r))
 	if err != nil {
+		slog.Error("error getting party", "error", err)
 		http.Error(w, "Failed to get party: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -118,8 +121,9 @@ func (h *PartyHandler) CreateParty(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), defaultRPCTimeout)
 	defer cancel()
 
-	responseBytes, err := h.rpcClient.CallRPC(ctx, partyExchange, cmdPartyCreate, payload)
+	responseBytes, err := h.rpcClient.CallRPC(ctx, partyExchange, cmdPartyCreate, payload, getHeaders(r))
 	if err != nil {
+		slog.Error("error creating party", "error", err)
 		http.Error(w, "Failed to create party: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -157,8 +161,9 @@ func (h *PartyHandler) UpdateParty(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), defaultRPCTimeout)
 	defer cancel()
 
-	responseBytes, err := h.rpcClient.CallRPC(ctx, partyExchange, cmdPartyUpdate, payload)
+	responseBytes, err := h.rpcClient.CallRPC(ctx, partyExchange, cmdPartyUpdate, payload, getHeaders(r))
 	if err != nil {
+		slog.Error("error updating party", "error", err)
 		http.Error(w, "Failed to update party: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -195,8 +200,9 @@ func (h *PartyHandler) PatchParty(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), defaultRPCTimeout)
 	defer cancel()
 
-	responseBytes, err := h.rpcClient.CallRPC(ctx, partyExchange, cmdPartyPatch, payload)
+	responseBytes, err := h.rpcClient.CallRPC(ctx, partyExchange, cmdPartyPatch, payload, getHeaders(r))
 	if err != nil {
+		slog.Error("error patching party", "error", err)
 		http.Error(w, "Failed to patch party: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -218,8 +224,9 @@ func (h *PartyHandler) DeleteParty(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), defaultRPCTimeout)
 	defer cancel()
 
-	_, err := h.rpcClient.CallRPC(ctx, partyExchange, cmdPartyDelete, payload)
+	_, err := h.rpcClient.CallRPC(ctx, partyExchange, cmdPartyDelete, payload, getHeaders(r))
 	if err != nil {
+		slog.Error("error deleting party", "error", err)
 		http.Error(w, "Failed to delete party: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
