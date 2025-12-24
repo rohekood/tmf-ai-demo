@@ -488,3 +488,53 @@ func TestIntegration_AuditTrail(t *testing.T) {
 	assert.Equal(t, userID, auditLog.UserName)
 	assert.Equal(t, "I", auditLog.Action)
 }
+
+func TestListener_Routing(t *testing.T) {
+	suite := setupTestSuite(t)
+
+	// Start Listener
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		err := suite.Listener.Start(ctx, suite.Handlers)
+		if err != nil && err != context.Canceled {
+			log.Printf("Listener stopped with error: %v", err)
+		}
+	}()
+
+	// Wait for listener to be ready (declaration of queues/exchanges)
+	time.Sleep(100 * time.Millisecond)
+
+	// Publish Command to Exchange
+	payload := CreatePartyPayload{
+		Type: "Individual",
+		Individual: &CreateIndividualPayload{
+			ID:         "route-ind-1",
+			GivenName:  "Routed",
+			FamilyName: "User",
+			Href:       "http://example.com/route-ind-1",
+		},
+	}
+	body, _ := json.Marshal(payload)
+
+	err := suite.channel.PublishWithContext(context.Background(), CommandExchange, CmdPartyCreate, false, false, amqp.Publishing{
+		ContentType: "application/json",
+		Headers:     amqp.Table{"Authorization": "Bearer test-token"},
+		Body:        body,
+	})
+	require.NoError(t, err)
+
+	// Verify DB (Retry a few times as it's async)
+	var saved *domain.Individual
+	for i := 0; i < 10; i++ {
+		saved, err = suite.Repo.GetIndividual(context.Background(), "route-ind-1")
+		if err == nil {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	require.NoError(t, err, "Failed to find routed individual in DB")
+	assert.Equal(t, "Routed", saved.GivenName)
+}

@@ -16,7 +16,7 @@ func TestPartyHandler_SearchParties(t *testing.T) {
 	handler := NewPartyHandler(mockClient)
 
 	t.Run("Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
 			if exchange != "tmf.party" || routingKey != "query.party.search" {
 				t.Errorf("Unexpected exchange or routing key: %s, %s", exchange, routingKey)
 			}
@@ -37,7 +37,7 @@ func TestPartyHandler_SearchParties(t *testing.T) {
 	})
 
 	t.Run("RPC Error", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
 			return nil, errors.New("RPC failed")
 		}
 
@@ -57,7 +57,7 @@ func TestPartyHandler_CreateParty(t *testing.T) {
 	handler := NewPartyHandler(mockClient)
 
 	t.Run("Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
 			if exchange != "tmf.party" || routingKey != "cmd.party.create" {
 				t.Errorf("Unexpected exchange or routing key: %s, %s", exchange, routingKey)
 			}
@@ -83,7 +83,7 @@ func TestPartyHandler_GetParty(t *testing.T) {
 	r.Get("/parties/{id}", handler.GetParty)
 
 	t.Run("Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
 			return []byte(`{"id":"123"}`), nil
 		}
 

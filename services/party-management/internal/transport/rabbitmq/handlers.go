@@ -17,6 +17,8 @@ const (
 	EventExchange      = "tmf.events"
 	DeadLetterExchange = "tmf.dlx"
 	DeadLetterQueue    = "party.dlq"
+	PartyQueue         = "party.commands"
+	CommandExchange    = "tmf.party"
 
 	// Commands
 	CmdPartyCreate = "cmd.party.create"
@@ -617,15 +619,15 @@ func (h *Handlers) mapRelatedParties(dtos []RelatedPartyDTO, partyID string) []d
 }
 
 func (h *Handlers) mapCharacteristics(dtos []CharacteristicDTO, partyID string) []domain.PartyCharacteristic {
-res := make([]domain.PartyCharacteristic, 0, len(dtos))
-for _, dto := range dtos {
-res = append(res, domain.PartyCharacteristic{
-ID:        dto.ID,
-PartyID:   partyID,
-Name:      dto.Name,
-Value:     dto.Value,
-ValueType: dto.ValueType,
-})
-}
-return res
+	res := make([]domain.PartyCharacteristic, 0, len(dtos))
+	for _, dto := range dtos {
+		res = append(res, domain.PartyCharacteristic{
+			ID:        dto.ID,
+			PartyID:   partyID,
+			Name:      dto.Name,
+			Value:     dto.Value,
+			ValueType: dto.ValueType,
+		})
+	}
+	return res
 }

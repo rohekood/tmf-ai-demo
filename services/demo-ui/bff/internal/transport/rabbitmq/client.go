@@ -99,7 +99,7 @@ func (c *Client) handleReplies(msgs <-chan amqp.Delivery) {
 }
 
 // CallRPC sends a request and waits for a response (RPC pattern)
-func (c *Client) CallRPC(ctx context.Context, exchange, routingKey string, payload interface{}) ([]byte, error) {
+func (c *Client) CallRPC(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
 	corrId := uuid.New().String()
 	replyChan := make(chan []byte, 1)
 
@@ -128,6 +128,7 @@ func (c *Client) CallRPC(ctx context.Context, exchange, routingKey string, paylo
 			CorrelationId: corrId,
 			ReplyTo:       c.replyQueue.Name,
 			Body:          body,
+			Headers:       headers,
 		})
 	if err != nil {
 		return nil, fmt.Errorf("failed publish: %w", err)

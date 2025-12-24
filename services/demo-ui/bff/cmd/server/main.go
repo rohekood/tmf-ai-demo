@@ -28,7 +28,7 @@ func main() {
 
 	// 3. CORS Configuration
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:80"}, // Allow UI
+		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:80", "http://localhost"}, // Allow UI
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},

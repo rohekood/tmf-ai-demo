@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -61,6 +62,18 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	})
 }
 
+func getHeaders(r *http.Request) map[string]interface{} {
+	headers := make(map[string]interface{})
+	if auth := r.Header.Get("Authorization"); auth != "" {
+		headers["Authorization"] = auth
+	}
+	// Extract user from context if available (set by Auth middleware)
+	if user, ok := r.Context().Value("user").(string); ok {
+		headers["user"] = user
+	}
+	return headers
+}
+
 // SearchCustomers handles GET /api/customers
 // Query params: name, status, partyId
 func (h *Handler) SearchCustomers(w http.ResponseWriter, r *http.Request) {
@@ -79,8 +92,9 @@ func (h *Handler) SearchCustomers(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), customerRPCTimeout)
 	defer cancel()
 
-	responseBytes, err := h.rpcClient.CallRPC(ctx, customerExchange, queryCustomerSearch, payload)
+	responseBytes, err := h.rpcClient.CallRPC(ctx, customerExchange, queryCustomerSearch, payload, getHeaders(r))
 	if err != nil {
+		slog.Error("error searching customers", "error", err)
 		http.Error(w, "Failed to search customers: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -102,8 +116,9 @@ func (h *Handler) GetCustomer(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), customerRPCTimeout)
 	defer cancel()
 
-	responseBytes, err := h.rpcClient.CallRPC(ctx, customerExchange, queryCustomerGet, payload)
+	responseBytes, err := h.rpcClient.CallRPC(ctx, customerExchange, queryCustomerGet, payload, getHeaders(r))
 	if err != nil {
+		slog.Error("error getting customer", "error", err)
 		http.Error(w, "Failed to get customer: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -130,8 +145,9 @@ func (h *Handler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), customerRPCTimeout)
 	defer cancel()
 
-	responseBytes, err := h.rpcClient.CallRPC(ctx, customerExchange, cmdCustomerOnboard, payload)
+	responseBytes, err := h.rpcClient.CallRPC(ctx, customerExchange, cmdCustomerOnboard, payload, getHeaders(r))
 	if err != nil {
+		slog.Error("error creating customer", "error", err)
 		http.Error(w, "Failed to create customer: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -168,8 +184,9 @@ func (h *Handler) UpdateCustomer(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), customerRPCTimeout)
 	defer cancel()
 
-	responseBytes, err := h.rpcClient.CallRPC(ctx, customerExchange, cmdCustomerUpdate, payload)
+	responseBytes, err := h.rpcClient.CallRPC(ctx, customerExchange, cmdCustomerUpdate, payload, getHeaders(r))
 	if err != nil {
+		slog.Error("error updating customer", "error", err)
 		http.Error(w, "Failed to update customer: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -191,8 +208,9 @@ func (h *Handler) DeleteCustomer(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), customerRPCTimeout)
 	defer cancel()
 
-	_, err := h.rpcClient.CallRPC(ctx, customerExchange, cmdCustomerDelete, payload)
+	_, err := h.rpcClient.CallRPC(ctx, customerExchange, cmdCustomerDelete, payload, getHeaders(r))
 	if err != nil {
+		slog.Error("error deleting customer", "error", err)
 		http.Error(w, "Failed to delete customer: "+err.Error(), http.StatusInternalServerError)
 		return
 	}

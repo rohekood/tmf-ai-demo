@@ -87,7 +87,7 @@ func TestClient_Integration(t *testing.T) {
 	defer cancel()
 
 	req := map[string]string{"data": "test"}
-	resBytes, err := client.CallRPC(ctx, exchange, routingKey, req)
+	resBytes, err := client.CallRPC(ctx, exchange, routingKey, req, nil)
 	if err != nil {
 		t.Fatalf("CallRPC failed: %v", err)
 	}
