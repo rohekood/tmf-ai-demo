@@ -42,6 +42,20 @@ The service manages the abstract concept of a **Party**, which has two concrete 
 *   Link parties to external systems (e.g., Legacy CRM ID, SSO ID).
 *   Essential for maintaining consistency across a brownfield landscape.
 
+### 8. Party Deletion Saga (Safe Deletion)
+In compliance with data integrity rules, a Party cannot be deleted if it is referenced by an active Customer. To ensure this without synchronous dependencies, a **Saga Pattern** is used.
+
+**Saga Flow:**
+1.  **Initiation**: `cmd.party.delete` is received.
+2.  **State Transition**: Party transitions to `DeletionPending` state.
+3.  **Validation Request**: `evt.party.deletion_initiated` is published.
+4.  **Listen for Outcome**:
+    *   **Cancel**: If `cmd.party.cancel_deletion` is received (from Customer Service), the Party reverts to `Active` state.
+    *   **Finalize**: If `cmd.party.finalize_deletion` is received (from Customer Service), the Party transitions to `Deleted` state.
+    *   **Race Condition Handling**: If a new Customer is created referencing this Party (`evt.customer.created`) while in `DeletionPending`, the deletion is automatically aborted and the Party reverts to `Active`.
+
+**Note**: "Deletion" in this context is a **Soft Delete**. The record status is updated to `Deleted`, but the data remains for audit/archival purposes unless a hard delete is explicitly requested (separate GDPR flow).
+
 ## Relationship to Customer Management (TMF629)
 It is crucial to distinguish between **Party** and **Customer**:
 *   **Party Management** concerns "Who are they?" (Identity).

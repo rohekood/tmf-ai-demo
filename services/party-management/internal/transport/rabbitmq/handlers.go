@@ -32,10 +32,18 @@ const (
 	QueryPartySearch = "query.party.search"
 
 	// Events
-	EvtPartyCreated     = "evt.party.created"
-	EvtPartyUpdated     = "evt.party.updated"
-	EvtPartyDeleted     = "evt.party.deleted"
-	EvtPartyStateChange = "evt.party.stateChange"
+	EvtPartyCreated           = "evt.party.created"
+	EvtPartyUpdated           = "evt.party.updated"
+	EvtPartyDeleted           = "evt.party.deleted"
+	EvtPartyStateChange       = "evt.party.stateChange"
+	EvtPartyDeletionInitiated = "evt.party.deletion_initiated"
+
+	// External Events
+	EvtCustomerCreated = "evt.customer.created"
+
+	// Saga Commands
+	CmdPartyFinalizeDeletion = "cmd.party.finalize_deletion"
+	CmdPartyCancelDeletion   = "cmd.party.cancel_deletion"
 )
 
 // Handlers manages command and query handling
@@ -555,16 +563,183 @@ func (h *Handlers) HandleDeleteParty(ctx context.Context, d amqp.Delivery) error
 		return domain.ErrIDRequired
 	}
 
-	if err := h.repo.DeleteParty(ctx, payload.ID); err != nil {
-		return fmt.Errorf("failed to delete party: %w", err)
+	// 1. Get current party
+	party, err := h.repo.GetParty(ctx, payload.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get party: %w", err)
 	}
 
-	h.publishEvent(ctx, EvtPartyDeleted, map[string]interface{}{
-		"id": payload.ID,
-	})
-	slog.Info("deleted party", "party_id", payload.ID)
+	// 2. Initiate Deletion (Saga Start)
+	// Update status to DeletionPending
+	oldStatus := party.Status
+	newStatus := string(domain.PartyStatusDeletionPending)
 
-	return h.replyTo(ctx, d, map[string]interface{}{})
+	if oldStatus == newStatus {
+		slog.Info("party deletion already pending", "party_id", payload.ID)
+		return h.replyTo(ctx, d, map[string]string{"status": "deletion_initiated"})
+	}
+
+	if party.Type == domain.PartyTypeIndividual {
+		ind, err := h.repo.GetIndividual(ctx, payload.ID)
+		if err != nil {
+			return err
+		}
+		ind.Status = newStatus
+		if err := h.repo.UpdateIndividual(ctx, ind); err != nil {
+			return fmt.Errorf("failed to update status to pending: %w", err)
+		}
+	} else {
+		org, err := h.repo.GetOrganization(ctx, payload.ID)
+		if err != nil {
+			return err
+		}
+		org.Status = newStatus
+		if err := h.repo.UpdateOrganization(ctx, org); err != nil {
+			return fmt.Errorf("failed to update status to pending: %w", err)
+		}
+	}
+
+	// 3. Publish Deletion Initiated Event
+	h.publishEvent(ctx, EvtPartyDeletionInitiated, map[string]interface{}{
+		"id":   payload.ID,
+		"type": party.Type,
+	})
+
+	// Also publish state change
+	h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
+		"id":       payload.ID,
+		"oldState": oldStatus,
+		"newState": newStatus,
+	})
+
+	slog.Info("party deletion initiated", "party_id", payload.ID)
+
+	return h.replyTo(ctx, d, map[string]string{"status": "deletion_initiated"})
+}
+
+func (h *Handlers) HandleFinalizeDeletion(ctx context.Context, d amqp.Delivery) error {
+	ctx = h.extractUser(ctx, d)
+	var payload DeletePartyPayload // Reusing payload structure as it has ID
+	if err := json.Unmarshal(d.Body, &payload); err != nil {
+		return fmt.Errorf("failed to unmarshal payload: %w", err)
+	}
+
+	party, err := h.repo.GetParty(ctx, payload.ID)
+	if err != nil {
+		return err
+	}
+
+	if party.Status != string(domain.PartyStatusDeletionPending) {
+		slog.Warn("skipping finalize deletion: party not in pending state", "id", payload.ID, "status", party.Status)
+		return nil
+	}
+
+	// Soft Delete: Update to "Deleted"
+	newStatus := string(domain.PartyStatusDeleted)
+
+	if party.Type == domain.PartyTypeIndividual {
+		ind, _ := h.repo.GetIndividual(ctx, payload.ID)
+		ind.Status = newStatus
+		h.repo.UpdateIndividual(ctx, ind)
+	} else {
+		org, _ := h.repo.GetOrganization(ctx, payload.ID)
+		org.Status = newStatus
+		h.repo.UpdateOrganization(ctx, org)
+	}
+
+	h.publishEvent(ctx, EvtPartyDeleted, map[string]interface{}{"id": payload.ID})
+	h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
+		"id":       payload.ID,
+		"oldState": domain.PartyStatusDeletionPending,
+		"newState": newStatus,
+	})
+
+	slog.Info("party deletion finalized (soft delete)", "id", payload.ID)
+	return nil
+}
+
+func (h *Handlers) HandleCancelDeletion(ctx context.Context, d amqp.Delivery) error {
+	ctx = h.extractUser(ctx, d)
+	var payload DeletePartyPayload
+	if err := json.Unmarshal(d.Body, &payload); err != nil {
+		return fmt.Errorf("failed to unmarshal payload: %w", err)
+	}
+
+	party, err := h.repo.GetParty(ctx, payload.ID)
+	if err != nil {
+		return err
+	}
+
+	if party.Status != string(domain.PartyStatusDeletionPending) {
+		return nil
+	}
+
+	// Revert to Active
+	newStatus := string(domain.PartyStatusActive)
+
+	if party.Type == domain.PartyTypeIndividual {
+		ind, _ := h.repo.GetIndividual(ctx, payload.ID)
+		ind.Status = newStatus
+		h.repo.UpdateIndividual(ctx, ind)
+	} else {
+		org, _ := h.repo.GetOrganization(ctx, payload.ID)
+		org.Status = newStatus
+		h.repo.UpdateOrganization(ctx, org)
+	}
+
+	h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
+		"id":       payload.ID,
+		"oldState": domain.PartyStatusDeletionPending,
+		"newState": newStatus,
+	})
+
+	slog.Info("party deletion cancelled", "id", payload.ID)
+	return nil
+}
+
+func (h *Handlers) HandleCustomerCreated(ctx context.Context, d amqp.Delivery) error {
+	var payload struct {
+		ID      string `json:"id"`
+		PartyID string `json:"partyId"`
+	}
+	if err := json.Unmarshal(d.Body, &payload); err != nil {
+		return err
+	}
+
+	if payload.PartyID == "" {
+		return nil
+	}
+
+	// Check if party is in deletion pending
+	party, err := h.repo.GetParty(ctx, payload.PartyID)
+	if err != nil {
+		// If not found, ignore
+		return nil
+	}
+
+	if party.Status == string(domain.PartyStatusDeletionPending) {
+		slog.Info("detecting race condition: customer created for pending deletion party. aborting deletion.", "party_id", payload.PartyID)
+
+		// Revert to Active
+		newStatus := string(domain.PartyStatusActive)
+		if party.Type == domain.PartyTypeIndividual {
+			ind, _ := h.repo.GetIndividual(ctx, payload.PartyID)
+			ind.Status = newStatus
+			h.repo.UpdateIndividual(ctx, ind)
+		} else {
+			org, _ := h.repo.GetOrganization(ctx, payload.PartyID)
+			org.Status = newStatus
+			h.repo.UpdateOrganization(ctx, org)
+		}
+
+		h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
+			"id":       payload.PartyID,
+			"oldState": domain.PartyStatusDeletionPending,
+			"newState": newStatus,
+		})
+	}
+
+	return nil
 }
 
 func (h *Handlers) HandleGetParty(ctx context.Context, d amqp.Delivery) error {
@@ -692,9 +867,16 @@ func (h *Handlers) replyTo(ctx context.Context, d amqp.Delivery, response interf
 		})
 }
 
+const (
+	AuthContextKey = "authorization"
+)
+
 func (h *Handlers) extractUser(ctx context.Context, d amqp.Delivery) context.Context {
 	if user, ok := d.Headers["user"].(string); ok && user != "" {
-		return context.WithValue(ctx, domain.UserContextKey, user)
+		ctx = context.WithValue(ctx, domain.UserContextKey, user)
+	}
+	if auth, ok := d.Headers["Authorization"].(string); ok && auth != "" {
+		ctx = context.WithValue(ctx, AuthContextKey, auth)
 	}
 	return ctx
 }

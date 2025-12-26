@@ -355,7 +355,7 @@ func TestIntegration_PatchParty(t *testing.T) {
 	assert.Equal(t, EvtPartyUpdated, evt1.RoutingKey)
 }
 
-func TestIntegration_DeleteParty(t *testing.T) {
+func TestIntegration_DeleteParty_StartsSaga(t *testing.T) {
 	suite := setupTestSuite(t)
 
 	// Create first
@@ -368,7 +368,7 @@ func TestIntegration_DeleteParty(t *testing.T) {
 			UpdatedAt: time.Now(),
 		},
 		GivenName:  "DeleteMe",
-		FamilyName: "Soon",
+		FamilyName: "Saga",
 	}
 	require.NoError(t, suite.Repo.CreateIndividual(context.Background(), ind))
 
@@ -379,14 +379,60 @@ func TestIntegration_DeleteParty(t *testing.T) {
 	err := suite.Handlers.HandleDeleteParty(context.Background(), amqp.Delivery{Body: body})
 	require.NoError(t, err)
 
-	// Verify DB - should not exist
-	_, err = suite.Repo.GetIndividual(context.Background(), "int-del-1")
-	assert.Error(t, err)
+	// Verify DB - should be DeletionPending
+	saved, err := suite.Repo.GetIndividual(context.Background(), "int-del-1")
+	require.NoError(t, err)
+	assert.Equal(t, "DeletionPending", saved.Status)
 
-	// Verify event
-	evt := suite.waitForEvent(t, 2*time.Second)
-	require.NotNil(t, evt)
-	assert.Equal(t, EvtPartyDeleted, evt.RoutingKey)
+	// Verify events
+	// 1. Deletion Initiated
+	evt1 := suite.waitForEvent(t, 2*time.Second)
+	require.NotNil(t, evt1, "Expected initiation event")
+	assert.Equal(t, EvtPartyDeletionInitiated, evt1.RoutingKey)
+
+	// 2. State Change
+	evt2 := suite.waitForEvent(t, 2*time.Second)
+	require.NotNil(t, evt2, "Expected state change event")
+	assert.Equal(t, EvtPartyStateChange, evt2.RoutingKey)
+}
+
+func TestIntegration_FinalizeDeletion(t *testing.T) {
+	suite := setupTestSuite(t)
+
+	// Create Pending Party
+	ind := &domain.Individual{
+		Party: domain.Party{
+			ID:        "int-final-1",
+			Type:      domain.PartyTypeIndividual,
+			Status:    "DeletionPending",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		GivenName:  "Finalize",
+		FamilyName: "Me",
+	}
+	require.NoError(t, suite.Repo.CreateIndividual(context.Background(), ind))
+
+	// Finalize via handler
+	payload := DeletePartyPayload{ID: "int-final-1"}
+	body, _ := json.Marshal(payload)
+
+	err := suite.Handlers.HandleFinalizeDeletion(context.Background(), amqp.Delivery{Body: body})
+	require.NoError(t, err)
+
+	// Verify DB - Status Deleted (Soft Delete)
+	saved, err := suite.Repo.GetIndividual(context.Background(), "int-final-1")
+	require.NoError(t, err)
+	assert.Equal(t, "Deleted", saved.Status)
+
+	// Verify events
+	evt1 := suite.waitForEvent(t, 2*time.Second)
+	require.NotNil(t, evt1)
+	assert.Equal(t, EvtPartyDeleted, evt1.RoutingKey)
+
+	evt2 := suite.waitForEvent(t, 2*time.Second)
+	require.NotNil(t, evt2)
+	assert.Equal(t, EvtPartyStateChange, evt2.RoutingKey)
 }
 
 func TestIntegration_GetParty(t *testing.T) {
@@ -703,4 +749,115 @@ func TestListener_Routing(t *testing.T) {
 
 	require.NoError(t, err, "Failed to find routed individual in DB")
 	assert.Equal(t, "Routed", saved.GivenName)
+}
+
+// Regression Test for Bug 1: Header Propagation
+func TestIntegration_HeaderPropagation(t *testing.T) {
+	suite := setupTestSuite(t)
+
+	// Setup: Mock Exchange/Queue to catch published event
+	ch, err := suite.Conn.Channel()
+	require.NoError(t, err)
+	defer ch.Close()
+
+	q, err := ch.QueueDeclare("", false, true, true, false, nil)
+	require.NoError(t, err)
+
+	err = ch.QueueBind(q.Name, EvtPartyDeletionInitiated, EventExchange, false, nil)
+	require.NoError(t, err)
+
+	msgs, err := ch.Consume(q.Name, "", true, true, false, false, nil)
+	require.NoError(t, err)
+
+	// Execute: HandleDelete with Auth Headers
+	ctx := context.Background()
+	// Simulate headers coming from AMQP
+	headers := amqp.Table{
+		"user":          "test-user",
+		"Authorization": "Bearer test-token",
+	}
+
+	// Create a party first
+	ind := &domain.Individual{
+		Party: domain.Party{
+			ID:        "prop-test-1",
+			Type:      domain.PartyTypeIndividual,
+			Status:    "Active",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		GivenName:  "Test",
+		FamilyName: "Prop",
+	}
+	require.NoError(t, suite.Repo.CreateIndividual(ctx, ind))
+
+	payload := DeletePartyPayload{ID: "prop-test-1"}
+	body, _ := json.Marshal(payload)
+
+	err = suite.Handlers.HandleDeleteParty(ctx, amqp.Delivery{
+		Body:    body,
+		Headers: headers,
+	})
+	require.NoError(t, err)
+
+	// Verify: Headers propagated to Event
+	select {
+	case msg := <-msgs:
+		assert.Equal(t, "test-user", msg.Headers["user"])
+		assert.Equal(t, "Bearer test-token", msg.Headers["Authorization"])
+	case <-time.After(2 * time.Second):
+		t.Fatal("Timeout waiting for event")
+	}
+}
+
+// Regression Test for Bug 2: Stuck Deletion / Idempotency
+func TestIntegration_DeleteParty_Idempotency(t *testing.T) {
+	suite := setupTestSuite(t)
+
+	// Setup: Party already in DeletionPending
+	ind := &domain.Individual{
+		Party: domain.Party{
+			ID:        "idemp-test-1",
+			Type:      domain.PartyTypeIndividual,
+			Status:    "DeletionPending", // Already pending
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		GivenName:  "Stuck",
+		FamilyName: "Delete",
+	}
+	require.NoError(t, suite.Repo.CreateIndividual(context.Background(), ind))
+
+	// Setup: Reply Queue
+	ch, err := suite.Conn.Channel()
+	require.NoError(t, err)
+	defer ch.Close()
+
+	replyQ, err := ch.QueueDeclare("", false, true, true, false, nil)
+	require.NoError(t, err)
+
+	msgs, err := ch.Consume(replyQ.Name, "", true, true, false, false, nil)
+	require.NoError(t, err)
+
+	// Execute: Call HandleDeleteParty again
+	payload := DeletePartyPayload{ID: "idemp-test-1"}
+	body, _ := json.Marshal(payload)
+
+	err = suite.Handlers.HandleDeleteParty(context.Background(), amqp.Delivery{
+		Body:          body,
+		ReplyTo:       replyQ.Name,
+		CorrelationId: "corr-idemp-1",
+	})
+	require.NoError(t, err)
+
+	// Verify: Should receive success reply (idempotent)
+	select {
+	case msg := <-msgs:
+		assert.Equal(t, "corr-idemp-1", msg.CorrelationId)
+		var resp map[string]string
+		json.Unmarshal(msg.Body, &resp)
+		assert.Equal(t, "deletion_initiated", resp["status"])
+	case <-time.After(2 * time.Second):
+		t.Fatal("Timeout waiting for reply")
+	}
 }

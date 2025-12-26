@@ -129,6 +129,7 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 	eventRoutingKeys := []string{
 		"evt.party.updated",
 		"evt.party.deleted",
+		"evt.party.deletion_initiated",
 	}
 
 	for _, rk := range eventRoutingKeys {
