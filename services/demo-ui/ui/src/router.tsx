@@ -1,6 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
-import { lazy, Suspense, type ReactNode } from 'react';
+import { lazy, Suspense } from 'react';
 
 // Lazy load pages for code splitting
 const PartyListPage = lazy(() => import('./features/parties/PartyListPage'));
@@ -15,14 +15,7 @@ const CustomerEditPage = lazy(() => import('./features/customers/CustomerEditPag
 const DebugConsolePage = lazy(() => import('./features/debug/DebugConsolePage'));
 
 // Loading fallback component
-function PageLoader(): ReactNode {
-    return (
-        <div className="page-loader">
-            <div className="loader-spinner"></div>
-            <p>Loading...</p>
-        </div>
-    );
-}
+import { PageLoader } from './components/common/PageLoader';
 
 export const router = createBrowserRouter([
     {

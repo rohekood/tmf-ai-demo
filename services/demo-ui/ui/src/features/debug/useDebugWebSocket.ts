@@ -16,28 +16,38 @@ export function useDebugWebSocket() {
     const [error, setError] = useState<string | null>(null);
     const wsRef = useRef<WebSocket | null>(null);
 
+    const connectRef = useRef<() => void>(undefined);
+
     const connect = useCallback(() => {
         try {
             const url = getWebSocketUrl();
+            console.log('Connecting to Debug WebSocket:', url);
             const ws = new WebSocket(url);
 
             ws.onopen = () => {
-                setIsConnected(true);
-                setError(null);
                 console.log('Debug WebSocket connected');
+                setIsConnected(true);
+                setError(null); // Keep this to clear error on successful connection
             };
 
             ws.onmessage = (event) => {
                 try {
-                    const msg = JSON.parse(event.data);
-                    // Handle single message or array (if batched/buffered)
-                    if (Array.isArray(msg)) {
-                        setMessages((prev) => [...msg, ...prev].slice(0, 1000)); // Keep last 1000
-                    } else {
-                        setMessages((prev) => [msg, ...prev].slice(0, 1000));
+                    const message: DebugMessage = JSON.parse(event.data);
+                    // Add unique ID if missing
+                    if (!message.id) {
+                        message.id = crypto.randomUUID();
                     }
-                } catch (e) {
-                    console.error('Failed to parse websocket message:', e);
+                    // Add timestamp if missing
+                    if (!message.timestamp) {
+                        message.timestamp = new Date().toISOString();
+                    }
+
+                    setMessages((prev) => {
+                        const newMessages = [message, ...prev].slice(0, 100); // Keep last 100
+                        return newMessages;
+                    });
+                } catch (err) {
+                    console.error('Failed to parse websocket message:', err);
                 }
             };
 
@@ -45,25 +55,44 @@ export function useDebugWebSocket() {
                 setIsConnected(false);
                 console.log('Debug WebSocket disconnected');
                 // Auto-reconnect after 3s
-                setTimeout(connect, 3000);
+                setTimeout(() => {
+                    if (connectRef.current) {
+                        connectRef.current();
+                    }
+                }, 3000);
             };
 
             ws.onerror = (e) => {
                 console.error('WebSocket error:', e);
-                setError('Connection error');
+                setError('Connection error'); // Keep this to show error
                 ws.close();
             };
 
             wsRef.current = ws;
-        } catch (e) {
-            console.error('Failed to create WebSocket:', e);
-            setError('Failed to create WebSocket connection');
+        } catch (err) {
+            console.error('Failed to create WebSocket connection:', err);
+            setError('Failed to create WebSocket connection'); // Keep this to show error
+            // Retry on connection error
+            setTimeout(() => {
+                if (connectRef.current) {
+                    connectRef.current();
+                }
+            }, 3000);
         }
     }, []);
 
+    // Update ref whenever connect changes (which is stable here, but good practice)
     useEffect(() => {
-        connect();
+        connectRef.current = connect;
+    }, [connect]);
+
+    useEffect(() => {
+        // Defer connection to avoid synchronous state updates during effect execution
+        const timer = setTimeout(() => {
+            connect();
+        }, 0);
         return () => {
+            clearTimeout(timer);
             wsRef.current?.close();
         };
     }, [connect]);

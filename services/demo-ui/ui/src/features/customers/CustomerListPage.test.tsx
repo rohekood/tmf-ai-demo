@@ -3,11 +3,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import CustomerListPage from './CustomerListPage';
 import { MemoryRouter } from 'react-router-dom';
 import * as api from './api';
+import { type Customer } from './types';
 
 // Mock the hooks
 vi.mock('./api');
 
-const mockCustomers = [
+const mockCustomers: Customer[] = [
     {
         id: '1',
         name: 'John Doe',
@@ -22,25 +23,30 @@ const mockCustomers = [
         status: 'prospecting',
         partyId: 'p2',
         partyName: 'Jane Party',
-        accounts: [{ id: 'a1' }]
+        accounts: [{
+            id: 'a1',
+            name: 'Primary Account',
+            accountStatus: 'active',
+            accountType: 'postpaid'
+        }]
     }
 ];
 
 describe('CustomerListPage', () => {
     beforeEach(() => {
         vi.resetAllMocks();
-        (api.useDeleteCustomer as any).mockReturnValue({
+        vi.mocked(api.useDeleteCustomer).mockReturnValue({
             mutate: vi.fn(),
             isPending: false
-        });
+        } as unknown as ReturnType<typeof api.useDeleteCustomer>);
     });
 
     it('renders loading state', () => {
-        (api.useCustomers as any).mockReturnValue({
+        vi.mocked(api.useCustomers).mockReturnValue({
             data: undefined,
             isLoading: true,
             error: null
-        });
+        } as unknown as ReturnType<typeof api.useCustomers>);
 
         render(
             <MemoryRouter>
@@ -51,11 +57,11 @@ describe('CustomerListPage', () => {
     });
 
     it('renders customer list', () => {
-        (api.useCustomers as any).mockReturnValue({
+        vi.mocked(api.useCustomers).mockReturnValue({
             data: mockCustomers,
             isLoading: false,
             error: null
-        });
+        } as unknown as ReturnType<typeof api.useCustomers>);
 
         render(
             <MemoryRouter>
@@ -76,11 +82,11 @@ describe('CustomerListPage', () => {
     });
 
     it('renders empty state', () => {
-        (api.useCustomers as any).mockReturnValue({
+        vi.mocked(api.useCustomers).mockReturnValue({
             data: [],
             isLoading: false,
             error: null
-        });
+        } as unknown as ReturnType<typeof api.useCustomers>);
 
         render(
             <MemoryRouter>

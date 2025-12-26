@@ -5,7 +5,7 @@ export interface DebugMessage {
     topic: string;
     correlationId?: string;
     replyTo?: string;
-    payload: Record<string, any>;
+    payload: Record<string, unknown>;
     service: string;
 }
 

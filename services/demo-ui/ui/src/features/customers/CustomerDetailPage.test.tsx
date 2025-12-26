@@ -3,16 +3,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import CustomerDetailPage from './CustomerDetailPage';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import * as api from './api';
+import { type Customer } from './types';
 
 vi.mock('./api');
 
-const mockCustomer = {
+const mockCustomer: Customer = {
     id: 'c1',
     name: 'Test Customer',
     status: 'active',
     partyId: 'p1',
     partyName: 'Test Party',
     creditProfile: {
+        id: 'cp1',
         creditScore: 750,
         creditRiskScore: 10
     },
@@ -20,24 +22,26 @@ const mockCustomer = {
         { id: 'a1', name: 'Main Account', accountType: 'postpaid', accountStatus: 'active' }
     ],
     privacyConsents: [],
-    taxExemptions: []
+    taxExemptions: [],
+    characteristics: [],
+    contactMediums: []
 };
 
 describe('CustomerDetailPage', () => {
     beforeEach(() => {
         vi.resetAllMocks();
-        (api.useDeleteCustomer as any).mockReturnValue({
+        vi.mocked(api.useDeleteCustomer).mockReturnValue({
             mutate: vi.fn(),
             isPending: false
-        });
+        } as unknown as ReturnType<typeof api.useDeleteCustomer>);
     });
 
     it('renders loading state', () => {
-        (api.useCustomer as any).mockReturnValue({
+        vi.mocked(api.useCustomer).mockReturnValue({
             data: undefined,
             isLoading: true,
             error: null
-        });
+        } as unknown as ReturnType<typeof api.useCustomer>);
 
         render(
             <MemoryRouter initialEntries={['/customers/c1']}>
@@ -51,11 +55,11 @@ describe('CustomerDetailPage', () => {
     });
 
     it('renders customer details', () => {
-        (api.useCustomer as any).mockReturnValue({
+        vi.mocked(api.useCustomer).mockReturnValue({
             data: mockCustomer,
             isLoading: false,
             error: null
-        });
+        } as unknown as ReturnType<typeof api.useCustomer>);
 
         render(
             <MemoryRouter initialEntries={['/customers/c1']}>
@@ -74,11 +78,11 @@ describe('CustomerDetailPage', () => {
     });
 
     it('renders error state', () => {
-        (api.useCustomer as any).mockReturnValue({
+        vi.mocked(api.useCustomer).mockReturnValue({
             data: undefined,
             isLoading: false,
-            error: { message: 'Not found' }
-        });
+            error: { message: 'Not found', name: 'Error' }
+        } as unknown as ReturnType<typeof api.useCustomer>);
 
         render(
             <MemoryRouter initialEntries={['/customers/c1']}>

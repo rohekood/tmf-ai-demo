@@ -3,43 +3,44 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import PartyListPage from './PartyListPage';
 import { MemoryRouter } from 'react-router-dom';
 import * as api from './api';
+import { type Individual, type Organization } from './types';
 
 // Mock hooks
 vi.mock('./api');
 
-const mockParties = [
+const mockParties: (Individual | Organization)[] = [
     {
         id: 'p1',
         '@type': 'Individual',
         givenName: 'John',
         familyName: 'Doe',
-        status: 'Active',
+        status: 'active',
         identifications: []
-    },
+    } as Individual,
     {
         id: 'p2',
         '@type': 'Organization',
         tradingName: 'Acme Corp',
-        status: 'Active',
+        status: 'active',
         identifications: [{ identificationType: 'taxNr', identificationId: '123' }]
-    }
+    } as Organization
 ];
 
 describe('PartyListPage', () => {
     beforeEach(() => {
         vi.resetAllMocks();
-        (api.useDeleteParty as any).mockReturnValue({
+        vi.mocked(api.useDeleteParty).mockReturnValue({
             mutate: vi.fn(),
             isPending: false
-        });
+        } as unknown as ReturnType<typeof api.useDeleteParty>);
     });
 
     it('renders loading state', () => {
-        (api.useParties as any).mockReturnValue({
+        vi.mocked(api.useParties).mockReturnValue({
             data: undefined,
             isLoading: true,
             error: null
-        });
+        } as unknown as ReturnType<typeof api.useParties>);
 
         render(
             <MemoryRouter>
@@ -50,11 +51,11 @@ describe('PartyListPage', () => {
     });
 
     it('renders party list', () => {
-        (api.useParties as any).mockReturnValue({
+        vi.mocked(api.useParties).mockReturnValue({
             data: mockParties,
             isLoading: false,
             error: null
-        });
+        } as unknown as ReturnType<typeof api.useParties>);
 
         render(
             <MemoryRouter>
@@ -80,11 +81,11 @@ describe('PartyListPage', () => {
     });
 
     it('renders empty state', () => {
-        (api.useParties as any).mockReturnValue({
+        vi.mocked(api.useParties).mockReturnValue({
             data: [],
             isLoading: false,
             error: null
-        });
+        } as unknown as ReturnType<typeof api.useParties>);
 
         render(
             <MemoryRouter>
