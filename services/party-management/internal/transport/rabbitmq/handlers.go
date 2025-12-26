@@ -592,7 +592,31 @@ func (h *Handlers) HandleSearchParty(ctx context.Context, d amqp.Delivery) error
 		return h.replyTo(ctx, d, map[string]string{"error": err.Error()})
 	}
 
-	return h.replyTo(ctx, d, parties)
+	// Fetch full details for each party (Individual or Organization)
+	result := make([]interface{}, 0, len(parties))
+	for _, party := range parties {
+		if party.Type == domain.PartyTypeIndividual {
+			ind, err := h.repo.GetIndividual(ctx, party.ID)
+			if err != nil {
+				slog.Warn("failed to get individual details", "id", party.ID, "error", err)
+				result = append(result, party) // fallback to base party
+				continue
+			}
+			result = append(result, ind)
+		} else if party.Type == domain.PartyTypeOrganization {
+			org, err := h.repo.GetOrganization(ctx, party.ID)
+			if err != nil {
+				slog.Warn("failed to get organization details", "id", party.ID, "error", err)
+				result = append(result, party) // fallback to base party
+				continue
+			}
+			result = append(result, org)
+		} else {
+			result = append(result, party)
+		}
+	}
+
+	return h.replyTo(ctx, d, result)
 }
 
 // --- Helpers ---

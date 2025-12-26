@@ -145,3 +145,106 @@ func TestHandleDeleteParty(t *testing.T) {
 	assert.NoError(t, err)
 	mockRepo.AssertCalled(t, "DeleteParty", ctx, "delete-test-1")
 }
+
+func TestHandleSearchParty_ReturnsCompleteIndividualData(t *testing.T) {
+	mockRepo := new(MockRepository)
+	h := NewHandlers(mockRepo, nil)
+
+	ctx := context.Background()
+
+	// Mock SearchParties to return base Party objects
+	baseParties := []domain.Party{
+		{ID: "ind-1", Type: domain.PartyTypeIndividual, Status: "Active"},
+		{ID: "ind-2", Type: domain.PartyTypeIndividual, Status: "Active"},
+	}
+	mockRepo.On("SearchParties", ctx, mock.Anything).Return(baseParties, nil)
+
+	// Mock GetIndividual to return full Individual objects with givenName/familyName
+	mockRepo.On("GetIndividual", ctx, "ind-1").Return(&domain.Individual{
+		Party:      domain.Party{ID: "ind-1", Type: domain.PartyTypeIndividual, Status: "Active"},
+		GivenName:  "John",
+		FamilyName: "Doe",
+	}, nil)
+	mockRepo.On("GetIndividual", ctx, "ind-2").Return(&domain.Individual{
+		Party:      domain.Party{ID: "ind-2", Type: domain.PartyTypeIndividual, Status: "Active"},
+		GivenName:  "Jane",
+		FamilyName: "Smith",
+	}, nil)
+
+	payload := SearchPartyPayload{}
+	body, _ := json.Marshal(payload)
+
+	delivery := amqp.Delivery{Body: body}
+	err := h.HandleSearchParty(ctx, delivery)
+
+	assert.NoError(t, err)
+	// Verify that GetIndividual was called for each party to fetch full details
+	mockRepo.AssertCalled(t, "GetIndividual", ctx, "ind-1")
+	mockRepo.AssertCalled(t, "GetIndividual", ctx, "ind-2")
+}
+
+func TestHandleSearchParty_ReturnsCompleteOrganizationData(t *testing.T) {
+	mockRepo := new(MockRepository)
+	h := NewHandlers(mockRepo, nil)
+
+	ctx := context.Background()
+
+	// Mock SearchParties to return base Party objects
+	baseParties := []domain.Party{
+		{ID: "org-1", Type: domain.PartyTypeOrganization, Status: "Active"},
+	}
+	mockRepo.On("SearchParties", ctx, mock.Anything).Return(baseParties, nil)
+
+	// Mock GetOrganization to return full Organization object with tradingName
+	mockRepo.On("GetOrganization", ctx, "org-1").Return(&domain.Organization{
+		Party:         domain.Party{ID: "org-1", Type: domain.PartyTypeOrganization, Status: "Active"},
+		TradingName:   "Acme Corp",
+		IsLegalEntity: true,
+	}, nil)
+
+	payload := SearchPartyPayload{}
+	body, _ := json.Marshal(payload)
+
+	delivery := amqp.Delivery{Body: body}
+	err := h.HandleSearchParty(ctx, delivery)
+
+	assert.NoError(t, err)
+	// Verify that GetOrganization was called to fetch full details
+	mockRepo.AssertCalled(t, "GetOrganization", ctx, "org-1")
+}
+
+func TestHandleSearchParty_MixedTypes(t *testing.T) {
+	mockRepo := new(MockRepository)
+	h := NewHandlers(mockRepo, nil)
+
+	ctx := context.Background()
+
+	// Mock SearchParties to return mixed party types
+	baseParties := []domain.Party{
+		{ID: "ind-1", Type: domain.PartyTypeIndividual, Status: "Active"},
+		{ID: "org-1", Type: domain.PartyTypeOrganization, Status: "Active"},
+	}
+	mockRepo.On("SearchParties", ctx, mock.Anything).Return(baseParties, nil)
+
+	// Mock GetIndividual and GetOrganization
+	mockRepo.On("GetIndividual", ctx, "ind-1").Return(&domain.Individual{
+		Party:      domain.Party{ID: "ind-1", Type: domain.PartyTypeIndividual, Status: "Active"},
+		GivenName:  "John",
+		FamilyName: "Doe",
+	}, nil)
+	mockRepo.On("GetOrganization", ctx, "org-1").Return(&domain.Organization{
+		Party:         domain.Party{ID: "org-1", Type: domain.PartyTypeOrganization, Status: "Active"},
+		TradingName:   "Acme Corp",
+		IsLegalEntity: true,
+	}, nil)
+
+	payload := SearchPartyPayload{}
+	body, _ := json.Marshal(payload)
+
+	delivery := amqp.Delivery{Body: body}
+	err := h.HandleSearchParty(ctx, delivery)
+
+	assert.NoError(t, err)
+	mockRepo.AssertCalled(t, "GetIndividual", ctx, "ind-1")
+	mockRepo.AssertCalled(t, "GetOrganization", ctx, "org-1")
+}
