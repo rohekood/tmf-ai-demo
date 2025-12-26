@@ -356,9 +356,9 @@ The BFF needs to:
 ┌─────────────────────────────────────────────────────────────────────┐
 │ Debug Console                                    [Connected 🟢]     │
 ├─────────────────────────────────────────────────────────────────────┤
-│ Filters: [All Services ▼] [All Types ▼] [Search Topic... ]         │
+│ Filters: [All Services ▼] [All Types ▼] [Search Topic... ]          │
 ├──────────────────────────────────────────────┬──────────────────────┤
-│ Message Feed                                  │ Message Detail       │
+│ Message Feed                                 │ Message Detail       │
 │──────────────────────────────────────────────│──────────────────────│
 │ 16:25:03 → cmd.party.create        [COMMAND] │ {                    │
 │ 16:25:03 ← evt.party.created       [EVENT]   │   "id": "uuid-123",  │

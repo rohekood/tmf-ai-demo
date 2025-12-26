@@ -1,7 +1,7 @@
 export interface DebugMessage {
     id: string;
     timestamp: string;
-    type: 'command' | 'event' | 'query' | 'unknown';
+    type: 'command' | 'event' | 'query' | 'reply' | 'unknown';
     topic: string;
     correlationId?: string;
     replyTo?: string;

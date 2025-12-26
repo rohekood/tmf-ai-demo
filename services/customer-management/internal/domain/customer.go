@@ -3,6 +3,9 @@ package domain
 import (
 	"context"
 	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type contextKey string
@@ -30,12 +33,12 @@ type Customer struct {
 	PartyType       string                   `json:"partyType"` // Individual or Organization
 	CreatedAt       time.Time                `json:"createdAt"`
 	UpdatedAt       time.Time                `json:"updatedAt"`
-	Accounts        []CustomerAccount        `gorm:"foreignKey:CustomerID" json:"accounts,omitempty"`
-	CreditProfiles  []CreditProfile          `gorm:"foreignKey:CustomerID" json:"creditProfiles,omitempty"`
-	ContactMediums  []ContactMedium          `gorm:"foreignKey:CustomerID" json:"contactMediums,omitempty"`
-	Characteristics []CustomerCharacteristic `gorm:"foreignKey:CustomerID" json:"characteristics,omitempty"`
-	TaxExemptions   []TaxExemption           `gorm:"foreignKey:CustomerID" json:"taxExemptions,omitempty"`
-	PrivacyConsents []PrivacyConsent         `gorm:"foreignKey:CustomerID" json:"privacyConsents,omitempty"`
+	Accounts        []CustomerAccount        `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"accounts,omitempty"`
+	CreditProfiles  []CreditProfile          `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"creditProfiles,omitempty"`
+	ContactMediums  []ContactMedium          `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"contactMediums,omitempty"`
+	Characteristics []CustomerCharacteristic `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"characteristics,omitempty"`
+	TaxExemptions   []TaxExemption           `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"taxExemptions,omitempty"`
+	PrivacyConsents []PrivacyConsent         `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"privacyConsents,omitempty"`
 }
 
 func (Customer) TableName() string {
@@ -71,6 +74,13 @@ func (CustomerAccount) TableName() string {
 	return "customer_accounts"
 }
 
+func (c *CustomerAccount) BeforeCreate(tx *gorm.DB) error {
+	if c.ID == "" {
+		c.ID = uuid.New().String()
+	}
+	return nil
+}
+
 // CreditProfile provides information regarding the customer's creditworthiness.
 type CreditProfile struct {
 	ID                string     `gorm:"primaryKey" json:"id"`
@@ -86,6 +96,13 @@ type CreditProfile struct {
 
 func (CreditProfile) TableName() string {
 	return "credit_profiles"
+}
+
+func (c *CreditProfile) BeforeCreate(tx *gorm.DB) error {
+	if c.ID == "" {
+		c.ID = uuid.New().String()
+	}
+	return nil
 }
 
 // ContactMedium represents customer-specific contact information.
@@ -111,6 +128,13 @@ func (ContactMedium) TableName() string {
 	return "contact_mediums"
 }
 
+func (c *ContactMedium) BeforeCreate(tx *gorm.DB) error {
+	if c.ID == "" {
+		c.ID = uuid.New().String()
+	}
+	return nil
+}
+
 // CustomerCharacteristic represents a dynamic attribute of a customer.
 type CustomerCharacteristic struct {
 	ID         string    `gorm:"primaryKey" json:"id"`
@@ -124,6 +148,13 @@ type CustomerCharacteristic struct {
 
 func (CustomerCharacteristic) TableName() string {
 	return "customer_characteristics"
+}
+
+func (c *CustomerCharacteristic) BeforeCreate(tx *gorm.DB) error {
+	if c.ID == "" {
+		c.ID = uuid.New().String()
+	}
+	return nil
 }
 
 type TaxExemption struct {
@@ -141,6 +172,13 @@ func (TaxExemption) TableName() string {
 	return "tax_exemptions"
 }
 
+func (t *TaxExemption) BeforeCreate(tx *gorm.DB) error {
+	if t.ID == "" {
+		t.ID = uuid.New().String()
+	}
+	return nil
+}
+
 type PrivacyConsent struct {
 	ID            string     `gorm:"primaryKey" json:"id"`
 	CustomerID    string     `gorm:"not null;index" json:"customerId"`
@@ -154,6 +192,13 @@ type PrivacyConsent struct {
 
 func (PrivacyConsent) TableName() string {
 	return "privacy_consents"
+}
+
+func (p *PrivacyConsent) BeforeCreate(tx *gorm.DB) error {
+	if p.ID == "" {
+		p.ID = uuid.New().String()
+	}
+	return nil
 }
 
 // Repository defines the interface for Customer storage.

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
 import type { DebugMessage } from './types';
 
 // Use correct WebSocket URL based on current origin
@@ -11,23 +12,34 @@ const getWebSocketUrl = () => {
 };
 
 export function useDebugWebSocket() {
+    const { getAccessTokenSilently, isAuthenticated } = useAuth0();
     const [messages, setMessages] = useState<DebugMessage[]>([]);
     const [isConnected, setIsConnected] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const wsRef = useRef<WebSocket | null>(null);
-
     const connectRef = useRef<() => void>(undefined);
 
-    const connect = useCallback(() => {
+    const connect = useCallback(async () => {
+        // Wait for authentication
+        if (!isAuthenticated) {
+            console.log('Not authenticated, skipping WebSocket connection');
+            return;
+        }
+
         try {
+            // Get the access token from Auth0
+            const token = await getAccessTokenSilently();
             const url = getWebSocketUrl();
             console.log('Connecting to Debug WebSocket:', url);
-            const ws = new WebSocket(url);
+
+            // Pass JWT via Sec-WebSocket-Protocol header
+            // Format: "access_token.BASE64_JWT"
+            const ws = new WebSocket(url, [`access_token.${token}`]);
 
             ws.onopen = () => {
                 console.log('Debug WebSocket connected');
                 setIsConnected(true);
-                setError(null); // Keep this to clear error on successful connection
+                setError(null);
             };
 
             ws.onmessage = (event) => {
@@ -64,14 +76,14 @@ export function useDebugWebSocket() {
 
             ws.onerror = (e) => {
                 console.error('WebSocket error:', e);
-                setError('Connection error'); // Keep this to show error
+                setError('Connection error');
                 ws.close();
             };
 
             wsRef.current = ws;
         } catch (err) {
             console.error('Failed to create WebSocket connection:', err);
-            setError('Failed to create WebSocket connection'); // Keep this to show error
+            setError('Failed to create WebSocket connection');
             // Retry on connection error
             setTimeout(() => {
                 if (connectRef.current) {
@@ -79,9 +91,9 @@ export function useDebugWebSocket() {
                 }
             }, 3000);
         }
-    }, []);
+    }, [getAccessTokenSilently, isAuthenticated]);
 
-    // Update ref whenever connect changes (which is stable here, but good practice)
+    // Update ref whenever connect changes
     useEffect(() => {
         connectRef.current = connect;
     }, [connect]);

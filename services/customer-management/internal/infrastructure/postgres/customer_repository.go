@@ -63,18 +63,47 @@ func (r *CustomerRepository) UpdateCustomer(ctx context.Context, c *domain.Custo
 
 func (r *CustomerRepository) PatchCustomer(ctx context.Context, id string, updates map[string]interface{}) error {
 	return r.withUser(ctx, func(tx *gorm.DB) error {
+
 		// Handle associations separately
 		if taxes, ok := updates["tax_exemptions"]; ok {
+			// Explicitly delete old ones first to avoid "nullify FK" error
+			if err := tx.Delete(&domain.TaxExemption{}, "customer_id = ?", id).Error; err != nil {
+				return fmt.Errorf("failed to delete old tax exemptions: %w", err)
+			}
+			// Create new ones (if any)
+			// We need to cast back to the slice to ensure GORM handles it right, or just use Create
+			// The incoming 'taxes' is likely []domain.TaxExemption or []interface{} from handlers
 			if err := tx.Model(&domain.Customer{ID: id}).Association("TaxExemptions").Replace(taxes); err != nil {
-				return fmt.Errorf("failed to update tax exemptions: %w", err)
+				return fmt.Errorf("failed to replace tax exemptions: %w", err)
 			}
 			delete(updates, "tax_exemptions")
 		}
 		if privacy, ok := updates["privacy_consents"]; ok {
+			if err := tx.Delete(&domain.PrivacyConsent{}, "customer_id = ?", id).Error; err != nil {
+				return fmt.Errorf("failed to delete old privacy consents: %w", err)
+			}
 			if err := tx.Model(&domain.Customer{ID: id}).Association("PrivacyConsents").Replace(privacy); err != nil {
-				return fmt.Errorf("failed to update privacy consents: %w", err)
+				return fmt.Errorf("failed to replace privacy consents: %w", err)
 			}
 			delete(updates, "privacy_consents")
+		}
+		if accounts, ok := updates["accounts"]; ok {
+			if err := tx.Delete(&domain.CustomerAccount{}, "customer_id = ?", id).Error; err != nil {
+				return fmt.Errorf("failed to delete old accounts: %w", err)
+			}
+			if err := tx.Model(&domain.Customer{ID: id}).Association("Accounts").Replace(accounts); err != nil {
+				return fmt.Errorf("failed to replace accounts: %w", err)
+			}
+			delete(updates, "accounts")
+		}
+		if creditProfiles, ok := updates["credit_profiles"]; ok {
+			if err := tx.Delete(&domain.CreditProfile{}, "customer_id = ?", id).Error; err != nil {
+				return fmt.Errorf("failed to delete old credit profiles: %w", err)
+			}
+			if err := tx.Model(&domain.Customer{ID: id}).Association("CreditProfiles").Replace(creditProfiles); err != nil {
+				return fmt.Errorf("failed to replace credit profiles: %w", err)
+			}
+			delete(updates, "credit_profiles")
 		}
 
 		// Update scalar fields if any remain
@@ -106,14 +135,19 @@ func (r *CustomerRepository) DeleteCustomer(ctx context.Context, id string) erro
 
 func (r *CustomerRepository) SearchCustomers(ctx context.Context, criteria map[string]interface{}) ([]domain.Customer, error) {
 	var customers []domain.Customer
-	query := r.db.WithContext(ctx)
+	query := r.db.WithContext(ctx).Preload("Accounts")
 
 	for key, value := range criteria {
 		switch key {
 		case "id":
 			query = query.Where("id = ?", value)
+		case "search":
+			// Generic search across multiple fields
+			searchTerm := "%" + value.(string) + "%"
+			query = query.Where("(name ILIKE ? OR status ILIKE ? OR party_id = ? OR party_type ILIKE ?)",
+				searchTerm, searchTerm, value, searchTerm)
 		case "name":
-			query = query.Where("name = ?", value)
+			query = query.Where("name ILIKE ?", "%"+value.(string)+"%")
 		case "status":
 			query = query.Where("status = ?", value)
 		case "party_id":

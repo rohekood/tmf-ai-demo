@@ -1,11 +1,15 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
+
+	"tmf/services/demo-ui/bff/internal/auth"
 
 	"github.com/gorilla/websocket"
 )
@@ -16,6 +20,7 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true // Allow all origins for demo purposes
 	},
+	// Subprotocols will be handled manually in ServeWs
 }
 
 // Client represents a connected WebSocket client
@@ -39,6 +44,8 @@ type Hub struct {
 	buffer      [][]byte
 	bufferMutex sync.RWMutex
 	bufferSize  int
+	// Token validator for JWT authentication
+	tokenValidator auth.TokenValidator
 }
 
 func NewHub() *Hub {
@@ -50,6 +57,11 @@ func NewHub() *Hub {
 		buffer:     make([][]byte, 0, 50), // Keep last 50 messages
 		bufferSize: 50,
 	}
+}
+
+// SetTokenValidator sets the JWT token validator for WebSocket authentication
+func (h *Hub) SetTokenValidator(v auth.TokenValidator) {
+	h.tokenValidator = v
 }
 
 func (h *Hub) Run() {
@@ -113,8 +125,51 @@ func (h *Hub) Broadcast(msg interface{}) {
 }
 
 // ServeWs handles websocket requests from peers
+// Validates JWT from Sec-WebSocket-Protocol header before upgrading
 func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+	// Extract JWT from Sec-WebSocket-Protocol header
+	// Format: "access_token.BASE64_JWT"
+	protocols := websocket.Subprotocols(r)
+	var token string
+	var selectedProtocol string
+
+	for _, p := range protocols {
+		if strings.HasPrefix(p, "access_token.") {
+			token = strings.TrimPrefix(p, "access_token.")
+			// Must echo back the EXACT protocol string sent by the client
+			selectedProtocol = p
+			break
+		}
+	}
+
+	// Validate JWT if validator is configured
+	if h.tokenValidator != nil {
+		if token == "" {
+			log.Println("WebSocket connection rejected: no JWT token in Sec-WebSocket-Protocol")
+			http.Error(w, "Unauthorized: missing token", http.StatusUnauthorized)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		_, err := h.tokenValidator.ValidateToken(ctx, token)
+		if err != nil {
+			log.Printf("WebSocket connection rejected: invalid JWT token: %v", err)
+			http.Error(w, "Unauthorized: invalid token", http.StatusUnauthorized)
+			return
+		}
+		log.Println("WebSocket JWT validation successful")
+	}
+
+	// Create custom response header to confirm the selected protocol
+	var responseHeader http.Header
+	if selectedProtocol != "" {
+		responseHeader = http.Header{}
+		responseHeader.Set("Sec-WebSocket-Protocol", selectedProtocol)
+	}
+
+	conn, err := upgrader.Upgrade(w, r, responseHeader)
 	if err != nil {
 		log.Println(err)
 		return
@@ -170,20 +225,17 @@ func (c *Client) writePump() {
 				return
 			}
 
-			w, err := c.conn.NextWriter(websocket.TextMessage)
-			if err != nil {
+			// Send each message as a separate WebSocket frame (for JSON parsing)
+			if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
 				return
 			}
-			w.Write(message)
 
-			// Add queued chat messages to the current websocket message.
+			// Send any queued messages as separate frames
 			n := len(c.send)
 			for i := 0; i < n; i++ {
-				w.Write(<-c.send)
-			}
-
-			if err := w.Close(); err != nil {
-				return
+				if err := c.conn.WriteMessage(websocket.TextMessage, <-c.send); err != nil {
+					return
+				}
 			}
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))

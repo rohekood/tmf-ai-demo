@@ -7,6 +7,8 @@ const PARTIES_KEY = 'parties';
 // Fetch all parties with optional search params
 async function fetchParties(params?: SearchPartyParams): Promise<PartyUnion[]> {
     const searchParams = new URLSearchParams();
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.name) searchParams.set('name', params.name);
     if (params?.givenName) searchParams.set('givenName', params.givenName);
     if (params?.familyName) searchParams.set('familyName', params.familyName);
     if (params?.tradingName) searchParams.set('tradingName', params.tradingName);

@@ -77,7 +77,7 @@ describe('CustomerOnboardPage', () => {
             </MemoryRouter>
         );
 
-        const searchInput = screen.getByPlaceholderText('Search parties by name...');
+        const searchInput = screen.getByPlaceholderText('Search by name...');
         await user.type(searchInput, 'John');
 
         // Wait/Check for parties list item
@@ -90,7 +90,32 @@ describe('CustomerOnboardPage', () => {
         expect(await screen.findByRole('button', { name: 'Change' })).toBeInTheDocument();
     });
 
-    it('submits form when valid', async () => {
+    it('prefills customer name from party', async () => {
+        const user = userEvent.setup();
+        vi.mocked(partyApi.useParties).mockReturnValue({
+            data: mockParties,
+            isLoading: false
+        } as unknown as ReturnType<typeof partyApi.useParties>);
+
+        render(
+            <MemoryRouter>
+                <CustomerOnboardPage />
+            </MemoryRouter>
+        );
+
+        // Search for party
+        const searchInput = screen.getByPlaceholderText('Search by name...');
+        await user.type(searchInput, 'John');
+
+        // Select party "John Doe"
+        await user.click(await screen.findByText('John Doe'));
+
+        // Verify Name field is prefilled
+        const nameInput = screen.getByLabelText('Customer Name *') as HTMLInputElement;
+        expect(nameInput.value).toBe('John Doe');
+    });
+
+    it('submits form with all optional fields', async () => {
         const user = userEvent.setup();
         vi.mocked(partyApi.useParties).mockReturnValue({
             data: mockParties,
@@ -104,22 +129,56 @@ describe('CustomerOnboardPage', () => {
         );
 
         // Select party
-        await user.click(screen.getByText('John Doe'));
+        const searchInput = screen.getByPlaceholderText('Search by name...');
+        await user.type(searchInput, 'John');
+        await user.click(await screen.findByText('John Doe'));
 
-        // Enter name
+        // Enter name (clear first because it's prefilled)
         const nameInput = screen.getByLabelText('Customer Name *');
-        await user.type(nameInput, 'New Customer');
+        await user.clear(nameInput);
+        await user.type(nameInput, 'Full Customer');
+
+        // Add Credit Profile
+        await user.click(screen.getByRole('button', { name: 'Add Profile' }));
+        const riskInput = screen.getByLabelText('Credit Risk Score');
+        await user.type(riskInput, '850');
+        const scoreInput = screen.getByLabelText('Credit Score');
+        await user.type(scoreInput, '100');
+
+        // Add Account
+        await user.click(screen.getByRole('button', { name: 'Add Account' }));
+        const accNameInput = screen.getByLabelText('Account Name');
+        await user.type(accNameInput, 'Primary Checking');
+        const accTypeInput = screen.getByLabelText('Type');
+        await user.type(accTypeInput, 'Checking');
+
+        // Add Tax Exemption
+        await user.click(screen.getByRole('button', { name: 'Add Exemption' }));
+        const certInput = screen.getByLabelText('Certificate Number');
+        await user.type(certInput, 'TAX-123');
+        const jurInput = screen.getByLabelText('Issuing Jurisdiction');
+        await user.type(jurInput, 'CA');
 
         // Submit
         const submitBtn = screen.getByRole('button', { name: /onboard customer/i });
-        expect(submitBtn).toBeEnabled();
-
         await user.click(submitBtn);
 
         await waitFor(() => {
             expect(mutateAsyncMock).toHaveBeenCalledWith({
-                name: 'New Customer',
-                partyId: 'p1'
+                name: 'Full Customer',
+                partyId: 'p1',
+                privacyConsents: [],
+                creditProfiles: [{
+                    creditRiskScore: 850,
+                    creditScore: 100,
+                    validForStart: undefined
+                }],
+                accounts: [
+                    { name: 'Primary Checking', accountType: 'Checking', accountStatus: 'active' }
+                ],
+                taxExemptions: [
+                    { certificateNumber: 'TAX-123', issuingJurisdiction: 'CA' }
+                ]
             });
             expect(mockNavigate).toHaveBeenCalledWith('/customers');
         });

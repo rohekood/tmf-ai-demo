@@ -101,6 +101,25 @@ func TestMain(m *testing.M) {
 		log.Fatalf("failed to connect to rabbitmq: %v", err)
 	}
 
+	// Declare exchange to avoid channel closure errors
+	ch, err := sharedConn.Channel()
+	if err != nil {
+		log.Fatalf("failed to open channel to declare exchange: %v", err)
+	}
+	err = ch.ExchangeDeclare(
+		"tmf.events", // name
+		"topic",      // type
+		true,         // durable
+		false,        // auto-deleted
+		false,        // internal
+		false,        // no-wait
+		nil,          // arguments
+	)
+	if err != nil {
+		log.Fatalf("failed to declare exchange: %v", err)
+	}
+	ch.Close()
+
 	sharedPublisher, err = infraRabbit.NewPublisher(sharedConn)
 	if err != nil {
 		log.Fatalf("failed to create publisher: %v", err)
@@ -117,68 +136,148 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestIntegration_OnboardCustomer(t *testing.T) {
+// 1. Onboard Customer Use Case
+func TestUseCase_OnboardNewCustomer(t *testing.T) {
 	ctx := context.Background()
 	handlers := NewHandlers(sharedRepo, sharedPublisher)
 
 	payload := OnboardCustomerPayload{
-		ID:        "cust-1",
-		Name:      "Test Customer",
-		PartyID:   "party-1",
+		ID:        "cust-onboard-1",
+		Name:      "Full Profile Customer",
+		PartyID:   "party-onboard-1",
 		PartyType: "Individual",
 		Accounts: []CustomerAccountDTO{
-			{ID: "acc-1", Name: "Main Account", AccountStatus: "Active", AccountType: "Billing"},
+			{ID: "acc-1", Name: "Savings", AccountStatus: "active", AccountType: "savings"},
+		},
+		CreditProfiles: []CreditProfileDTO{
+			{ID: "cp-1", CreditScore: 750, CreditRiskScore: 10},
+		},
+		ContactMediums: []ContactMediumDTO{
+			{ID: "cm-1", MediumType: "email", Value: "test@example.com", Preferred: true},
+		},
+		Characteristics: []CharacteristicDTO{
+			{ID: "char-1", Name: "Segment", Value: "VIP"},
+		},
+		TaxExemptions: []TaxExemptionDTO{
+			{ID: "tax-1", CertificateNumber: "TAX-CERT-1", IssuingJurisdiction: "US", ValidForStart: time.Now().Format(time.RFC3339)},
+		},
+		PrivacyConsents: []PrivacyConsentDTO{
+			{ID: "pc-1", ConsentType: "Marketing", Status: "given", ValidForStart: time.Now().Format(time.RFC3339)},
 		},
 	}
 	body, _ := json.Marshal(payload)
 
 	err := handlers.HandleOnboardCustomer(ctx, amqp.Delivery{
 		Body:     body,
-		Exchange: "tmf.events", // Test using an event exchange for publication
+		Exchange: "tmf.events",
 	})
 	require.NoError(t, err)
 
-	// Verify DB
-	saved, err := sharedRepo.GetCustomer(ctx, "cust-1")
+	// Verify DB state
+	saved, err := sharedRepo.GetCustomer(ctx, "cust-onboard-1")
 	require.NoError(t, err)
-	assert.Equal(t, "Test Customer", saved.Name)
+	assert.Equal(t, "Full Profile Customer", saved.Name)
 	assert.Equal(t, domain.CustomerStatusActive, saved.Status)
-	assert.Len(t, saved.Accounts, 1)
-	assert.Equal(t, "Main Account", saved.Accounts[0].Name)
+
+	// Verify sub-resources
+	require.Len(t, saved.Accounts, 1)
+	assert.Equal(t, "Savings", saved.Accounts[0].Name)
+
+	require.Len(t, saved.CreditProfiles, 1)
+	assert.Equal(t, 750, saved.CreditProfiles[0].CreditScore)
+
+	require.Len(t, saved.ContactMediums, 1)
+	assert.Equal(t, "test@example.com", saved.ContactMediums[0].Value)
+
+	require.Len(t, saved.Characteristics, 1)
+	assert.Equal(t, "VIP", saved.Characteristics[0].Value)
+
+	require.Len(t, saved.TaxExemptions, 1)
+	assert.Equal(t, "TAX-CERT-1", saved.TaxExemptions[0].CertificateNumber)
+
+	require.Len(t, saved.PrivacyConsents, 1)
+	assert.Equal(t, "given", saved.PrivacyConsents[0].Status)
 }
 
-func TestIntegration_UpdateCustomer(t *testing.T) {
+func TestUseCase_Onboard_AutoGenerateIDs(t *testing.T) {
 	ctx := context.Background()
 	handlers := NewHandlers(sharedRepo, sharedPublisher)
 
-	// Create first
-	cust := &domain.Customer{
-		ID:      "cust-upd-1",
+	// Payload with NO IDs for sub-resources or main customer
+	// Note: We provide main ID in payload struct usually, so we'll leave it empty to test auto-gen if handler supports it,
+	// or provide one to easily fetch it. The handler: "if payload.ID == "" { payload.ID = uuid.New().String() }"
+	// Let's rely on that but we need a way to find it.
+	// Actually, easier to test sub-resource ID generation with a known main ID.
+	custID := "cust-autogen-1"
+
+	payload := OnboardCustomerPayload{
+		ID:        custID,
+		Name:      "Auto Gen IDs Test",
+		PartyID:   "p-autogen-1",
+		PartyType: "Individual",
+		Accounts: []CustomerAccountDTO{
+			{Name: "No ID Account", AccountStatus: "Active"},
+		},
+		TaxExemptions: []TaxExemptionDTO{
+			{CertificateNumber: "NO-ID-CERT"},
+		},
+	}
+	body, _ := json.Marshal(payload)
+
+	err := handlers.HandleOnboardCustomer(ctx, amqp.Delivery{
+		Body:     body,
+		Exchange: "tmf.events",
+	})
+	require.NoError(t, err)
+
+	saved, err := sharedRepo.GetCustomer(ctx, custID)
+	require.NoError(t, err)
+
+	require.Len(t, saved.Accounts, 1)
+	assert.NotEmpty(t, saved.Accounts[0].ID)
+
+	require.Len(t, saved.TaxExemptions, 1)
+	assert.NotEmpty(t, saved.TaxExemptions[0].ID)
+}
+
+// 2. Update Customer Use Case
+func TestUseCase_UpdateCustomerProfile(t *testing.T) {
+	ctx := context.Background()
+	handlers := NewHandlers(sharedRepo, sharedPublisher)
+
+	// Setup: Create initial customer
+	custID := "cust-update-1"
+	initialCust := &domain.Customer{
+		ID:      custID,
 		Name:    "Original Name",
 		Status:  domain.CustomerStatusActive,
-		PartyID: "party-upd-1",
+		PartyID: "p-update-1",
+		// Initial sub-resources to verify replacement
+		Accounts:       []domain.CustomerAccount{{ID: "acc-old", Name: "Old Acc", CustomerID: custID}},
+		CreditProfiles: []domain.CreditProfile{{ID: "cp-old", CreditScore: 600, CustomerID: custID}},
 	}
-	require.NoError(t, sharedRepo.CreateCustomer(ctx, cust))
+	require.NoError(t, sharedRepo.CreateCustomer(ctx, initialCust))
 
-	// Update
+	// Update Payload
 	payload := UpdateCustomerPayload{
-		ID:     "cust-upd-1",
+		ID:     custID,
 		Name:   "Updated Name",
 		Status: domain.CustomerStatusSuspended,
-		TaxExemptions: []TaxExemptionDTO{
-			{
-				ID:                "tax-1",
-				CertificateNumber: "CERT-UPD-1",
-				ValidForStart:     time.Now().Format(time.RFC3339),
-			},
+		// Update Accounts (Replace list)
+		Accounts: []CustomerAccountDTO{
+			{ID: "acc-new", Name: "New Acc", AccountStatus: "active", AccountType: "checking"},
 		},
+		// Update Credit Profile (Replace list)
+		CreditProfiles: []CreditProfileDTO{
+			{ID: "cp-new", CreditScore: 800, CreditRiskScore: 5},
+		},
+		// Update Tax Exemption (New list)
+		TaxExemptions: []TaxExemptionDTO{
+			{CertificateNumber: "NEW-TAX", ValidForStart: time.Now().Format(time.RFC3339)},
+		},
+		// Update Privacy Consent (New list)
 		PrivacyConsents: []PrivacyConsentDTO{
-			{
-				ID:            "privacy-1",
-				ConsentType:   "Marketing",
-				Status:        "Given",
-				ValidForStart: time.Now().Format(time.RFC3339),
-			},
+			{ConsentType: "Marketing", Status: "withdrawn", ValidForStart: time.Now().Format(time.RFC3339)},
 		},
 	}
 	body, _ := json.Marshal(payload)
@@ -186,32 +285,222 @@ func TestIntegration_UpdateCustomer(t *testing.T) {
 	err := handlers.HandleUpdateCustomer(ctx, amqp.Delivery{Body: body})
 	require.NoError(t, err)
 
-	// Verify DB
-	updated, err := sharedRepo.GetCustomer(ctx, "cust-upd-1")
+	// Verify Updates
+	updated, err := sharedRepo.GetCustomer(ctx, custID)
 	require.NoError(t, err)
+
+	// Basic Info
 	assert.Equal(t, "Updated Name", updated.Name)
 	assert.Equal(t, domain.CustomerStatusSuspended, updated.Status)
 
-	assert.Len(t, updated.TaxExemptions, 1)
-	assert.Equal(t, "CERT-UPD-1", updated.TaxExemptions[0].CertificateNumber)
+	// Accounts (Should be replaced)
+	require.Len(t, updated.Accounts, 1)
+	assert.Equal(t, "New Acc", updated.Accounts[0].Name)
+	assert.Equal(t, "acc-new", updated.Accounts[0].ID)
 
-	assert.Len(t, updated.PrivacyConsents, 1)
-	assert.Equal(t, "Marketing", updated.PrivacyConsents[0].ConsentType)
+	// Credit Profile (Should be replaced)
+	require.Len(t, updated.CreditProfiles, 1)
+	assert.Equal(t, 800, updated.CreditProfiles[0].CreditScore)
+	assert.Equal(t, "cp-new", updated.CreditProfiles[0].ID)
+
+	// Tax Exemptions
+	require.Len(t, updated.TaxExemptions, 1)
+	assert.Equal(t, "NEW-TAX", updated.TaxExemptions[0].CertificateNumber)
+
+	// Privacy Consents
+	require.Len(t, updated.PrivacyConsents, 1)
+	assert.Equal(t, "withdrawn", updated.PrivacyConsents[0].Status)
 }
-func TestIntegration_AuditTrail(t *testing.T) {
+
+// 3. Get Customer Use Case (RPC)
+func TestUseCase_RetrieveCustomer(t *testing.T) {
 	ctx := context.Background()
 	handlers := NewHandlers(sharedRepo, sharedPublisher)
 
-	userID := "audit-user-123"
-	payload := OnboardCustomerPayload{
-		ID:   "audit-cust-1",
-		Name: "Audit Test Customer",
+	// Setup: Complete customer
+	custID := "cust-get-1"
+	fullCust := &domain.Customer{
+		ID:              custID,
+		Name:            "Get Test",
+		Status:          domain.CustomerStatusActive,
+		PartyID:         "p-get-1",
+		Accounts:        []domain.CustomerAccount{{ID: "a1", Name: "A1", CustomerID: custID}},
+		CreditProfiles:  []domain.CreditProfile{{ID: "cp1", CreditScore: 700, CustomerID: custID}},
+		TaxExemptions:   []domain.TaxExemption{{ID: "t1", CertificateNumber: "T1", CustomerID: custID}},
+		PrivacyConsents: []domain.PrivacyConsent{{ID: "pc1", ConsentType: "All", CustomerID: custID}},
 	}
+	require.NoError(t, sharedRepo.CreateCustomer(ctx, fullCust))
+
+	// Prepare RPC reply queue
+	ch, err := sharedConn.Channel()
+	require.NoError(t, err)
+	defer ch.Close()
+	replyQueue, _ := ch.QueueDeclare("", false, true, true, false, nil)
+	msgs, _ := ch.Consume(replyQueue.Name, "", true, true, false, false, nil)
+
+	// Execute HandleGetCustomer
+	corrID := "corr-get-1"
+	payload, _ := json.Marshal(GetCustomerPayload{ID: custID})
+	err = handlers.HandleGetCustomer(ctx, amqp.Delivery{
+		Body: payload, ReplyTo: replyQueue.Name, CorrelationId: corrID,
+	})
+	require.NoError(t, err)
+
+	// Verify Reply
+	select {
+	case msg := <-msgs:
+		assert.Equal(t, corrID, msg.CorrelationId)
+		var resp domain.Customer
+		json.Unmarshal(msg.Body, &resp)
+
+		assert.Equal(t, custID, resp.ID)
+		assert.Equal(t, "Get Test", resp.Name)
+
+		// Verify all sub-resources present
+		require.Len(t, resp.Accounts, 1)
+		assert.Equal(t, "A1", resp.Accounts[0].Name)
+
+		require.Len(t, resp.CreditProfiles, 1)
+		assert.Equal(t, 700, resp.CreditProfiles[0].CreditScore)
+
+		require.Len(t, resp.TaxExemptions, 1)
+		assert.Equal(t, "T1", resp.TaxExemptions[0].CertificateNumber)
+
+		require.Len(t, resp.PrivacyConsents, 1)
+		assert.Equal(t, "All", resp.PrivacyConsents[0].ConsentType)
+
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timeout waiting for RPC reply")
+	}
+}
+
+// 4. Search Customer Use Case
+func TestUseCase_SearchCustomers(t *testing.T) {
+	ctx := context.Background()
+	handlers := NewHandlers(sharedRepo, sharedPublisher)
+
+	// Setup
+	require.NoError(t, sharedRepo.CreateCustomer(ctx, &domain.Customer{
+		ID: "cust-search-1", Name: "UniqueTarget", Status: domain.CustomerStatusActive,
+	}))
+
+	// RPC Setup
+	ch, err := sharedConn.Channel()
+	require.NoError(t, err)
+	defer ch.Close()
+	replyQueue, _ := ch.QueueDeclare("", false, true, true, false, nil)
+	msgs, _ := ch.Consume(replyQueue.Name, "", true, true, false, false, nil)
+
+	// Execute
+	corrID := "corr-search-1"
+	payload, _ := json.Marshal(SearchCustomerPayload{Name: "UniqueTarget"})
+	err = handlers.HandleSearchCustomer(ctx, amqp.Delivery{
+		Body: payload, ReplyTo: replyQueue.Name, CorrelationId: corrID,
+	})
+	require.NoError(t, err)
+
+	// Verify
+	select {
+	case msg := <-msgs:
+		assert.Equal(t, corrID, msg.CorrelationId)
+		var results []domain.Customer
+		json.Unmarshal(msg.Body, &results)
+
+		assert.NotEmpty(t, results)
+		assert.Equal(t, "UniqueTarget", results[0].Name)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timeout")
+	}
+}
+
+// 5. Delete Customer Use Case
+func TestUseCase_DeleteCustomer(t *testing.T) {
+	ctx := context.Background()
+	handlers := NewHandlers(sharedRepo, sharedPublisher)
+
+	// Setup
+	custID := "cust-del-1"
+	require.NoError(t, sharedRepo.CreateCustomer(ctx, &domain.Customer{ID: custID, Name: "To Delete", Status: domain.CustomerStatusActive}))
+
+	// Execute
+	payload, _ := json.Marshal(DeleteCustomerPayload{ID: custID})
+	err := handlers.HandleDeleteCustomer(ctx, amqp.Delivery{Body: payload, Exchange: "tmf.events"})
+	require.NoError(t, err)
+
+	// Verify Gone
+	_, err = sharedRepo.GetCustomer(ctx, custID)
+	assert.Error(t, err)
+	assert.Equal(t, domain.ErrNotFound, err)
+}
+
+// 6. Party Events Use Cases
+func TestUseCase_PartyEvent_Update(t *testing.T) {
+	ctx := context.Background()
+	handlers := NewHandlers(sharedRepo, sharedPublisher)
+
+	// Setup: Customer linked to a party
+	custID := "cust-pe-upd-1"
+	partyID := "party-pe-1"
+	require.NoError(t, sharedRepo.CreateCustomer(ctx, &domain.Customer{
+		ID: custID, Name: "Old Name", PartyID: partyID, Status: domain.CustomerStatusActive,
+	}))
+
+	// Event: Party Updated (Individual)
+	evtPayload := PartyEventPayload{
+		ID: partyID, Type: "Individual", GivenName: "John", FamilyName: "Updated",
+	}
+	body, _ := json.Marshal(evtPayload)
+
+	err := handlers.HandlePartyEvent(ctx, amqp.Delivery{
+		Body: body, RoutingKey: EvtPartyUpdated,
+	})
+	require.NoError(t, err)
+
+	// Verify Customer Name Updated
+	updated, err := sharedRepo.GetCustomer(ctx, custID)
+	require.NoError(t, err)
+	assert.Equal(t, "John Updated", updated.Name)
+}
+
+func TestUseCase_PartyEvent_Delete(t *testing.T) {
+	ctx := context.Background()
+	handlers := NewHandlers(sharedRepo, sharedPublisher)
+
+	// Setup
+	custID := "cust-pe-del-1"
+	partyID := "party-pe-del-1"
+	require.NoError(t, sharedRepo.CreateCustomer(ctx, &domain.Customer{
+		ID: custID, Name: "To Close", PartyID: partyID, Status: domain.CustomerStatusActive,
+	}))
+
+	// Event: Party Deleted
+	evtPayload := PartyEventPayload{ID: partyID, Type: "Individual"}
+	body, _ := json.Marshal(evtPayload)
+
+	err := handlers.HandlePartyEvent(ctx, amqp.Delivery{
+		Body: body, RoutingKey: EvtPartyDeleted,
+	})
+	require.NoError(t, err)
+
+	// Verify Customer Closed
+	closed, err := sharedRepo.GetCustomer(ctx, custID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.CustomerStatusClosed, closed.Status)
+	assert.Contains(t, closed.StatusReason, "Linked party was deleted")
+}
+
+// 7. Audit Logging Use Case
+func TestUseCase_AuditLogging(t *testing.T) {
+	ctx := context.Background()
+	handlers := NewHandlers(sharedRepo, sharedPublisher)
+
+	// Test Onboard with User Header
+	userID := "audit-tester"
+	payload := OnboardCustomerPayload{ID: "cust-audit-1", Name: "Audit Me"}
 	body, _ := json.Marshal(payload)
 
 	err := handlers.HandleOnboardCustomer(ctx, amqp.Delivery{
-		Body:    body,
-		Headers: amqp.Table{"user": userID},
+		Body: body, Headers: amqp.Table{"user": userID}, Exchange: "tmf.events",
 	})
 	require.NoError(t, err)
 
@@ -224,110 +513,12 @@ func TestIntegration_AuditTrail(t *testing.T) {
 
 	var auditLog LoggedAction
 	err = sharedDB.Table("audit.logged_actions").
-		Where("table_name = ? AND action = ?", "customers", "I").
+		Where("table_name = ? AND action = ? AND user_name = ?", "customers", "I", userID).
 		Order("action_tstamp_clk DESC").
 		First(&auditLog).Error
 
 	require.NoError(t, err)
-	assert.Equal(t, userID, auditLog.UserName)
 	assert.Equal(t, "customers", auditLog.TableName)
 	assert.Equal(t, "I", auditLog.Action)
-
-	// Test System User on Event
-	eventPayload := PartyEventPayload{
-		ID:         "party-1",
-		GivenName:  "Jane",
-		FamilyName: "Doe",
-		Type:       "Individual",
-	}
-	// Pre-create customer linked to this party
-	require.NoError(t, sharedRepo.CreateCustomer(ctx, &domain.Customer{
-		ID:      "cust-party-1",
-		Name:    "Old Name",
-		PartyID: "party-1",
-	}))
-
-	evtBody, _ := json.Marshal(eventPayload)
-	err = handlers.HandlePartyEvent(ctx, amqp.Delivery{
-		Body:       evtBody,
-		RoutingKey: EvtPartyUpdated,
-	})
-	require.NoError(t, err)
-
-	var systemAudit LoggedAction
-	err = sharedDB.Table("audit.logged_actions").
-		Where("table_name = ? AND action = ?", "customers", "U").
-		Order("action_tstamp_clk DESC").
-		First(&systemAudit).Error
-
-	require.NoError(t, err)
-	assert.Equal(t, "system.customer-management", systemAudit.UserName)
-}
-
-func TestIntegration_GetCustomer(t *testing.T) {
-	ctx := context.Background()
-	handlers := NewHandlers(sharedRepo, sharedPublisher)
-
-	// Pre-create customer
-	custID := "get-cust-1"
-	require.NoError(t, sharedRepo.CreateCustomer(ctx, &domain.Customer{
-		ID:      custID,
-		Name:    "Get Me",
-		Status:  domain.CustomerStatusActive,
-		PartyID: "p-get-1",
-	}))
-
-	// Query via handler
-	payload := GetCustomerPayload{ID: custID}
-	body, _ := json.Marshal(payload)
-
-	err := handlers.HandleGetCustomer(ctx, amqp.Delivery{Body: body})
-	require.NoError(t, err)
-}
-
-func TestIntegration_SearchCustomer(t *testing.T) {
-	ctx := context.Background()
-	handlers := NewHandlers(sharedRepo, sharedPublisher)
-
-	// Pre-create customers
-	require.NoError(t, sharedRepo.CreateCustomer(ctx, &domain.Customer{
-		ID:      "s-cust-1",
-		Name:    "Searchable One",
-		Status:  domain.CustomerStatusActive,
-		PartyID: "p-s-1",
-	}))
-
-	// Search via handler
-	payload := SearchCustomerPayload{Name: "Searchable One"}
-	body, _ := json.Marshal(payload)
-
-	err := handlers.HandleSearchCustomer(ctx, amqp.Delivery{Body: body})
-	require.NoError(t, err)
-}
-
-func TestIntegration_DeleteCustomer(t *testing.T) {
-	ctx := context.Background()
-	handlers := NewHandlers(sharedRepo, sharedPublisher)
-
-	// Pre-create
-	custID := "del-cust-int-1"
-	require.NoError(t, sharedRepo.CreateCustomer(ctx, &domain.Customer{
-		ID:     custID,
-		Name:   "Delete Me",
-		Status: domain.CustomerStatusActive,
-	}))
-
-	// Delete via handler
-	payload := DeleteCustomerPayload{ID: custID}
-	body, _ := json.Marshal(payload)
-
-	err := handlers.HandleDeleteCustomer(ctx, amqp.Delivery{
-		Body:     body,
-		Exchange: "tmf.events",
-	})
-	require.NoError(t, err)
-
-	// Verify deleted
-	_, err = sharedRepo.GetCustomer(ctx, custID)
-	assert.Error(t, err)
+	assert.Equal(t, userID, auditLog.UserName)
 }

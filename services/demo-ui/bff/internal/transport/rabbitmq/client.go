@@ -14,11 +14,12 @@ import (
 )
 
 type Client struct {
-	conn       *amqp.Connection
-	channel    *amqp.Channel
-	replyQueue amqp.Queue
-	mu         sync.Mutex
-	callbacks  map[string]chan<- []byte
+	conn        *amqp.Connection
+	channel     *amqp.Channel
+	replyQueue  amqp.Queue
+	mu          sync.Mutex
+	callbacks   map[string]chan<- []byte
+	broadcaster Broadcaster
 }
 
 func NewClient(url string) (*Client, error) {
@@ -83,8 +84,36 @@ func (c *Client) Close() {
 	}
 }
 
+// SetBroadcaster sets the broadcaster for forwarding RPC replies to the debug console
+func (c *Client) SetBroadcaster(b Broadcaster) {
+	c.broadcaster = b
+}
+
 func (c *Client) handleReplies(msgs <-chan amqp.Delivery) {
 	for d := range msgs {
+		// Broadcast reply to debug console if broadcaster is set
+		if c.broadcaster != nil {
+			var payload map[string]interface{}
+			_ = json.Unmarshal(d.Body, &payload)
+			if payload == nil {
+				payload = map[string]interface{}{
+					"raw": string(d.Body),
+				}
+			}
+
+			debugMsg := DebugMessage{
+				ID:            fmt.Sprintf("reply-%s-%d", d.CorrelationId, time.Now().UnixNano()),
+				Timestamp:     time.Now(),
+				Type:          "reply",
+				Topic:         "rpc.reply",
+				CorrelationID: d.CorrelationId,
+				ReplyTo:       d.ReplyTo,
+				Payload:       payload,
+				Service:       "bff",
+			}
+			c.broadcaster.Broadcast(debugMsg)
+		}
+
 		c.mu.Lock()
 		callback, ok := c.callbacks[d.CorrelationId]
 		delete(c.callbacks, d.CorrelationId)

@@ -81,6 +81,36 @@ describe('CustomerListPage', () => {
         expect(screen.getAllByRole('row')).toHaveLength(3);
     });
 
+    it('handles mixed-case status values correctly', () => {
+        const mixedCaseCustomers: Customer[] = [
+            {
+                id: '3',
+                name: 'Mixed Case Customer',
+                status: 'Active' as any, // Simulate backend returning capitalized value
+                partyId: 'p3',
+                partyName: 'Mixed Party',
+                accounts: []
+            }
+        ];
+
+        vi.mocked(api.useCustomers).mockReturnValue({
+            data: mixedCaseCustomers,
+            isLoading: false,
+            error: null
+        } as unknown as ReturnType<typeof api.useCustomers>);
+
+        render(
+            <MemoryRouter>
+                <CustomerListPage />
+            </MemoryRouter>
+        );
+
+        // Verify that the class name is lowercased
+        const statusBadge = screen.getByText('Active');
+        expect(statusBadge).toHaveClass('status-badge', 'active');
+        expect(statusBadge).not.toHaveClass('Active');
+    });
+
     it('renders empty state', () => {
         vi.mocked(api.useCustomers).mockReturnValue({
             data: [],

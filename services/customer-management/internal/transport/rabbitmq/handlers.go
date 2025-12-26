@@ -90,8 +90,13 @@ type UpdateCustomerPayload struct {
 	ID              string                `json:"id"`
 	Status          domain.CustomerStatus `json:"status"`
 	Name            string                `json:"name"`
+	PartyID         string                `json:"partyId"`
+	ContactMediums  []ContactMediumDTO    `json:"contactMediums"`
+	Characteristics []CharacteristicDTO   `json:"characteristics"`
 	TaxExemptions   []TaxExemptionDTO     `json:"taxExemptions"`
 	PrivacyConsents []PrivacyConsentDTO   `json:"privacyConsents"`
+	Accounts        []CustomerAccountDTO  `json:"accounts"`
+	CreditProfiles  []CreditProfileDTO    `json:"creditProfiles"`
 }
 
 type GetCustomerPayload struct {
@@ -100,6 +105,7 @@ type GetCustomerPayload struct {
 
 type SearchCustomerPayload struct {
 	ID      string `json:"id"`
+	Search  string `json:"search"`
 	Name    string `json:"name"`
 	Status  string `json:"status"`
 	PartyID string `json:"partyId"`
@@ -205,6 +211,9 @@ func (h *Handlers) HandleUpdateCustomer(ctx context.Context, d amqp.Delivery) er
 	if payload.Name != "" {
 		updates["name"] = payload.Name
 	}
+	if payload.PartyID != "" {
+		updates["party_id"] = payload.PartyID
+	}
 	if len(payload.TaxExemptions) > 0 {
 		var taxes []domain.TaxExemption
 		for _, t := range payload.TaxExemptions {
@@ -218,6 +227,31 @@ func (h *Handlers) HandleUpdateCustomer(ctx context.Context, d amqp.Delivery) er
 			privacy = append(privacy, h.mapPrivacyConsent(p, payload.ID))
 		}
 		updates["privacy_consents"] = privacy
+	}
+	if len(payload.Accounts) > 0 {
+		var accounts []domain.CustomerAccount
+		for _, a := range payload.Accounts {
+			accounts = append(accounts, domain.CustomerAccount{
+				ID:            a.ID,
+				CustomerID:    payload.ID,
+				Name:          a.Name,
+				AccountStatus: a.AccountStatus,
+				AccountType:   a.AccountType,
+			})
+		}
+		updates["accounts"] = accounts
+	}
+	if len(payload.CreditProfiles) > 0 {
+		var profiles []domain.CreditProfile
+		for _, p := range payload.CreditProfiles {
+			profiles = append(profiles, domain.CreditProfile{
+				ID:              p.ID,
+				CustomerID:      payload.ID,
+				CreditRiskScore: p.CreditRiskScore,
+				CreditScore:     p.CreditScore,
+			})
+		}
+		updates["credit_profiles"] = profiles
 	}
 
 	if len(updates) == 0 {
@@ -243,12 +277,7 @@ func (h *Handlers) HandleGetCustomer(ctx context.Context, d amqp.Delivery) error
 		return fmt.Errorf("failed to get customer: %w", err)
 	}
 
-	// If ReplyTo is set, send the customer back
-	if d.ReplyTo != "" {
-		return h.publisher.Publish(ctx, "", d.ReplyTo, customer)
-	}
-
-	return nil
+	return h.replyTo(ctx, d, customer)
 }
 
 func (h *Handlers) HandleSearchCustomer(ctx context.Context, d amqp.Delivery) error {
@@ -261,6 +290,9 @@ func (h *Handlers) HandleSearchCustomer(ctx context.Context, d amqp.Delivery) er
 	criteria := make(map[string]interface{})
 	if payload.ID != "" {
 		criteria["id"] = payload.ID
+	}
+	if payload.Search != "" {
+		criteria["search"] = payload.Search
 	}
 	if payload.Name != "" {
 		criteria["name"] = payload.Name

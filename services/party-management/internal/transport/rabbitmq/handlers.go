@@ -57,6 +57,9 @@ type CreateIndividualPayload struct {
 	ID              string              `json:"id"`
 	GivenName       string              `json:"givenName"`
 	FamilyName      string              `json:"familyName"`
+	MiddleName      string              `json:"middleName,omitempty"`
+	BirthDate       string              `json:"birthDate,omitempty"`
+	Gender          string              `json:"gender,omitempty"`
 	Href            string              `json:"href"`
 	ContactMediums  []ContactMediumDTO  `json:"contactMediums,omitempty"`
 	Identifications []IdentificationDTO `json:"identifications,omitempty"`
@@ -72,14 +75,15 @@ func (p *CreateIndividualPayload) Validate() error {
 }
 
 type CreateOrganizationPayload struct {
-	ID              string              `json:"id"`
-	TradingName     string              `json:"tradingName"`
-	IsLegalEntity   bool                `json:"isLegalEntity"`
-	Href            string              `json:"href"`
-	ContactMediums  []ContactMediumDTO  `json:"contactMediums,omitempty"`
-	Identifications []IdentificationDTO `json:"identifications,omitempty"`
-	RelatedParties  []RelatedPartyDTO   `json:"relatedParties,omitempty"`
-	Characteristics []CharacteristicDTO `json:"characteristics,omitempty"`
+	ID               string              `json:"id"`
+	TradingName      string              `json:"tradingName"`
+	IsLegalEntity    bool                `json:"isLegalEntity"`
+	OrganizationType string              `json:"organizationType,omitempty"`
+	Href             string              `json:"href"`
+	ContactMediums   []ContactMediumDTO  `json:"contactMediums,omitempty"`
+	Identifications  []IdentificationDTO `json:"identifications,omitempty"`
+	RelatedParties   []RelatedPartyDTO   `json:"relatedParties,omitempty"`
+	Characteristics  []CharacteristicDTO `json:"characteristics,omitempty"`
 }
 
 func (p *CreateOrganizationPayload) Validate() error {
@@ -163,6 +167,8 @@ type GetPartyPayload struct {
 }
 
 type SearchPartyPayload struct {
+	Search      *string `json:"search,omitempty"`
+	Name        *string `json:"name,omitempty"`
 	GivenName   *string `json:"givenName,omitempty"`
 	FamilyName  *string `json:"familyName,omitempty"`
 	TradingName *string `json:"tradingName,omitempty"`
@@ -244,6 +250,9 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 			},
 			GivenName:  payload.GivenName,
 			FamilyName: payload.FamilyName,
+			MiddleName: payload.MiddleName,
+			BirthDate:  payload.BirthDate,
+			Gender:     payload.Gender,
 		}
 
 		ind.ContactMediums = h.mapContactMediums(payload.ContactMediums, ind.ID)
@@ -288,8 +297,9 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 				CreatedAt: now,
 				UpdatedAt: now,
 			},
-			TradingName:   payload.TradingName,
-			IsLegalEntity: payload.IsLegalEntity,
+			TradingName:      payload.TradingName,
+			IsLegalEntity:    payload.IsLegalEntity,
+			OrganizationType: payload.OrganizationType,
 		}
 
 		org.ContactMediums = h.mapContactMediums(payload.ContactMediums, org.ID)
@@ -342,11 +352,11 @@ func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error
 			return domain.ErrIDRequired
 		}
 
-		existing, err := h.repo.GetIndividual(ctx, payload.ID)
+		existingParty, err := h.repo.GetParty(ctx, payload.ID)
 		if err != nil {
-			return fmt.Errorf("failed to get existing individual: %w", err)
+			return fmt.Errorf("failed to get existing party: %w", err)
 		}
-		oldStatus := existing.Status
+		oldStatus := existingParty.Status
 		newStatus := statusPayload.Status
 		if newStatus == "" {
 			newStatus = oldStatus // Keep existing if not provided
@@ -358,12 +368,21 @@ func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error
 				Type:      domain.PartyTypeIndividual,
 				Href:      payload.Href,
 				Status:    newStatus,
-				CreatedAt: existing.CreatedAt, // Preserve creation time
+				CreatedAt: existingParty.CreatedAt, // Preserve creation time
 				UpdatedAt: now,
 			},
 			GivenName:  payload.GivenName,
 			FamilyName: payload.FamilyName,
+			MiddleName: payload.MiddleName,
+			BirthDate:  payload.BirthDate,
+			Gender:     payload.Gender,
 		}
+
+		ind.ContactMediums = h.mapContactMediums(payload.ContactMediums, ind.ID)
+		ind.Identifications = h.mapIdentifications(payload.Identifications, ind.ID)
+		ind.RelatedParties = h.mapRelatedParties(payload.RelatedParties, ind.ID)
+		ind.Characteristics = h.mapCharacteristics(payload.Characteristics, ind.ID)
+
 		if err := h.repo.UpdateIndividual(ctx, ind); err != nil {
 			return fmt.Errorf("failed to update individual: %w", err)
 		}
@@ -395,11 +414,11 @@ func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error
 			return domain.ErrIDRequired
 		}
 
-		existing, err := h.repo.GetOrganization(ctx, payload.ID)
+		existingParty, err := h.repo.GetParty(ctx, payload.ID)
 		if err != nil {
-			return fmt.Errorf("failed to get existing organization: %w", err)
+			return fmt.Errorf("failed to get existing party: %w", err)
 		}
-		oldStatus := existing.Status
+		oldStatus := existingParty.Status
 		newStatus := statusPayload.Status
 		if newStatus == "" {
 			newStatus = oldStatus
@@ -411,12 +430,19 @@ func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error
 				Type:      domain.PartyTypeOrganization,
 				Href:      payload.Href,
 				Status:    newStatus,
-				CreatedAt: existing.CreatedAt,
+				CreatedAt: existingParty.CreatedAt,
 				UpdatedAt: now,
 			},
-			TradingName:   payload.TradingName,
-			IsLegalEntity: payload.IsLegalEntity,
+			TradingName:      payload.TradingName,
+			IsLegalEntity:    payload.IsLegalEntity,
+			OrganizationType: payload.OrganizationType,
 		}
+
+		org.ContactMediums = h.mapContactMediums(payload.ContactMediums, org.ID)
+		org.Identifications = h.mapIdentifications(payload.Identifications, org.ID)
+		org.RelatedParties = h.mapRelatedParties(payload.RelatedParties, org.ID)
+		org.Characteristics = h.mapCharacteristics(payload.Characteristics, org.ID)
+
 		if err := h.repo.UpdateOrganization(ctx, org); err != nil {
 			return fmt.Errorf("failed to update organization: %w", err)
 		}
@@ -574,6 +600,12 @@ func (h *Handlers) HandleSearchParty(ctx context.Context, d amqp.Delivery) error
 	}
 
 	criteria := make(map[string]interface{})
+	if payload.Search != nil {
+		criteria["search"] = *payload.Search
+	}
+	if payload.Name != nil {
+		criteria["name"] = *payload.Name
+	}
 	if payload.GivenName != nil {
 		criteria["given_name"] = *payload.GivenName
 	}
@@ -669,8 +701,12 @@ func (h *Handlers) extractUser(ctx context.Context, d amqp.Delivery) context.Con
 func (h *Handlers) mapContactMediums(dtos []ContactMediumDTO, partyID string) []domain.ContactMedium {
 	res := make([]domain.ContactMedium, 0, len(dtos))
 	for _, dto := range dtos {
+		id := dto.ID
+		if id == "" {
+			id = uuid.New().String()
+		}
 		res = append(res, domain.ContactMedium{
-			ID:              dto.ID,
+			ID:              id,
 			PartyID:         partyID,
 			MediumType:      dto.MediumType,
 			Preferred:       dto.Preferred,
@@ -693,8 +729,12 @@ func (h *Handlers) mapIdentifications(dtos []IdentificationDTO, partyID string) 
 		if dto.IssuingDate != "" {
 			issuingDate, _ = time.Parse(time.RFC3339, dto.IssuingDate)
 		}
+		id := dto.ID
+		if id == "" {
+			id = uuid.New().String()
+		}
 		res = append(res, domain.Identification{
-			ID:                 dto.ID,
+			ID:                 id,
 			PartyID:            partyID,
 			IdentificationType: dto.IdentificationType,
 			IdentificationID:   dto.IdentificationID,

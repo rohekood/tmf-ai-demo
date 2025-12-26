@@ -77,6 +77,9 @@ func TestCreateIndividual(t *testing.T) {
 		},
 		GivenName:  "John",
 		FamilyName: "Doe",
+		MiddleName: "M",
+		BirthDate:  "1990-01-01",
+		Gender:     "Male",
 	}
 
 	err := repo.CreateIndividual(ctx, ind)
@@ -87,6 +90,9 @@ func TestCreateIndividual(t *testing.T) {
 	assert.Equal(t, ind.ID, savedInd.ID)
 	assert.Equal(t, ind.GivenName, savedInd.GivenName)
 	assert.Equal(t, ind.FamilyName, savedInd.FamilyName)
+	assert.Equal(t, ind.MiddleName, savedInd.MiddleName)
+	assert.Equal(t, ind.BirthDate, savedInd.BirthDate)
+	assert.Equal(t, ind.Gender, savedInd.Gender)
 }
 
 func TestCreateOrganization(t *testing.T) {
@@ -102,8 +108,9 @@ func TestCreateOrganization(t *testing.T) {
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		},
-		TradingName:   "Acme Corp",
-		IsLegalEntity: true,
+		TradingName:      "Acme Corp",
+		IsLegalEntity:    true,
+		OrganizationType: "LLC",
 	}
 
 	err := repo.CreateOrganization(ctx, org)
@@ -114,6 +121,7 @@ func TestCreateOrganization(t *testing.T) {
 	assert.Equal(t, org.ID, savedOrg.ID)
 	assert.Equal(t, org.TradingName, savedOrg.TradingName)
 	assert.Equal(t, org.IsLegalEntity, savedOrg.IsLegalEntity)
+	assert.Equal(t, org.OrganizationType, savedOrg.OrganizationType)
 }
 
 func TestUpdateIndividual(t *testing.T) {
@@ -139,6 +147,9 @@ func TestUpdateIndividual(t *testing.T) {
 	// Update
 	ind.GivenName = "Janet"
 	ind.FamilyName = "Smith"
+	ind.MiddleName = "K"
+	ind.BirthDate = "1995-05-05"
+	ind.Gender = "Female"
 	ind.Status = "Active"
 	ind.UpdatedAt = time.Now()
 
@@ -150,6 +161,9 @@ func TestUpdateIndividual(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "Janet", updated.GivenName)
 	assert.Equal(t, "Smith", updated.FamilyName)
+	assert.Equal(t, "K", updated.MiddleName)
+	assert.Equal(t, "1995-05-05", updated.BirthDate)
+	assert.Equal(t, "Female", updated.Gender)
 	assert.Equal(t, "Active", updated.Status)
 }
 
@@ -176,6 +190,7 @@ func TestUpdateOrganization(t *testing.T) {
 	// Update
 	org.TradingName = "New Corp"
 	org.IsLegalEntity = true
+	org.OrganizationType = "Inc"
 	org.Status = "Validated"
 	org.UpdatedAt = time.Now()
 
@@ -186,7 +201,9 @@ func TestUpdateOrganization(t *testing.T) {
 	updated, err := repo.GetOrganization(ctx, "org-update-1")
 	assert.NoError(t, err)
 	assert.Equal(t, "New Corp", updated.TradingName)
+	assert.Equal(t, "New Corp", updated.TradingName)
 	assert.Equal(t, true, updated.IsLegalEntity)
+	assert.Equal(t, "Inc", updated.OrganizationType)
 	assert.Equal(t, "Validated", updated.Status)
 }
 
@@ -246,6 +263,81 @@ func TestDeleteParty_Organization(t *testing.T) {
 	// Verify deleted
 	_, err = repo.GetOrganization(ctx, "org-delete-1")
 	assert.Error(t, err)
+}
+
+func TestUpdateParty_TypeSwitch(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewPartyRepository(db)
+	ctx := context.Background()
+
+	// 1. Create Individual
+	ind := &domain.Individual{
+		Party: domain.Party{
+			ID:        "switch-party-1",
+			Type:      domain.PartyTypeIndividual,
+			Status:    "Active",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		GivenName:  "Test",
+		FamilyName: "Switcher",
+	}
+	require.NoError(t, repo.CreateIndividual(ctx, ind))
+
+	// 2. Switch to Organization
+	// Note: We use the same ID ("switch-party-1") but structure it as an Organization
+	org := &domain.Organization{
+		Party: domain.Party{
+			ID:        "switch-party-1",
+			Type:      domain.PartyTypeOrganization, // Type Change
+			Status:    "Active",
+			CreatedAt: ind.CreatedAt,
+			UpdatedAt: time.Now(),
+		},
+		TradingName:      "Switch Corp",
+		IsLegalEntity:    true,
+		OrganizationType: "LLC",
+	}
+
+	// This should trigger the migration in UpdateOrganization
+	err := repo.UpdateOrganization(ctx, org)
+	assert.NoError(t, err)
+
+	// Verify Individual is gone
+	_, err = repo.GetIndividual(ctx, "switch-party-1")
+	assert.Error(t, err) // Should not exist
+
+	// Verify Organization exists
+	savedOrg, err := repo.GetOrganization(ctx, "switch-party-1")
+	assert.NoError(t, err)
+	assert.Equal(t, "Switch Corp", savedOrg.TradingName)
+	assert.Equal(t, "LLC", savedOrg.OrganizationType)
+
+	// 3. Switch back to Individual
+	indNew := &domain.Individual{
+		Party: domain.Party{
+			ID:        "switch-party-1",
+			Type:      domain.PartyTypeIndividual, // Type Change
+			Status:    "Active",
+			CreatedAt: ind.CreatedAt,
+			UpdatedAt: time.Now(),
+		},
+		GivenName:  "BackTo",
+		FamilyName: "Individual",
+	}
+
+	// This should trigger migration in UpdateIndividual
+	err = repo.UpdateIndividual(ctx, indNew)
+	assert.NoError(t, err)
+
+	// Verify Organization is gone
+	_, err = repo.GetOrganization(ctx, "switch-party-1")
+	assert.Error(t, err)
+
+	// Verify Individual exists
+	savedInd, err := repo.GetIndividual(ctx, "switch-party-1")
+	assert.NoError(t, err)
+	assert.Equal(t, "BackTo", savedInd.GivenName)
 }
 
 func TestSearchParties_ByGivenName(t *testing.T) {

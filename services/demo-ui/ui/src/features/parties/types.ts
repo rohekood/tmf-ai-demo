@@ -80,6 +80,8 @@ export interface CreateIndividualPayload {
     givenName: string;
     familyName: string;
     middleName?: string;
+    birthDate?: string;
+    gender?: string;
     contactMediums?: Omit<ContactMedium, 'id'>[];
     identifications?: Omit<Identification, 'id'>[];
     relatedParties?: Omit<RelatedParty, 'id'>[];
@@ -99,15 +101,32 @@ export interface CreateOrganizationPayload {
 
 export type CreatePartyPayload = CreateIndividualPayload | CreateOrganizationPayload;
 
-export interface UpdatePartyPayload {
+// Update payload is similar to Create but with ID and flat structure
+export type UpdatePartyPayload = {
     id: string;
-    '@type': PartyType;
+    '@type': 'Individual';
     status?: PartyStatus;
-    individual?: Partial<Omit<Individual, 'id' | '@type'>>;
-    organization?: Partial<Omit<Organization, 'id' | '@type'>>;
-}
+    givenName?: string;
+    familyName?: string;
+    middleName?: string;
+    birthDate?: string;
+    gender?: string;
+    contactMediums?: (Omit<ContactMedium, 'id'> | ContactMedium)[];
+    identifications?: (Omit<Identification, 'id'> | Identification)[];
+} | {
+    id: string;
+    '@type': 'Organization';
+    status?: PartyStatus;
+    tradingName?: string;
+    isLegalEntity?: boolean;
+    organizationType?: string;
+    contactMediums?: (Omit<ContactMedium, 'id'> | ContactMedium)[];
+    identifications?: (Omit<Identification, 'id'> | Identification)[];
+};
 
 export interface SearchPartyParams {
+    search?: string;
+    name?: string;
     givenName?: string;
     familyName?: string;
     tradingName?: string;

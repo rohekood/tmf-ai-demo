@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useParty, useCreateParty, useUpdateParty } from './api';
-import type { PartyType, CreatePartyPayload, ContactMedium, Identification } from './types';
+import type { PartyType, CreatePartyPayload, UpdatePartyPayload, ContactMedium, Identification } from './types';
 import './PartyFormPage.css';
 
 interface FormState {
@@ -64,31 +64,71 @@ export default function PartyFormPage() {
         return initialState;
     });
 
+    useEffect(() => {
+        if (existingParty) {
+            setForm({
+                type: existingParty['@type'],
+                givenName: existingParty['@type'] === 'Individual' ? existingParty.givenName : '',
+                familyName: existingParty['@type'] === 'Individual' ? existingParty.familyName : '',
+                middleName: existingParty['@type'] === 'Individual' ? existingParty.middleName || '' : '',
+                birthDate: existingParty['@type'] === 'Individual' ? existingParty.birthDate || '' : '',
+                gender: existingParty['@type'] === 'Individual' ? existingParty.gender || '' : '',
+                tradingName: existingParty['@type'] === 'Organization' ? existingParty.tradingName : '',
+                isLegalEntity: existingParty['@type'] === 'Organization' ? existingParty.isLegalEntity : true,
+                organizationType: existingParty['@type'] === 'Organization' ? existingParty.organizationType || '' : '',
+                contactMediums: existingParty.contactMediums || [],
+                identifications: existingParty.identifications || [],
+            });
+        }
+    }, [existingParty]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        const payload: CreatePartyPayload = form.type === 'Individual'
-            ? {
-                '@type': 'Individual',
-                givenName: form.givenName,
-                familyName: form.familyName,
-                middleName: form.middleName || undefined,
-                contactMediums: form.contactMediums.length > 0 ? form.contactMediums as Omit<ContactMedium, 'id'>[] : undefined,
-                identifications: form.identifications.length > 0 ? form.identifications as Omit<Identification, 'id'>[] : undefined,
-            }
-            : {
-                '@type': 'Organization',
-                tradingName: form.tradingName,
-                isLegalEntity: form.isLegalEntity,
-                organizationType: form.organizationType || undefined,
-                contactMediums: form.contactMediums.length > 0 ? form.contactMediums as Omit<ContactMedium, 'id'>[] : undefined,
-                identifications: form.identifications.length > 0 ? form.identifications as Omit<Identification, 'id'>[] : undefined,
-            };
-
         try {
             if (isEdit && id) {
-                await updateMutation.mutateAsync({ id, ...payload });
+                const payload: UpdatePartyPayload = form.type === 'Individual'
+                    ? {
+                        id,
+                        '@type': 'Individual',
+                        givenName: form.givenName,
+                        familyName: form.familyName,
+                        middleName: form.middleName || undefined,
+                        birthDate: form.birthDate || undefined,
+                        gender: form.gender || undefined,
+                        contactMediums: form.contactMediums.length > 0 ? form.contactMediums as Omit<ContactMedium, 'id'>[] : undefined,
+                        identifications: form.identifications.length > 0 ? form.identifications as Omit<Identification, 'id'>[] : undefined,
+                    }
+                    : {
+                        id,
+                        '@type': 'Organization',
+                        tradingName: form.tradingName,
+                        isLegalEntity: form.isLegalEntity,
+                        organizationType: form.organizationType || undefined,
+                        contactMediums: form.contactMediums.length > 0 ? form.contactMediums as Omit<ContactMedium, 'id'>[] : undefined,
+                        identifications: form.identifications.length > 0 ? form.identifications as Omit<Identification, 'id'>[] : undefined,
+                    };
+                await updateMutation.mutateAsync(payload);
             } else {
+                const payload: CreatePartyPayload = form.type === 'Individual'
+                    ? {
+                        '@type': 'Individual',
+                        givenName: form.givenName,
+                        familyName: form.familyName,
+                        middleName: form.middleName || undefined,
+                        birthDate: form.birthDate || undefined,
+                        gender: form.gender || undefined,
+                        contactMediums: form.contactMediums.length > 0 ? form.contactMediums as Omit<ContactMedium, 'id'>[] : undefined,
+                        identifications: form.identifications.length > 0 ? form.identifications as Omit<Identification, 'id'>[] : undefined,
+                    }
+                    : {
+                        '@type': 'Organization',
+                        tradingName: form.tradingName,
+                        isLegalEntity: form.isLegalEntity,
+                        organizationType: form.organizationType || undefined,
+                        contactMediums: form.contactMediums.length > 0 ? form.contactMediums as Omit<ContactMedium, 'id'>[] : undefined,
+                        identifications: form.identifications.length > 0 ? form.identifications as Omit<Identification, 'id'>[] : undefined,
+                    };
                 await createMutation.mutateAsync(payload);
             }
             navigate('/parties');
@@ -174,7 +214,6 @@ export default function PartyFormPage() {
                                 value="Individual"
                                 checked={form.type === 'Individual'}
                                 onChange={() => setForm((prev) => ({ ...prev, type: 'Individual' }))}
-                                disabled={isEdit}
                             />
                             <span className="type-label">Individual</span>
                             <span className="type-desc">A natural person</span>
@@ -186,7 +225,6 @@ export default function PartyFormPage() {
                                 value="Organization"
                                 checked={form.type === 'Organization'}
                                 onChange={() => setForm((prev) => ({ ...prev, type: 'Organization' }))}
-                                disabled={isEdit}
                             />
                             <span className="type-label">Organization</span>
                             <span className="type-desc">A company or group</span>

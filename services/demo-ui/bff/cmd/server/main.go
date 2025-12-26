@@ -39,17 +39,19 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	// 4. Auth Middleware
-	// Strictly enforces Valid JWT
+	// 4. Initialize Auth Validator (used by both WebSocket and API routes)
 	authValidator, err := auth.NewAuth0Validator(cfg.Auth0Domain, cfg.Auth0Audience)
 	if err != nil {
 		log.Fatalf("Failed to initialize auth validator: %v", err)
 	}
-	r.Use(auth.EnsureValidToken(authValidator, cfg.Auth0Domain, cfg.Auth0Audience))
 
-	// 5. Initialize WebSocket Hub
+	// 5. Initialize WebSocket Hub with token validator for authentication
 	hub := httpTransport.NewHub()
+	hub.SetTokenValidator(authValidator)
 	go hub.Run()
+
+	// 5a. Set broadcaster on RPC client for debug reply forwarding
+	rpcClient.SetBroadcaster(hub)
 
 	// 6. Initialize Debug Consumer
 	debugConsumer := rabbitmq.NewDebugConsumer(rpcClient, hub)
@@ -59,9 +61,20 @@ func main() {
 		}
 	}()
 
-	// 7. Register Routes
-	handler := httpTransport.NewHandler(rpcClient, hub)
-	handler.RegisterRoutes(r)
+	// 7. Register WebSocket route BEFORE auth group (handles its own auth via Sec-WebSocket-Protocol)
+	r.Get("/ws/debug", func(w http.ResponseWriter, req *http.Request) {
+		hub.ServeWs(w, req)
+	})
+
+	// 8. Auth-protected routes group
+	r.Group(func(r chi.Router) {
+		// Apply auth middleware only to this group
+		r.Use(auth.EnsureValidToken(authValidator, cfg.Auth0Domain, cfg.Auth0Audience))
+
+		// Register API Routes
+		handler := httpTransport.NewHandler(rpcClient, hub)
+		handler.RegisterRoutes(r)
+	})
 
 	// 6. Start Server
 	log.Printf("BFF Server listening on port %s", cfg.Port)
