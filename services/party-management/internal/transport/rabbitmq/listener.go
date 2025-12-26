@@ -31,6 +31,10 @@ func (l *Listener) GetHandler(routingKey string, h *Handlers) (func(context.Cont
 		return h.HandleGetParty, true
 	case QueryPartySearch:
 		return h.HandleSearchParty, true
+	case CmdPartyFinalizeDeletion:
+		return h.HandleFinalizeDeletion, true
+	case CmdPartyCancelDeletion:
+		return h.HandleCancelDeletion, true
 	default:
 		return nil, false
 	}
@@ -93,6 +97,8 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		CmdPartyUpdate,
 		CmdPartyPatch,
 		CmdPartyDelete,
+		CmdPartyFinalizeDeletion,
+		CmdPartyCancelDeletion,
 		QueryPartyGet,
 		QueryPartySearch,
 	}
@@ -102,6 +108,26 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		if err != nil {
 			return fmt.Errorf("failed to bind command queue: %w", err)
 		}
+	}
+
+	// Declare and bind Event Queue
+	eventQueueName := "party.events"
+	_, err = ch.QueueDeclare(
+		eventQueueName,
+		true,
+		false,
+		false,
+		false,
+		amqp.Table{"x-dead-letter-exchange": DeadLetterExchange},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to declare event queue: %w", err)
+	}
+
+	// Bind to existing Event Exchange
+	err = ch.QueueBind(eventQueueName, EvtCustomerCreated, EventExchange, false, nil)
+	if err != nil {
+		return fmt.Errorf("failed to bind event queue: %w", err)
 	}
 
 	msgs, err := ch.Consume(
@@ -117,12 +143,43 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		return fmt.Errorf("failed to consume commands: %w", err)
 	}
 
+	eventMsgs, err := ch.Consume(
+		eventQueueName,
+		"",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to consume events: %w", err)
+	}
+
 	slog.Info("Party Management listener started...")
 
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
+		case d := <-eventMsgs:
+			go func(d amqp.Delivery) {
+				// Simple event handling
+				var err error
+				switch d.RoutingKey {
+				case EvtCustomerCreated:
+					err = h.HandleCustomerCreated(ctx, d)
+				default:
+					slog.Warn("ignoring unknown event", "routingKey", d.RoutingKey)
+				}
+
+				if err != nil {
+					slog.Error("failed to handle event", "routingKey", d.RoutingKey, "error", err)
+					d.Nack(false, false)
+				} else {
+					d.Ack(false)
+				}
+			}(d)
 		case d := <-msgs:
 			go func(d amqp.Delivery) {
 				var targetHandler func(context.Context, amqp.Delivery) error
@@ -135,7 +192,7 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 
 				// Wrap with middlewares
 				wrappedHandler := Chain(targetHandler,
-					TracingMiddleware("party-management"),
+					// TracingMiddleware("party-management"),
 					AuthMiddleware(),
 					JWTMiddleware())
 
@@ -145,23 +202,6 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 
 					// If it's an RPC call (ReplyTo set), send error response
 					if d.ReplyTo != "" {
-						// Create a temporary handler to access replyTo helper or implement it here
-						// Since we don't have access to handler instance easily here without passing it,
-						// we can use the publisher from handlers if available, or just use the channel directly.
-						// But wait, the handler 'h' IS available here in scope.
-
-						// We need to construct a response with error.
-						// Ideally we reuse h.replyTo but it's a method on Handlers.
-						// h IS a *Handlers.
-
-						// We need to publicize replyTo or duplicate logic.
-						// Since replyTo is private, we can't call it easily unless we change visibility or duplicate.
-						// Let's look at h definition. 'h' is *Handlers.
-
-						// duplicating reply logic for now to avoid changing public API of Handlers if not needed,
-						// OR better: Assume we can make replyTo public or add a method HandleError?
-
-						// Let's try to send raw error response
 						errResponse, _ := json.Marshal(map[string]string{"error": err.Error()})
 
 						pubErr := ch.PublishWithContext(ctx,

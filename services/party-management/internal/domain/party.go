@@ -17,6 +17,16 @@ const (
 	PartyTypeOrganization PartyType = "Organization"
 )
 
+// PartyStatus defines the lifecycle state of a party
+type PartyStatus string
+
+const (
+	PartyStatusInitialized     PartyStatus = "Initialized"
+	PartyStatusActive          PartyStatus = "Active"
+	PartyStatusDeletionPending PartyStatus = "DeletionPending"
+	PartyStatusDeleted         PartyStatus = "Deleted"
+)
+
 // Party is the base entity mapping to 'parties' table
 type Party struct {
 	ID        string    `gorm:"primaryKey" json:"id"`

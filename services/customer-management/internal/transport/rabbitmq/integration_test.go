@@ -522,3 +522,100 @@ func TestUseCase_AuditLogging(t *testing.T) {
 	assert.Equal(t, "I", auditLog.Action)
 	assert.Equal(t, userID, auditLog.UserName)
 }
+
+// 8. Party Deletion Saga Use Cases
+func TestUseCase_PartyEvent_DeletionInitiated_ActiveCustomer(t *testing.T) {
+	ctx := context.Background()
+	handlers := NewHandlers(sharedRepo, sharedPublisher)
+
+	// Setup: Active Customer linked to party
+	custID := "cust-saga-active-1"
+	partyID := "party-saga-active-1"
+	require.NoError(t, sharedRepo.CreateCustomer(ctx, &domain.Customer{
+		ID: custID, Name: "Active Customer", PartyID: partyID, Status: domain.CustomerStatusActive,
+	}))
+
+	// Setup: Mock Party Exchange and Queue to catch commands
+	ch, err := sharedConn.Channel()
+	require.NoError(t, err)
+	defer ch.Close()
+
+	partyExchange := "tmf.party"
+	err = ch.ExchangeDeclare(partyExchange, "topic", true, false, false, false, nil)
+	require.NoError(t, err)
+
+	q, err := ch.QueueDeclare("", false, true, true, false, nil)
+	require.NoError(t, err)
+
+	err = ch.QueueBind(q.Name, CmdPartyCancelDeletion, partyExchange, false, nil)
+	require.NoError(t, err)
+
+	msgs, err := ch.Consume(q.Name, "", true, true, false, false, nil)
+	require.NoError(t, err)
+
+	// Execute: Event Party Deletion Initiated
+	evtPayload := PartyEventPayload{ID: partyID, Type: "Individual"}
+	body, _ := json.Marshal(evtPayload)
+
+	err = handlers.HandlePartyEvent(ctx, amqp.Delivery{
+		Body: body, RoutingKey: EvtPartyDeletionInitiated,
+	})
+	require.NoError(t, err)
+
+	// Verify: Should receive Cancel Command
+	select {
+	case msg := <-msgs:
+		assert.Equal(t, CmdPartyCancelDeletion, msg.RoutingKey)
+		var p map[string]string
+		json.Unmarshal(msg.Body, &p)
+		assert.Equal(t, partyID, p["id"])
+	case <-time.After(2 * time.Second):
+		t.Fatal("Timeout waiting for cancel command")
+	}
+}
+
+func TestUseCase_PartyEvent_DeletionInitiated_NoCustomer(t *testing.T) {
+	ctx := context.Background()
+	handlers := NewHandlers(sharedRepo, sharedPublisher)
+
+	// Setup: No active customers for this party
+	partyID := "party-saga-none-1"
+
+	// Setup: Mock Party Exchange and Queue to catch commands
+	ch, err := sharedConn.Channel()
+	require.NoError(t, err)
+	defer ch.Close()
+
+	partyExchange := "tmf.party"
+	err = ch.ExchangeDeclare(partyExchange, "topic", true, false, false, false, nil)
+	require.NoError(t, err)
+
+	q, err := ch.QueueDeclare("", false, true, true, false, nil)
+	require.NoError(t, err)
+
+	err = ch.QueueBind(q.Name, CmdPartyFinalizeDeletion, partyExchange, false, nil)
+	require.NoError(t, err)
+
+	msgs, err := ch.Consume(q.Name, "", true, true, false, false, nil)
+	require.NoError(t, err)
+
+	// Execute: Event Party Deletion Initiated
+	evtPayload := PartyEventPayload{ID: partyID, Type: "Individual"}
+	body, _ := json.Marshal(evtPayload)
+
+	err = handlers.HandlePartyEvent(ctx, amqp.Delivery{
+		Body: body, RoutingKey: EvtPartyDeletionInitiated,
+	})
+	require.NoError(t, err)
+
+	// Verify: Should receive Finalize Command
+	select {
+	case msg := <-msgs:
+		assert.Equal(t, CmdPartyFinalizeDeletion, msg.RoutingKey)
+		var p map[string]string
+		json.Unmarshal(msg.Body, &p)
+		assert.Equal(t, partyID, p["id"])
+	case <-time.After(2 * time.Second):
+		t.Fatal("Timeout waiting for finalize command")
+	}
+}

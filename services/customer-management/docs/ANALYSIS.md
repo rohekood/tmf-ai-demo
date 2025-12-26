@@ -32,6 +32,17 @@ Customer Management (TMF629) provides a standardized mechanism for managing the 
 ### 5. Event Notifications
 *   Broadcast events for customer creation, status changes, and profile updates to downstream services (Billing, Ordering, Assurance).
 
+### 6. Party Deletion Validation (Saga Participant)
+The Customer Management service acts as a validator for Party Deletion requests.
+
+**Validation Logic:**
+1.  **Listen**: Subscribes to `evt.party.deletion_initiated` from Party Management.
+2.  **Validate**: Checks if any *Active* linked customers exist for the given `partyId`.
+3.  **Respond**:
+    *   **If Linked**: Publishes `cmd.party.cancel_deletion` to abort the process.
+    *   **If Not Linked**: Publishes `cmd.party.finalize_deletion` to approve the process.
+
+
 ## TMF629 vs TMF632 (Integration Points)
 *   **Customer -> Party**: A Customer *is* a Party playing a specific role.
 *   **Service Dependency**: The Customer service depends on the Party service for core identity data.

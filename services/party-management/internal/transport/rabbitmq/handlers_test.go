@@ -134,7 +134,23 @@ func TestHandleDeleteParty(t *testing.T) {
 	h := NewHandlers(mockRepo, nil)
 
 	ctx := context.Background()
-	mockRepo.On("DeleteParty", ctx, "delete-test-1").Return(nil)
+
+	// 1. GetParty is called first
+	mockRepo.On("GetParty", ctx, "delete-test-1").Return(&domain.Party{
+		ID:     "delete-test-1",
+		Type:   domain.PartyTypeIndividual,
+		Status: "Active",
+	}, nil)
+
+	// 2. GetIndividual is called (since type is Individual)
+	mockRepo.On("GetIndividual", ctx, "delete-test-1").Return(&domain.Individual{
+		Party: domain.Party{ID: "delete-test-1", Type: domain.PartyTypeIndividual, Status: "Active"},
+	}, nil)
+
+	// 3. UpdateIndividual is called with "DeletionPending"
+	mockRepo.On("UpdateIndividual", ctx, mock.MatchedBy(func(ind *domain.Individual) bool {
+		return ind.Status == "DeletionPending"
+	})).Return(nil)
 
 	payload := DeletePartyPayload{ID: "delete-test-1"}
 	body, _ := json.Marshal(payload)
@@ -143,7 +159,9 @@ func TestHandleDeleteParty(t *testing.T) {
 	err := h.HandleDeleteParty(ctx, delivery)
 
 	assert.NoError(t, err)
-	mockRepo.AssertCalled(t, "DeleteParty", ctx, "delete-test-1")
+	mockRepo.AssertCalled(t, "GetParty", ctx, "delete-test-1")
+	mockRepo.AssertCalled(t, "GetIndividual", ctx, "delete-test-1")
+	mockRepo.AssertCalled(t, "UpdateIndividual", ctx, mock.Anything)
 }
 
 func TestHandleSearchParty_ReturnsCompleteIndividualData(t *testing.T) {

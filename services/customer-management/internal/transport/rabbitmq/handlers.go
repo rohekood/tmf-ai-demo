@@ -362,6 +362,8 @@ func (h *Handlers) HandlePartyEvent(ctx context.Context, d amqp.Delivery) error 
 		return h.handlePartyUpdated(ctx, payload)
 	case EvtPartyDeleted:
 		return h.handlePartyDeleted(ctx, payload)
+	case EvtPartyDeletionInitiated:
+		return h.handlePartyDeletionInitiated(ctx, payload)
 	}
 
 	return nil
@@ -410,11 +412,52 @@ func (h *Handlers) handlePartyDeleted(ctx context.Context, p PartyEventPayload) 
 	return nil
 }
 
+func (h *Handlers) handlePartyDeletionInitiated(ctx context.Context, p PartyEventPayload) error {
+	if p.ID == "" {
+		slog.Warn("received deletion initiated with empty ID")
+		return nil
+	}
+
+	// Check for active customers
+	customers, err := h.repo.SearchCustomers(ctx, map[string]interface{}{"party_id": p.ID})
+	if err != nil {
+		return fmt.Errorf("failed to search customers: %w", err)
+	}
+
+	hasActive := false
+	for _, c := range customers {
+		if c.Status != domain.CustomerStatusClosed && c.Status != domain.CustomerStatusSuspended {
+			hasActive = true
+			break
+		}
+	}
+
+	partyCommandExchange := "tmf.party"
+	cmdPayload := map[string]string{"id": p.ID}
+
+	if hasActive {
+		slog.Info("blocking party deletion: active customers found", "party_id", p.ID)
+		if err := h.publisher.Publish(ctx, partyCommandExchange, CmdPartyCancelDeletion, cmdPayload); err != nil {
+			return fmt.Errorf("failed to publish cancel command: %w", err)
+		}
+	} else {
+		slog.Info("approving party deletion: no active customers", "party_id", p.ID)
+		if err := h.publisher.Publish(ctx, partyCommandExchange, CmdPartyFinalizeDeletion, cmdPayload); err != nil {
+			return fmt.Errorf("failed to publish finalize command: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // Helpers
 
 func (h *Handlers) extractUser(ctx context.Context, d amqp.Delivery) context.Context {
 	if user, ok := d.Headers["user"].(string); ok && user != "" {
-		return context.WithValue(ctx, domain.UserContextKey, user)
+		ctx = context.WithValue(ctx, domain.UserContextKey, user)
+	}
+	if auth, ok := d.Headers["Authorization"].(string); ok && auth != "" {
+		ctx = context.WithValue(ctx, "authorization", auth)
 	}
 	return ctx
 }
