@@ -62,8 +62,14 @@ describe('PartyListPage', () => {
             </MemoryRouter>
         );
 
+
         // Headers
         expect(screen.getByRole('columnheader', { name: 'Name' })).toBeInTheDocument();
+        expect(screen.getByRole('columnheader', { name: 'Type' })).toBeInTheDocument();
+
+        // Check for Type badges (accessible as buttons)
+        expect(screen.getByRole('button', { name: /individual/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /organization/i })).toBeInTheDocument();
 
         // Cells
         expect(screen.getByRole('cell', { name: 'John Doe' })).toBeInTheDocument();

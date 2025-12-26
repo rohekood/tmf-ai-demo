@@ -126,3 +126,34 @@ services/
 1.  **Scaffold BFF**: Create `services/demo-bff` with Go.
 2.  **Re-scaffold UI**: Re-initialize `services/demo-ui` using the TypeScript template.
 3.  **Setup Dev Environment**: Configure `docker-compose` to run BFF + UI + Backends.
+
+## 7. Testing Strategy
+
+We follow the [Testing Library Guiding Principles](https://testing-library.com/docs/guiding-principles) and [Common Mistakes](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library) by Kent C. Dodds.
+
+### 7.1 Core Principles
+"The more your tests resemble the way your software is used, the more confidence they can give you."
+
+1.  **Test Behavior, Not Implementation**: Do not test strict execution details (e.g., function names, variable states). Test what the user interacts with (buttons, inputs, text).
+2.  **Accessibility First**: Querying by accessibility roles ensures the app is usable by everyone.
+
+### 7.2 Best Practices (Do's and Don'ts)
+
+#### Queries
+-   ✅ **DO** use `screen.getByRole()` as your primary query. Use the `name` option to narrow down (e.g., `getByRole('button', { name: /submit/i })`).
+-   ✅ **DO** use `screen.getByLabelText()`, `screen.getByPlaceholderText()`, or `screen.getByText()` if roles are not applicable.
+-   ⚠️ **AVOID** `getByTestId()` unless absolutely necessary. It decouples the test from the user experience.
+-   ❌ **DON'T** use `container.querySelector()`. It creates brittle tests tied to DOM structure.
+
+#### User Interaction
+-   ✅ **DO** use `@testing-library/user-event` for interactions (`userEvent.click()`, `userEvent.type()`). It simulates strict browser events better than `fireEvent`.
+-   ❌ **DON'T** use `fireEvent` unless `user-event` cannot handle the specific scenario.
+
+#### Async Utilities
+-   ✅ **DO** use `findBy*` queries (e.g., `screen.findByRole`) to wait for elements to appear.
+-   ✅ **DO** use `waitFor()` for assertions that might take time.
+-   ❌ **DON'T** wrap things in `act()` manually usually. React Testing Library handles this for you most of the time.
+-   ❌ **DON'T** wait for side effects blindly. Wait for the UI change that results from the side effect.
+
+#### Debugging
+-   ✅ **DO** use `screen.logTestingPlaygroundURL()` to get a URL to an interactive sandbox for query debugging.

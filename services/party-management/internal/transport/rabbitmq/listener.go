@@ -2,6 +2,7 @@ package rabbitmq
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 
@@ -14,6 +15,25 @@ type Listener struct {
 
 func NewListener(conn *amqp.Connection) (*Listener, error) {
 	return &Listener{conn: conn}, nil
+}
+
+func (l *Listener) GetHandler(routingKey string, h *Handlers) (func(context.Context, amqp.Delivery) error, bool) {
+	switch routingKey {
+	case CmdPartyCreate:
+		return h.HandleCreateParty, true
+	case CmdPartyUpdate:
+		return h.HandleUpdateParty, true
+	case CmdPartyPatch:
+		return h.HandlePatchParty, true
+	case CmdPartyDelete:
+		return h.HandleDeleteParty, true
+	case QueryPartyGet:
+		return h.HandleGetParty, true
+	case QueryPartySearch:
+		return h.HandleSearchParty, true
+	default:
+		return nil, false
+	}
 }
 
 func (l *Listener) Start(ctx context.Context, h *Handlers) error {
@@ -106,20 +126,8 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		case d := <-msgs:
 			go func(d amqp.Delivery) {
 				var targetHandler func(context.Context, amqp.Delivery) error
-				switch d.RoutingKey {
-				case CmdPartyCreate:
-					targetHandler = h.HandleCreateParty
-				case CmdPartyUpdate:
-					targetHandler = h.HandleUpdateParty
-				case CmdPartyPatch:
-					targetHandler = h.HandlePatchParty
-				case CmdPartyDelete:
-					targetHandler = h.HandleDeleteParty
-				case QueryPartyGet:
-					targetHandler = h.HandleGetParty
-				case QueryPartySearch:
-					targetHandler = h.HandleSearchParty
-				default:
+				targetHandler, valid := l.GetHandler(d.RoutingKey, h)
+				if !valid {
 					slog.Warn("unknown routing key", "routing_key", d.RoutingKey)
 					d.Nack(false, false)
 					return
@@ -134,7 +142,47 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 				err := wrappedHandler(ctx, d)
 				if err != nil {
 					slog.Error("error handling message", "routing_key", d.RoutingKey, "error", err)
-					d.Nack(false, false) // Don't requeue, send to DLX
+
+					// If it's an RPC call (ReplyTo set), send error response
+					if d.ReplyTo != "" {
+						// Create a temporary handler to access replyTo helper or implement it here
+						// Since we don't have access to handler instance easily here without passing it,
+						// we can use the publisher from handlers if available, or just use the channel directly.
+						// But wait, the handler 'h' IS available here in scope.
+
+						// We need to construct a response with error.
+						// Ideally we reuse h.replyTo but it's a method on Handlers.
+						// h IS a *Handlers.
+
+						// We need to publicize replyTo or duplicate logic.
+						// Since replyTo is private, we can't call it easily unless we change visibility or duplicate.
+						// Let's look at h definition. 'h' is *Handlers.
+
+						// duplicating reply logic for now to avoid changing public API of Handlers if not needed,
+						// OR better: Assume we can make replyTo public or add a method HandleError?
+
+						// Let's try to send raw error response
+						errResponse, _ := json.Marshal(map[string]string{"error": err.Error()})
+
+						pubErr := ch.PublishWithContext(ctx,
+							"",        // default exchange
+							d.ReplyTo, // routing key = reply queue
+							false,
+							false,
+							amqp.Publishing{
+								ContentType:   "application/json",
+								Headers:       amqp.Table{"user": d.Headers["user"]},
+								CorrelationId: d.CorrelationId,
+								Body:          errResponse,
+							})
+						if pubErr != nil {
+							slog.Error("failed to publish error response", "error", pubErr)
+						}
+
+						d.Ack(false) // Ack because we handled it by reporting error
+					} else {
+						d.Nack(false, false) // Don't requeue, send to DLX
+					}
 				} else {
 					d.Ack(false)
 				}

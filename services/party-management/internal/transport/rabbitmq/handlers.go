@@ -10,6 +10,7 @@ import (
 	"tmf/services/party-management/internal/domain"
 	infraRabbit "tmf/services/party-management/internal/infrastructure/rabbitmq"
 
+	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -207,35 +208,49 @@ type CharacteristicDTO struct {
 
 func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error {
 	ctx = h.extractUser(ctx, d)
-	var payload CreatePartyPayload
-	if err := json.Unmarshal(d.Body, &payload); err != nil {
-		return fmt.Errorf("failed to unmarshal CreatePartyPayload: %w", err)
-	}
 
-	if err := payload.Validate(); err != nil {
-		return err
+	// Determine type from flat JSON
+	var typeInfo struct {
+		Type string `json:"@type"`
+	}
+	if err := json.Unmarshal(d.Body, &typeInfo); err != nil {
+		return fmt.Errorf("failed to unmarshal type info: %w", err)
 	}
 
 	now := time.Now()
 
-	if payload.Type == "Individual" {
+	if typeInfo.Type == "Individual" {
+		var payload CreateIndividualPayload
+		if err := json.Unmarshal(d.Body, &payload); err != nil {
+			return fmt.Errorf("failed to unmarshal Individual payload: %w", err)
+		}
+
+		if payload.ID == "" {
+			payload.ID = uuid.New().String()
+		}
+
+		if err := payload.Validate(); err != nil {
+			return err
+		}
+
 		ind := &domain.Individual{
 			Party: domain.Party{
-				ID:        payload.Individual.ID,
+				ID:        payload.ID,
 				Type:      domain.PartyTypeIndividual,
-				Href:      payload.Individual.Href,
+				Href:      payload.Href,
 				Status:    "Initialized",
 				CreatedAt: now,
 				UpdatedAt: now,
 			},
-			GivenName:  payload.Individual.GivenName,
-			FamilyName: payload.Individual.FamilyName,
+			GivenName:  payload.GivenName,
+			FamilyName: payload.FamilyName,
 		}
 
-		ind.ContactMediums = h.mapContactMediums(payload.Individual.ContactMediums, ind.ID)
-		ind.Identifications = h.mapIdentifications(payload.Individual.Identifications, ind.ID)
-		ind.RelatedParties = h.mapRelatedParties(payload.Individual.RelatedParties, ind.ID)
-		ind.Characteristics = h.mapCharacteristics(payload.Individual.Characteristics, ind.ID)
+		ind.ContactMediums = h.mapContactMediums(payload.ContactMediums, ind.ID)
+		ind.Identifications = h.mapIdentifications(payload.Identifications, ind.ID)
+		ind.RelatedParties = h.mapRelatedParties(payload.RelatedParties, ind.ID)
+		ind.Characteristics = h.mapCharacteristics(payload.Characteristics, ind.ID)
+
 		if err := h.repo.CreateIndividual(ctx, ind); err != nil {
 			return fmt.Errorf("failed to create individual: %w", err)
 		}
@@ -248,24 +263,40 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 		})
 		slog.Info("created individual", "party_id", ind.ID)
 
-	} else if payload.Type == "Organization" {
+		return h.replyTo(ctx, d, ind)
+
+	} else if typeInfo.Type == "Organization" {
+		var payload CreateOrganizationPayload
+		if err := json.Unmarshal(d.Body, &payload); err != nil {
+			return fmt.Errorf("failed to unmarshal Organization payload: %w", err)
+		}
+
+		if payload.ID == "" {
+			payload.ID = uuid.New().String()
+		}
+
+		if err := payload.Validate(); err != nil {
+			return err
+		}
+
 		org := &domain.Organization{
 			Party: domain.Party{
-				ID:        payload.Organization.ID,
+				ID:        payload.ID,
 				Type:      domain.PartyTypeOrganization,
-				Href:      payload.Organization.Href,
+				Href:      payload.Href,
 				Status:    "Initialized",
 				CreatedAt: now,
 				UpdatedAt: now,
 			},
-			TradingName:   payload.Organization.TradingName,
-			IsLegalEntity: payload.Organization.IsLegalEntity,
+			TradingName:   payload.TradingName,
+			IsLegalEntity: payload.IsLegalEntity,
 		}
 
-		org.ContactMediums = h.mapContactMediums(payload.Organization.ContactMediums, org.ID)
-		org.Identifications = h.mapIdentifications(payload.Organization.Identifications, org.ID)
-		org.RelatedParties = h.mapRelatedParties(payload.Organization.RelatedParties, org.ID)
-		org.Characteristics = h.mapCharacteristics(payload.Organization.Characteristics, org.ID)
+		org.ContactMediums = h.mapContactMediums(payload.ContactMediums, org.ID)
+		org.Identifications = h.mapIdentifications(payload.Identifications, org.ID)
+		org.RelatedParties = h.mapRelatedParties(payload.RelatedParties, org.ID)
+		org.Characteristics = h.mapCharacteristics(payload.Characteristics, org.ID)
+
 		if err := h.repo.CreateOrganization(ctx, org); err != nil {
 			return fmt.Errorf("failed to create organization: %w", err)
 		}
@@ -276,92 +307,134 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 			"newState": org.Status,
 		})
 		slog.Info("created organization", "party_id", org.ID)
+
+		return h.replyTo(ctx, d, org)
 	}
 
-	return nil
+	return domain.ErrInvalidType
 }
 
 func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error {
 	ctx = h.extractUser(ctx, d)
-	var payload UpdatePartyPayload
-	if err := json.Unmarshal(d.Body, &payload); err != nil {
-		return fmt.Errorf("failed to unmarshal UpdatePartyPayload: %w", err)
-	}
 
-	if err := payload.Validate(); err != nil {
-		return err
+	var typeInfo struct {
+		Type string `json:"@type"`
+	}
+	if err := json.Unmarshal(d.Body, &typeInfo); err != nil {
+		return fmt.Errorf("failed to unmarshal type info: %w", err)
 	}
 
 	now := time.Now()
 
-	if payload.Type == "Individual" {
+	if typeInfo.Type == "Individual" {
+		var payload CreateIndividualPayload // Use Same payload structure for update fields
+		if err := json.Unmarshal(d.Body, &payload); err != nil {
+			return fmt.Errorf("failed to unmarshal Update payload: %w", err)
+		}
+
+		// Status is handled separately as it's not in CreateIndividualPayload
+		var statusPayload struct {
+			Status string `json:"status"`
+		}
+		json.Unmarshal(d.Body, &statusPayload) // Ignore error, optional
+
+		if payload.ID == "" {
+			return domain.ErrIDRequired
+		}
+
 		existing, err := h.repo.GetIndividual(ctx, payload.ID)
 		if err != nil {
 			return fmt.Errorf("failed to get existing individual: %w", err)
 		}
 		oldStatus := existing.Status
+		newStatus := statusPayload.Status
+		if newStatus == "" {
+			newStatus = oldStatus // Keep existing if not provided
+		}
 
 		ind := &domain.Individual{
 			Party: domain.Party{
 				ID:        payload.ID,
 				Type:      domain.PartyTypeIndividual,
-				Href:      payload.Individual.Href,
-				Status:    payload.Status,
+				Href:      payload.Href,
+				Status:    newStatus,
 				CreatedAt: existing.CreatedAt, // Preserve creation time
 				UpdatedAt: now,
 			},
-			GivenName:  payload.Individual.GivenName,
-			FamilyName: payload.Individual.FamilyName,
+			GivenName:  payload.GivenName,
+			FamilyName: payload.FamilyName,
 		}
 		if err := h.repo.UpdateIndividual(ctx, ind); err != nil {
 			return fmt.Errorf("failed to update individual: %w", err)
 		}
 
 		h.publishEvent(ctx, EvtPartyUpdated, ind)
-		if oldStatus != payload.Status && payload.Status != "" {
+		if oldStatus != newStatus {
 			h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
 				"id":       ind.ID,
 				"oldState": oldStatus,
-				"newState": payload.Status,
+				"newState": newStatus,
 			})
 		}
 		slog.Info("updated individual", "party_id", ind.ID)
 
-	} else if payload.Type == "Organization" {
+		return h.replyTo(ctx, d, ind)
+
+	} else if typeInfo.Type == "Organization" {
+		var payload CreateOrganizationPayload
+		if err := json.Unmarshal(d.Body, &payload); err != nil {
+			return fmt.Errorf("failed to unmarshal Organization update payload: %w", err)
+		}
+
+		var statusPayload struct {
+			Status string `json:"status"`
+		}
+		json.Unmarshal(d.Body, &statusPayload)
+
+		if payload.ID == "" {
+			return domain.ErrIDRequired
+		}
+
 		existing, err := h.repo.GetOrganization(ctx, payload.ID)
 		if err != nil {
 			return fmt.Errorf("failed to get existing organization: %w", err)
 		}
 		oldStatus := existing.Status
+		newStatus := statusPayload.Status
+		if newStatus == "" {
+			newStatus = oldStatus
+		}
 
 		org := &domain.Organization{
 			Party: domain.Party{
 				ID:        payload.ID,
 				Type:      domain.PartyTypeOrganization,
-				Href:      payload.Organization.Href,
-				Status:    payload.Status,
+				Href:      payload.Href,
+				Status:    newStatus,
 				CreatedAt: existing.CreatedAt,
 				UpdatedAt: now,
 			},
-			TradingName:   payload.Organization.TradingName,
-			IsLegalEntity: payload.Organization.IsLegalEntity,
+			TradingName:   payload.TradingName,
+			IsLegalEntity: payload.IsLegalEntity,
 		}
 		if err := h.repo.UpdateOrganization(ctx, org); err != nil {
 			return fmt.Errorf("failed to update organization: %w", err)
 		}
 
 		h.publishEvent(ctx, EvtPartyUpdated, org)
-		if oldStatus != payload.Status && payload.Status != "" {
+		if oldStatus != newStatus {
 			h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
 				"id":       org.ID,
 				"oldState": oldStatus,
-				"newState": payload.Status,
+				"newState": newStatus,
 			})
 		}
 		slog.Info("updated organization", "party_id", org.ID)
+
+		return h.replyTo(ctx, d, org)
 	}
 
-	return nil
+	return domain.ErrInvalidType
 }
 
 func (h *Handlers) HandlePatchParty(ctx context.Context, d amqp.Delivery) error {
@@ -411,7 +484,9 @@ func (h *Handlers) HandlePatchParty(ctx context.Context, d amqp.Delivery) error 
 			})
 		}
 		slog.Info("patched individual", "party_id", existing.ID)
-		return nil
+
+		return h.replyTo(ctx, d, existing)
+
 	} else if party.Type == domain.PartyTypeOrganization {
 		existingOrg, err := h.repo.GetOrganization(ctx, payload.ID)
 		if err != nil {
@@ -436,7 +511,8 @@ func (h *Handlers) HandlePatchParty(ctx context.Context, d amqp.Delivery) error 
 			})
 		}
 		slog.Info("patched organization", "party_id", existingOrg.ID)
-		return nil
+
+		return h.replyTo(ctx, d, existingOrg)
 	}
 
 	return fmt.Errorf("%w: %s", domain.ErrInvalidType, payload.ID)
@@ -461,7 +537,8 @@ func (h *Handlers) HandleDeleteParty(ctx context.Context, d amqp.Delivery) error
 		"id": payload.ID,
 	})
 	slog.Info("deleted party", "party_id", payload.ID)
-	return nil
+
+	return h.replyTo(ctx, d, map[string]interface{}{})
 }
 
 func (h *Handlers) HandleGetParty(ctx context.Context, d amqp.Delivery) error {

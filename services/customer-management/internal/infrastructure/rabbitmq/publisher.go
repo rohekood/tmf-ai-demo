@@ -58,3 +58,7 @@ func (p *Publisher) Publish(ctx context.Context, exchange, routingKey string, bo
 func (p *Publisher) Close() error {
 	return p.ch.Close()
 }
+
+func (p *Publisher) GetChannel() (*amqp.Channel, error) {
+	return p.ch, nil
+}

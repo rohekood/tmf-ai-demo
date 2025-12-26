@@ -5,9 +5,16 @@ import { MemoryRouter } from 'react-router-dom';
 
 describe('Sidebar', () => {
     it('renders navigation links', () => {
+        const props = {
+            collapsed: false,
+            mobileOpen: false,
+            onToggleCollapse: () => { },
+            onCloseMobile: () => { }
+        };
+
         render(
             <MemoryRouter>
-                <Sidebar />
+                <Sidebar {...props} />
             </MemoryRouter>
         );
 
