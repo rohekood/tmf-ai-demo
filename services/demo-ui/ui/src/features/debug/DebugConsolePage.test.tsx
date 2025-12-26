@@ -3,11 +3,12 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import DebugConsolePage from './DebugConsolePage';
 import { useDebugWebSocket } from './useDebugWebSocket';
+import { type DebugMessage } from './types';
 
 // Mock hook
 vi.mock('./useDebugWebSocket');
 
-const mockMessages = [
+const mockMessages: DebugMessage[] = [
     {
         id: 'msg1',
         timestamp: '2023-01-01T12:00:00Z',
@@ -27,16 +28,17 @@ const mockMessages = [
 ];
 
 describe('DebugConsolePage', () => {
-    let clearMessagesMock: any;
+    let clearMessagesMock: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
         vi.resetAllMocks();
         clearMessagesMock = vi.fn();
-        (useDebugWebSocket as any).mockReturnValue({
+        vi.mocked(useDebugWebSocket).mockReturnValue({
             messages: mockMessages,
             isConnected: true,
-            clearMessages: clearMessagesMock
-        });
+            clearMessages: clearMessagesMock,
+            error: null
+        } as unknown as ReturnType<typeof useDebugWebSocket>);
     });
 
     it('renders connected status', () => {

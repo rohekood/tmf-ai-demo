@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import PartyFormPage from './PartyFormPage';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import * as api from './api';
+import { type Individual } from './types';
 
 vi.mock('./api');
 
@@ -18,26 +19,26 @@ vi.mock('react-router-dom', async () => {
 });
 
 describe('PartyFormPage', () => {
-    let createMock: any;
-    let updateMock: any;
+    let createMock: ReturnType<typeof vi.fn>;
+    let updateMock: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
         vi.resetAllMocks();
         createMock = vi.fn();
         updateMock = vi.fn();
 
-        (api.useCreateParty as any).mockReturnValue({
+        vi.mocked(api.useCreateParty).mockReturnValue({
             mutateAsync: createMock,
             isPending: false
-        });
-        (api.useUpdateParty as any).mockReturnValue({
+        } as unknown as ReturnType<typeof api.useCreateParty>);
+        vi.mocked(api.useUpdateParty).mockReturnValue({
             mutateAsync: updateMock,
             isPending: false
-        });
+        } as unknown as ReturnType<typeof api.useUpdateParty>);
     });
 
     it('renders create form (default Individual)', () => {
-        (api.useParty as any).mockReturnValue({ data: undefined, isLoading: false });
+        vi.mocked(api.useParty).mockReturnValue({ data: undefined, isLoading: false } as unknown as ReturnType<typeof api.useParty>);
 
         render(
             <MemoryRouter initialEntries={['/parties/new']}>
@@ -53,7 +54,7 @@ describe('PartyFormPage', () => {
 
     it('toggles to Organization', async () => {
         const user = userEvent.setup();
-        (api.useParty as any).mockReturnValue({ data: undefined, isLoading: false });
+        vi.mocked(api.useParty).mockReturnValue({ data: undefined, isLoading: false } as unknown as ReturnType<typeof api.useParty>);
 
         render(
             <MemoryRouter initialEntries={['/parties/new']}>
@@ -72,7 +73,7 @@ describe('PartyFormPage', () => {
 
     it('submits create Individual', async () => {
         const user = userEvent.setup();
-        (api.useParty as any).mockReturnValue({ data: undefined, isLoading: false });
+        vi.mocked(api.useParty).mockReturnValue({ data: undefined, isLoading: false } as unknown as ReturnType<typeof api.useParty>);
 
         render(
             <MemoryRouter initialEntries={['/parties/new']}>
@@ -99,15 +100,16 @@ describe('PartyFormPage', () => {
     });
 
     it('renders edit form', () => {
-        const mockParty = {
+        const mockParty: Individual = {
             id: 'p1',
             '@type': 'Individual',
             givenName: 'John',
             familyName: 'Doe',
+            status: 'active', // Ensure valid status
             contactMediums: [],
             identifications: []
         };
-        (api.useParty as any).mockReturnValue({ data: mockParty, isLoading: false });
+        vi.mocked(api.useParty).mockReturnValue({ data: mockParty, isLoading: false } as unknown as ReturnType<typeof api.useParty>);
 
         render(
             <MemoryRouter initialEntries={['/parties/p1/edit']}>

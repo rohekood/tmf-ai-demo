@@ -1,14 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
     createColumnHelper,
-    flexRender,
     getCoreRowModel,
-    getSortedRowModel,
     getFilteredRowModel,
-    useReactTable,
+    getSortedRowModel,
+    flexRender,
     type SortingState,
 } from '@tanstack/react-table';
+import { useReactTable } from '../../hooks/useReactTable';
 import { Plus, Search, User, Building2, ChevronUp, ChevronDown, Eye, Edit, Trash2, Loader2 } from 'lucide-react';
 import { useParties, useDeleteParty } from './api';
 import { type PartyUnion, getPartyDisplayName, isIndividual } from './types';
@@ -38,11 +38,11 @@ export default function PartyListPage() {
         }
     };
 
-    const handleDelete = (id: string, name: string) => {
+    const handleDelete = useCallback((id: string, name: string) => {
         if (confirm(`Are you sure you want to delete "${name}"?`)) {
             deleteMutation.mutate(id);
         }
-    };
+    }, [deleteMutation]);
 
     const columns = useMemo(
         () => [
@@ -116,7 +116,7 @@ export default function PartyListPage() {
                 size: 120,
             }),
         ],
-        [deleteMutation.isPending]
+        [deleteMutation.isPending, handleDelete]
     );
 
     const table = useReactTable({

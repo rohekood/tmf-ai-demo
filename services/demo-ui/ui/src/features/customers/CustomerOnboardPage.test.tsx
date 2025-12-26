@@ -5,6 +5,7 @@ import CustomerOnboardPage from './CustomerOnboardPage';
 import { MemoryRouter } from 'react-router-dom';
 import * as api from './api';
 import * as partyApi from '../parties/api';
+import { type Individual, type Organization } from '../parties/types';
 
 // Mock hooks
 vi.mock('./api');
@@ -18,34 +19,39 @@ vi.mock('react-router-dom', async () => {
     };
 });
 
-const mockParties = [
+const mockParties: (Individual | Organization)[] = [
     {
         id: 'p1',
         givenName: 'John',
         familyName: 'Doe',
-        '@type': 'Individual'
-    },
+        '@type': 'Individual',
+        status: 'active',
+        identifications: []
+    } as Individual,
     {
         id: 'p2',
         tradingName: 'Acme Corp',
-        '@type': 'Organization'
-    }
+        '@type': 'Organization',
+        status: 'active',
+        isLegalEntity: true,
+        identifications: []
+    } as Organization
 ];
 
 describe('CustomerOnboardPage', () => {
-    let mutateAsyncMock: any;
+    let mutateAsyncMock: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
         vi.resetAllMocks();
         mutateAsyncMock = vi.fn();
-        (api.useOnboardCustomer as any).mockReturnValue({
+        vi.mocked(api.useOnboardCustomer).mockReturnValue({
             mutateAsync: mutateAsyncMock,
             isPending: false
-        });
-        (partyApi.useParties as any).mockReturnValue({
+        } as unknown as ReturnType<typeof api.useOnboardCustomer>);
+        vi.mocked(partyApi.useParties).mockReturnValue({
             data: [],
             isLoading: false
-        });
+        } as unknown as ReturnType<typeof partyApi.useParties>);
     });
 
     it('renders correctly', () => {
@@ -60,10 +66,10 @@ describe('CustomerOnboardPage', () => {
 
     it('handles party search and selection', async () => {
         const user = userEvent.setup();
-        (partyApi.useParties as any).mockReturnValue({
+        vi.mocked(partyApi.useParties).mockReturnValue({
             data: mockParties,
             isLoading: false
-        });
+        } as unknown as ReturnType<typeof partyApi.useParties>);
 
         render(
             <MemoryRouter>
@@ -86,10 +92,10 @@ describe('CustomerOnboardPage', () => {
 
     it('submits form when valid', async () => {
         const user = userEvent.setup();
-        (partyApi.useParties as any).mockReturnValue({
+        vi.mocked(partyApi.useParties).mockReturnValue({
             data: mockParties,
             isLoading: false
-        });
+        } as unknown as ReturnType<typeof partyApi.useParties>);
 
         render(
             <MemoryRouter>

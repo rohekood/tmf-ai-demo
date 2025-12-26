@@ -1,13 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
     createColumnHelper,
-    flexRender,
     getCoreRowModel,
     getSortedRowModel,
-    useReactTable,
+    flexRender,
     type SortingState,
 } from '@tanstack/react-table';
+import { useReactTable } from '../../hooks/useReactTable';
 import { Plus, Search, ChevronUp, ChevronDown, Eye, Edit, Trash2, Loader2, ExternalLink } from 'lucide-react';
 import { useCustomers, useDeleteCustomer } from './api';
 import type { Customer } from './types';
@@ -38,11 +38,11 @@ export default function CustomerListPage() {
         }
     };
 
-    const handleDelete = (id: string, name: string) => {
+    const handleDelete = useCallback((id: string, name: string) => {
         if (confirm(`Are you sure you want to delete customer "${name}"?`)) {
             deleteMutation.mutate(id);
         }
-    };
+    }, [deleteMutation]);
 
     const columns = useMemo(
         () => [
@@ -101,7 +101,7 @@ export default function CustomerListPage() {
                 size: 120,
             }),
         ],
-        [deleteMutation.isPending]
+        [deleteMutation.isPending, handleDelete]
     );
 
     const table = useReactTable({

@@ -3,26 +3,27 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import PartyDetailPage from './PartyDetailPage';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import * as api from './api';
+import { type Individual, type Organization } from './types';
 
 vi.mock('./api');
 
-const mockIndividual = {
+const mockIndividual: Individual = {
     id: 'p1',
     '@type': 'Individual',
     givenName: 'John',
     familyName: 'Doe',
-    status: 'Active',
-    contactMediums: [{ id: 'cm1', mediumType: 'email', value: 'john@example.com' }],
+    status: 'active',
+    contactMediums: [{ id: 'cm1', mediumType: 'email', value: 'john@example.com', preferred: true }],
     identifications: [],
     relatedParties: []
 };
 
-const mockOrganization = {
+const mockOrganization: Organization = {
     id: 'p2',
     '@type': 'Organization',
     tradingName: 'Acme Corp',
     isLegalEntity: true,
-    status: 'Active',
+    status: 'active',
     contactMediums: [],
     identifications: [],
     relatedParties: []
@@ -31,18 +32,19 @@ const mockOrganization = {
 describe('PartyDetailPage', () => {
     beforeEach(() => {
         vi.resetAllMocks();
-        (api.useDeleteParty as any).mockReturnValue({
+        vi.mocked(api.useDeleteParty).mockReturnValue({
             mutate: vi.fn(),
-            isPending: false
-        });
+            isPending: false,
+            // Cast to satisfy type without full mock implementation
+        } as unknown as ReturnType<typeof api.useDeleteParty>);
     });
 
     it('renders loading state', () => {
-        (api.useParty as any).mockReturnValue({
+        vi.mocked(api.useParty).mockReturnValue({
             data: undefined,
             isLoading: true,
-            error: null
-        });
+            error: null,
+        } as unknown as ReturnType<typeof api.useParty>);
 
         render(
             <MemoryRouter initialEntries={['/parties/p1']}>
@@ -56,11 +58,11 @@ describe('PartyDetailPage', () => {
     });
 
     it('renders individual details', () => {
-        (api.useParty as any).mockReturnValue({
+        vi.mocked(api.useParty).mockReturnValue({
             data: mockIndividual,
             isLoading: false,
-            error: null
-        });
+            error: null,
+        } as unknown as ReturnType<typeof api.useParty>);
 
         render(
             <MemoryRouter initialEntries={['/parties/p1']}>
@@ -76,11 +78,11 @@ describe('PartyDetailPage', () => {
     });
 
     it('renders organization details', () => {
-        (api.useParty as any).mockReturnValue({
+        vi.mocked(api.useParty).mockReturnValue({
             data: mockOrganization,
             isLoading: false,
-            error: null
-        });
+            error: null,
+        } as unknown as ReturnType<typeof api.useParty>);
 
         render(
             <MemoryRouter initialEntries={['/parties/p2']}>
