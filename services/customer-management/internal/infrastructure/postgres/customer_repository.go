@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"tmf/services/customer-management/internal/domain"
 
@@ -18,7 +19,10 @@ func NewCustomerRepository(db *gorm.DB) *CustomerRepository {
 
 func (r *CustomerRepository) CreateCustomer(ctx context.Context, c *domain.Customer) error {
 	return r.withUser(ctx, func(tx *gorm.DB) error {
-		return tx.Create(c).Error
+		if err := tx.Create(c).Error; err != nil {
+			return fmt.Errorf("failed to create customer: %w", err)
+		}
+		return nil
 	})
 }
 
@@ -32,16 +36,25 @@ func (r *CustomerRepository) GetCustomer(ctx context.Context, id string) (*domai
 		Preload("TaxExemptions").
 		Preload("PrivacyConsents").
 		First(&customer, "id = ?", id).Error
+
 	if err != nil {
-		return nil, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to get customer: %w", err)
 	}
+
 	return &customer, nil
 }
 
 func (r *CustomerRepository) UpdateCustomer(ctx context.Context, c *domain.Customer) error {
 	return r.withUser(ctx, func(tx *gorm.DB) error {
-		if err := tx.Save(c).Error; err != nil {
-			return err
+		result := tx.Save(c)
+		if result.Error != nil {
+			return fmt.Errorf("failed to update customer: %w", result.Error)
+		}
+		if result.RowsAffected == 0 {
+			return domain.ErrNotFound
 		}
 		// Replace sub-resources
 		return r.updateSubResources(tx, c.ID, c)
@@ -53,20 +66,26 @@ func (r *CustomerRepository) PatchCustomer(ctx context.Context, id string, updat
 		// Handle associations separately
 		if taxes, ok := updates["tax_exemptions"]; ok {
 			if err := tx.Model(&domain.Customer{ID: id}).Association("TaxExemptions").Replace(taxes); err != nil {
-				return err
+				return fmt.Errorf("failed to update tax exemptions: %w", err)
 			}
 			delete(updates, "tax_exemptions")
 		}
 		if privacy, ok := updates["privacy_consents"]; ok {
 			if err := tx.Model(&domain.Customer{ID: id}).Association("PrivacyConsents").Replace(privacy); err != nil {
-				return err
+				return fmt.Errorf("failed to update privacy consents: %w", err)
 			}
 			delete(updates, "privacy_consents")
 		}
 
 		// Update scalar fields if any remain
 		if len(updates) > 0 {
-			return tx.Model(&domain.Customer{}).Where("id = ?", id).Updates(updates).Error
+			result := tx.Model(&domain.Customer{}).Where("id = ?", id).Updates(updates)
+			if result.Error != nil {
+				return fmt.Errorf("failed to patch customer: %w", result.Error)
+			}
+			if result.RowsAffected == 0 {
+				return domain.ErrNotFound
+			}
 		}
 		return nil
 	})
@@ -74,7 +93,14 @@ func (r *CustomerRepository) PatchCustomer(ctx context.Context, id string, updat
 
 func (r *CustomerRepository) DeleteCustomer(ctx context.Context, id string) error {
 	return r.withUser(ctx, func(tx *gorm.DB) error {
-		return tx.Delete(&domain.Customer{}, "id = ?", id).Error
+		result := tx.Delete(&domain.Customer{}, "id = ?", id)
+		if result.Error != nil {
+			return fmt.Errorf("failed to delete customer: %w", result.Error)
+		}
+		if result.RowsAffected == 0 {
+			return domain.ErrNotFound
+		}
+		return nil
 	})
 }
 

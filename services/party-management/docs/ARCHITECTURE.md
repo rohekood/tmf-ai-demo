@@ -108,16 +108,14 @@ When implementing dynamic search or filtering, we strictly prohibit string inter
 To prevent **Identifier Injection**, we use an explicit `switch` statement that maps input keys to hardcoded SQL strings.
 
 ```go
-// SAFE PATTERN
-for key, value := range criteria {
-    switch key {
-    case "id":
-        query = query.Where("id = ?", value)
-    case "type":
-        query = query.Where("type = ?", value)
-    default:
-        return nil, fmt.Errorf("invalid criteria: %s", key)
-    }
+// SAFE PATTERN: Explicit Key Lookup
+// We iterate over *known* keys, or check for them explicitly. 
+// Unknown keys in the input map are simply ignored.
+if val, ok := criteria["id"]; ok {
+    query = query.Where("id = ?", val)
+}
+if val, ok := criteria["type"]; ok {
+    query = query.Where("type = ?", val)
 }
 ```
 
