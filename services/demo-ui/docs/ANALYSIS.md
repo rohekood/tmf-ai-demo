@@ -75,6 +75,7 @@ The Customer Management service manages the **business relationship** with a Par
 |:---------|:---------------|:------------------|:------------|
 | **Onboard Customer** | `cmd.customer.onboard` | Customer Online Form | Create a new customer linked to an existing Party, including accounts, credit profile, and consents. |
 | **Update Customer** | `cmd.customer.update` | Customer Edit Form | Update customer status, tax exemptions, and privacy consents. |
+| **Patch Customer** | `cmd.customer.patch` | Inline Edit / API | Partially update specific fields (supported by backend). |
 | **Get Customer by ID** | `query.customer.get` | Customer Detail View | Retrieve full customer details with related party data. |
 | **Search Customers** | `query.customer.search` | Customer List View | Search by name, status, or party ID. |
 | **Delete Customer** | `cmd.customer.delete` | Customer List (Action Menu) | Remove a customer record. |
