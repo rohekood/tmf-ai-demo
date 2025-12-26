@@ -2,7 +2,7 @@
 
 export type PartyType = 'Individual' | 'Organization';
 
-export type PartyStatus = 'initialized' | 'active' | 'inactive' | 'deleted';
+export type PartyStatus = 'Initialized' | 'Active' | 'Inactive' | 'Deleted' | 'DeletionPending';
 
 export interface ContactMedium {
     id: string;

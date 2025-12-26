@@ -12,6 +12,8 @@ import { useReactTable } from '../../hooks/useReactTable';
 import { Plus, Search, User, Building2, ChevronUp, ChevronDown, Eye, Edit, Trash2, Loader2 } from 'lucide-react';
 import { useParties, useDeleteParty } from './api';
 import { type PartyUnion, getPartyDisplayName, isIndividual } from './types';
+import { useNotification } from '../../components/common/Toast';
+import { useQueryClient } from '@tanstack/react-query';
 import './PartyListPage.css';
 
 const columnHelper = createColumnHelper<PartyUnion>();
@@ -20,6 +22,7 @@ export default function PartyListPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const [searchTerm, setSearchTerm] = useState('');
     const [sorting, setSorting] = useState<SortingState>([]);
+    const queryClient = useQueryClient();
 
     const searchQuery = searchParams.get('q') || '';
 
@@ -38,11 +41,69 @@ export default function PartyListPage() {
         }
     };
 
+    const { showToast } = useNotification();
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    const checkDeletionStatus = useCallback(async (id: string, attempts = 0) => {
+        if (attempts > 10) {
+            setDeletingId(null);
+            showToast('Deletion operation timed out. Please check status manually.', 'info');
+            return;
+        }
+
+        try {
+            // Fetch fresh party data via apiClient (has correct BFF URL)
+            const { apiClient } = await import('../../api/client');
+            const response = await apiClient.get(`/api/parties/${id}`);
+            const party = response.data;
+
+            if (party.status === 'Deleted') {
+                setDeletingId(null);
+                showToast('Party deleted successfully', 'success');
+                queryClient.invalidateQueries({ queryKey: ['parties'] });
+            } else if (party.status === 'Active') {
+                    setDeletingId(null);
+                    showToast('Deletion failed: Party has active linked customers.', 'error');
+                    queryClient.invalidateQueries({ queryKey: ['parties'] });
+            } else if (party.status === 'DeletionPending') {
+                setTimeout(() => checkDeletionStatus(id, attempts + 1), 1000);
+            } else {
+                setDeletingId(null);
+                showToast(`Deletion ended with status: ${party.status}`, 'info');
+                queryClient.invalidateQueries({ queryKey: ['parties'] });
+            }
+
+        } catch (err: unknown) {
+            // 404 means party was deleted
+            if (err && typeof err === 'object' && 'response' in err) {
+                const axiosErr = err as { response?: { status?: number } };
+                if (axiosErr.response?.status === 404) {
+                    setDeletingId(null);
+                    showToast('Party deleted successfully', 'success');
+                    queryClient.invalidateQueries({ queryKey: ['parties'] });
+                    return;
+                }
+            }
+            console.error("Error checking status", err);
+            setDeletingId(null);
+            showToast('Error checking deletion status', 'error');
+        }
+    }, [showToast, queryClient]);
+
     const handleDelete = useCallback((id: string, name: string) => {
         if (confirm(`Are you sure you want to delete "${name}"?`)) {
-            deleteMutation.mutate(id);
+            deleteMutation.mutate(id, {
+                onSuccess: () => {
+                    showToast('Deletion initiated...', 'info');
+                    setDeletingId(id);
+                    checkDeletionStatus(id);
+                },
+                onError: (err) => {
+                    showToast(`Failed to initiate deletion: ${err.message}`, 'error');
+                }
+            });
         }
-    }, [deleteMutation]);
+    }, [deleteMutation, showToast, checkDeletionStatus]);
 
     const columns = useMemo(
         () => [
@@ -107,9 +168,9 @@ export default function PartyListPage() {
                             className="action-btn action-btn--danger"
                             title="Delete"
                             onClick={() => handleDelete(info.row.original.id, getPartyDisplayName(info.row.original))}
-                            disabled={deleteMutation.isPending}
+                            disabled={deleteMutation.isPending || deletingId === info.row.original.id}
                         >
-                            <Trash2 size={16} />
+                            {deletingId === info.row.original.id ? <Loader2 size={16} className="spin" /> : <Trash2 size={16} />}
                         </button>
                     </div>
                 ),

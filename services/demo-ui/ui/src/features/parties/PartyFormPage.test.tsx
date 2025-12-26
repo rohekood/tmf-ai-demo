@@ -105,7 +105,7 @@ describe('PartyFormPage', () => {
             '@type': 'Individual',
             givenName: 'John',
             familyName: 'Doe',
-            status: 'active', // Ensure valid status
+            status: 'Active', // Ensure valid status
             contactMediums: [],
             identifications: []
         };
@@ -128,7 +128,7 @@ describe('PartyFormPage', () => {
             '@type': 'Individual',
             givenName: 'Jane',
             familyName: 'Smith',
-            status: 'active',
+            status: 'Active',
             contactMediums: [],
             identifications: []
         };
@@ -178,7 +178,7 @@ describe('PartyFormPage', () => {
             middleName: 'M',
             birthDate: '1990-01-01',
             gender: 'male',
-            status: 'active',
+            status: 'Active',
             contactMediums: [{ id: 'c1', mediumType: 'email', preferred: true, value: 'john@example.com' }],
             identifications: []
         };
@@ -266,7 +266,7 @@ describe('PartyFormPage', () => {
             '@type': 'Individual',
             givenName: 'John',
             familyName: 'Doe',
-            status: 'active',
+            status: 'Active',
             contactMediums: [],
             identifications: []
         };

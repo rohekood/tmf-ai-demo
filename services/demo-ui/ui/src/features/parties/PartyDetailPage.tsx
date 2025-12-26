@@ -1,7 +1,9 @@
+import { useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, Trash2, Mail, Phone, MapPin, CreditCard, Users, Loader2 } from 'lucide-react';
 import { useParty, useDeleteParty } from './api';
 import { getPartyDisplayName, isIndividual } from './types';
+import { useNotification } from '../../components/common/Toast';
 import './PartyDetailPage.css';
 
 export default function PartyDetailPage() {
@@ -9,11 +11,71 @@ export default function PartyDetailPage() {
     const navigate = useNavigate();
     const { data: party, isLoading, error } = useParty(id);
     const deleteMutation = useDeleteParty();
+    const { showToast } = useNotification();
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const checkDeletionStatus = useCallback(async (partyId: string, attempts = 0) => {
+        if (attempts > 15) {
+            setIsDeleting(false);
+            showToast('Deletion operation timed out. Please check status manually.', 'info');
+            navigate('/parties');
+            return;
+        }
+
+        // Add initial delay to let the saga start processing
+        if (attempts === 0) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        try {
+            const { apiClient } = await import('../../api/client');
+            const response = await apiClient.get(`/api/parties/${partyId}`);
+            const partyData = response.data;
+
+            if (partyData.status === 'Deleted') {
+                setIsDeleting(false);
+                showToast('Party deleted successfully', 'success');
+                navigate('/parties');
+            } else if (partyData.status === 'Active') {
+                setIsDeleting(false);
+                showToast('Deletion failed: Party has active linked customers.', 'error');
+                // Stay on page - don't navigate
+            } else if (partyData.status === 'DeletionPending') {
+                setTimeout(() => checkDeletionStatus(partyId, attempts + 1), 1000);
+            } else {
+                setIsDeleting(false);
+                showToast(`Deletion ended with status: ${partyData.status}`, 'info');
+                navigate('/parties');
+            }
+        } catch (err: unknown) {
+            // 404 means party was deleted
+            if (err && typeof err === 'object' && 'response' in err) {
+                const axiosErr = err as { response?: { status?: number } };
+                if (axiosErr.response?.status === 404) {
+                    setIsDeleting(false);
+                    showToast('Party deleted successfully', 'success');
+                    navigate('/parties');
+                    return;
+                }
+            }
+            console.error("Error checking status", err);
+            setIsDeleting(false);
+            showToast('Error checking deletion status', 'error');
+        }
+    }, [showToast, navigate]);
 
     const handleDelete = () => {
         if (party && confirm(`Are you sure you want to delete "${getPartyDisplayName(party)}"?`)) {
+            setIsDeleting(true);
             deleteMutation.mutate(party.id, {
-                onSuccess: () => navigate('/parties'),
+                onSuccess: () => {
+                    showToast('Deletion initiated...', 'info');
+                    checkDeletionStatus(party.id);
+                },
+                onError: (err) => {
+                    setIsDeleting(false);
+                    showToast(`Failed to delete: ${err.message}`, 'error');
+                },
             });
         }
     };
@@ -68,7 +130,7 @@ export default function PartyDetailPage() {
                     <button
                         className="btn btn-danger"
                         onClick={handleDelete}
-                        disabled={deleteMutation.isPending}
+                        disabled={deleteMutation.isPending || isDeleting}
                     >
                         <Trash2 size={18} />
                         <span>Delete</span>
