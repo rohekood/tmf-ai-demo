@@ -1,12 +1,23 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import PartyListPage from './PartyListPage';
 import { MemoryRouter } from 'react-router-dom';
 import * as api from './api';
 import { type Individual, type Organization } from './types';
+import { NotificationProvider } from '../../components/common/Toast';
 
 // Mock hooks
 vi.mock('./api');
+vi.mock('@tanstack/react-query', async () => {
+    const actual = await vi.importActual('@tanstack/react-query');
+    return {
+        ...actual,
+        useQueryClient: vi.fn(() => ({
+            invalidateQueries: vi.fn()
+        })),
+    };
+});
 
 const mockParties: (Individual | Organization)[] = [
     {
@@ -14,17 +25,29 @@ const mockParties: (Individual | Organization)[] = [
         '@type': 'Individual',
         givenName: 'John',
         familyName: 'Doe',
-        status: 'active',
+        status: 'Active',
         identifications: []
     } as Individual,
     {
         id: 'p2',
         '@type': 'Organization',
         tradingName: 'Acme Corp',
-        status: 'active',
+        status: 'Active',
+        isLegalEntity: true,
         identifications: [{ identificationType: 'taxNr', identificationId: '123' }]
     } as Organization
 ];
+
+// Helper to render with all necessary providers
+const renderWithProviders = (ui: React.ReactElement) => {
+    return render(
+        <MemoryRouter>
+            <NotificationProvider>
+                {ui}
+            </NotificationProvider>
+        </MemoryRouter>
+    );
+};
 
 describe('PartyListPage', () => {
     beforeEach(() => {
@@ -35,6 +58,8 @@ describe('PartyListPage', () => {
         } as unknown as ReturnType<typeof api.useDeleteParty>);
     });
 
+
+
     it('renders loading state', () => {
         vi.mocked(api.useParties).mockReturnValue({
             data: undefined,
@@ -42,11 +67,7 @@ describe('PartyListPage', () => {
             error: null
         } as unknown as ReturnType<typeof api.useParties>);
 
-        render(
-            <MemoryRouter>
-                <PartyListPage />
-            </MemoryRouter>
-        );
+        renderWithProviders(<PartyListPage />);
         expect(screen.getByRole('status')).toHaveTextContent('Loading parties...');
     });
 
@@ -57,12 +78,7 @@ describe('PartyListPage', () => {
             error: null
         } as unknown as ReturnType<typeof api.useParties>);
 
-        render(
-            <MemoryRouter>
-                <PartyListPage />
-            </MemoryRouter>
-        );
-
+        renderWithProviders(<PartyListPage />);
 
         // Headers
         expect(screen.getByRole('columnheader', { name: 'Name' })).toBeInTheDocument();
@@ -87,13 +103,61 @@ describe('PartyListPage', () => {
             error: null
         } as unknown as ReturnType<typeof api.useParties>);
 
-        render(
-            <MemoryRouter>
-                <PartyListPage />
-            </MemoryRouter>
-        );
+        renderWithProviders(<PartyListPage />);
 
         expect(screen.getByRole('status')).toHaveTextContent('No parties found.');
         expect(screen.getByRole('link', { name: /create your first party/i })).toBeInTheDocument();
+    });
+
+    it('initiates deletion when delete button clicked', async () => {
+        const user = userEvent.setup();
+        const mutateMock = vi.fn();
+
+        vi.mocked(api.useDeleteParty).mockReturnValue({
+            mutate: mutateMock,
+            isPending: false
+        } as unknown as ReturnType<typeof api.useDeleteParty>);
+
+        vi.mocked(api.useParties).mockReturnValue({
+            data: mockParties,
+            isLoading: false,
+            error: null
+        } as unknown as ReturnType<typeof api.useParties>);
+
+        window.confirm = vi.fn(() => true);
+
+        renderWithProviders(<PartyListPage />);
+
+        const deleteBtn = screen.getAllByTitle('Delete')[0];
+        await user.click(deleteBtn);
+
+        expect(window.confirm).toHaveBeenCalled();
+        expect(mutateMock).toHaveBeenCalledWith('p1', expect.any(Object));
+    });
+
+    it('does not delete when confirm is cancelled', async () => {
+        const user = userEvent.setup();
+        const mutateMock = vi.fn();
+
+        vi.mocked(api.useDeleteParty).mockReturnValue({
+            mutate: mutateMock,
+            isPending: false
+        } as unknown as ReturnType<typeof api.useDeleteParty>);
+
+        vi.mocked(api.useParties).mockReturnValue({
+            data: mockParties,
+            isLoading: false,
+            error: null
+        } as unknown as ReturnType<typeof api.useParties>);
+
+        window.confirm = vi.fn(() => false);
+
+        renderWithProviders(<PartyListPage />);
+
+        const deleteBtn = screen.getAllByTitle('Delete')[0];
+        await user.click(deleteBtn);
+
+        expect(window.confirm).toHaveBeenCalled();
+        expect(mutateMock).not.toHaveBeenCalled();
     });
 });

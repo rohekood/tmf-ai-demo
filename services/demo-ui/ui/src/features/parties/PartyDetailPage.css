@@ -155,9 +155,18 @@
 }
 
 .btn-danger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
     background: rgba(239, 68, 68, 0.1);
     color: #ef4444;
     border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .btn-danger:hover {

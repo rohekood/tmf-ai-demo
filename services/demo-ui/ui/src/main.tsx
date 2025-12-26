@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Auth0Provider } from '@auth0/auth0-react'
 import { router } from './router'
 import { AuthTokenSync } from './components/auth/AuthTokenSync'
+import { NotificationProvider } from './components/common/Toast'
 import './index.css'
 
 // Create a client with default options
@@ -36,9 +37,11 @@ createRoot(document.getElementById('root')!).render(
       }}
     >
       <AuthTokenSync />
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
+      <NotificationProvider>
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </NotificationProvider>
     </Auth0Provider>
   </StrictMode>,
 )

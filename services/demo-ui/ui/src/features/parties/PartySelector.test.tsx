@@ -14,14 +14,14 @@ const mockParties: (Individual | Organization)[] = [
         givenName: 'John',
         familyName: 'Doe',
         '@type': 'Individual',
-        status: 'active',
+        status: 'Active',
         identifications: []
     } as Individual,
     {
         id: 'p2',
         tradingName: 'Acme Corp',
         '@type': 'Organization',
-        status: 'active',
+        status: 'Active',
         isLegalEntity: true,
         identifications: []
     } as Organization
