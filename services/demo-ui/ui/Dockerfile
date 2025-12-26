@@ -8,10 +8,9 @@ RUN corepack enable
 
 COPY package.json yarn.lock .yarnrc.yml* ./
 COPY .yarn ./.yarn
-
-RUN yarn install
-
 COPY . .
+
+RUN yarn install --immutable
 
 # Build Arguments
 ARG VITE_AUTH0_DOMAIN

@@ -417,39 +417,205 @@ func TestIntegration_GetParty(t *testing.T) {
 func TestIntegration_SearchParty(t *testing.T) {
 	suite := setupTestSuite(t)
 
-	// Create test data
+	// Create test data - Individual and Organization
 	ind1 := &domain.Individual{
 		Party: domain.Party{
-			ID:        "int-search-1",
+			ID:        "int-search-ind-1",
 			Type:      domain.PartyTypeIndividual,
 			Status:    "Active",
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		},
 		GivenName:  "SearchAlice",
-		FamilyName: "Test",
+		FamilyName: "TestFamily",
 	}
-	ind2 := &domain.Individual{
+	org1 := &domain.Organization{
 		Party: domain.Party{
-			ID:        "int-search-2",
-			Type:      domain.PartyTypeIndividual,
+			ID:        "int-search-org-1",
+			Type:      domain.PartyTypeOrganization,
 			Status:    "Active",
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		},
-		GivenName:  "SearchBob",
-		FamilyName: "Test",
+		TradingName:   "SearchCorp",
+		IsLegalEntity: true,
 	}
 	require.NoError(t, suite.Repo.CreateIndividual(context.Background(), ind1))
-	require.NoError(t, suite.Repo.CreateIndividual(context.Background(), ind2))
+	require.NoError(t, suite.Repo.CreateOrganization(context.Background(), org1))
 
-	// Search via handler (no ReplyTo, just verify no error)
+	// Create reply queue for RPC
+	replyQueue, err := suite.channel.QueueDeclare("", false, true, true, false, nil)
+	require.NoError(t, err)
+
+	replies, err := suite.channel.Consume(replyQueue.Name, "", true, false, false, false, nil)
+	require.NoError(t, err)
+
+	// Search by givenName - should return Individual with complete data
 	givenName := "SearchAlice"
 	payload := SearchPartyPayload{GivenName: &givenName}
 	body, _ := json.Marshal(payload)
 
-	err := suite.Handlers.HandleSearchParty(context.Background(), amqp.Delivery{Body: body})
+	err = suite.Handlers.HandleSearchParty(context.Background(), amqp.Delivery{
+		Body:          body,
+		ReplyTo:       replyQueue.Name,
+		CorrelationId: "search-test-1",
+	})
 	require.NoError(t, err)
+
+	// Receive and parse reply
+	select {
+	case reply := <-replies:
+		assert.Equal(t, "search-test-1", reply.CorrelationId)
+
+		// Parse response as array of interfaces
+		var results []map[string]interface{}
+		err := json.Unmarshal(reply.Body, &results)
+		require.NoError(t, err, "Failed to parse search response")
+		require.Len(t, results, 1, "Expected exactly one search result")
+
+		// Verify complete Individual data is returned (not base Party)
+		result := results[0]
+		assert.Equal(t, "int-search-ind-1", result["id"])
+		assert.Equal(t, "Individual", result["@type"])
+		assert.Equal(t, "SearchAlice", result["givenName"], "givenName should be present in response")
+		assert.Equal(t, "TestFamily", result["familyName"], "familyName should be present in response")
+
+	case <-time.After(2 * time.Second):
+		t.Fatal("Timeout waiting for search reply")
+	}
+}
+
+func TestIntegration_SearchParty_ReturnsCompleteOrganizationData(t *testing.T) {
+	suite := setupTestSuite(t)
+
+	// Create test organization
+	org := &domain.Organization{
+		Party: domain.Party{
+			ID:        "int-search-org-data-1",
+			Type:      domain.PartyTypeOrganization,
+			Status:    "Active",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		TradingName:   "CompleteDataCorp",
+		IsLegalEntity: true,
+	}
+	require.NoError(t, suite.Repo.CreateOrganization(context.Background(), org))
+
+	// Create reply queue for RPC
+	replyQueue, err := suite.channel.QueueDeclare("", false, true, true, false, nil)
+	require.NoError(t, err)
+
+	replies, err := suite.channel.Consume(replyQueue.Name, "", true, false, false, false, nil)
+	require.NoError(t, err)
+
+	// Search by tradingName
+	tradingName := "CompleteDataCorp"
+	payload := SearchPartyPayload{TradingName: &tradingName}
+	body, _ := json.Marshal(payload)
+
+	err = suite.Handlers.HandleSearchParty(context.Background(), amqp.Delivery{
+		Body:          body,
+		ReplyTo:       replyQueue.Name,
+		CorrelationId: "search-org-test-1",
+	})
+	require.NoError(t, err)
+
+	// Receive and parse reply
+	select {
+	case reply := <-replies:
+		var results []map[string]interface{}
+		err := json.Unmarshal(reply.Body, &results)
+		require.NoError(t, err)
+		require.Len(t, results, 1)
+
+		result := results[0]
+		assert.Equal(t, "int-search-org-data-1", result["id"])
+		assert.Equal(t, "Organization", result["@type"])
+		assert.Equal(t, "CompleteDataCorp", result["tradingName"], "tradingName should be present in response")
+		assert.Equal(t, true, result["isLegalEntity"], "isLegalEntity should be present in response")
+
+	case <-time.After(2 * time.Second):
+		t.Fatal("Timeout waiting for search reply")
+	}
+}
+
+func TestIntegration_SearchParty_MixedTypes_ReturnsAllFields(t *testing.T) {
+	suite := setupTestSuite(t)
+
+	// Create both Individual and Organization
+	ind := &domain.Individual{
+		Party: domain.Party{
+			ID:        "int-search-mixed-ind",
+			Type:      domain.PartyTypeIndividual,
+			Status:    "Validated",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		GivenName:  "MixedTest",
+		FamilyName: "Person",
+	}
+	org := &domain.Organization{
+		Party: domain.Party{
+			ID:        "int-search-mixed-org",
+			Type:      domain.PartyTypeOrganization,
+			Status:    "Validated",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		TradingName:   "MixedTestCorp",
+		IsLegalEntity: false,
+	}
+	require.NoError(t, suite.Repo.CreateIndividual(context.Background(), ind))
+	require.NoError(t, suite.Repo.CreateOrganization(context.Background(), org))
+
+	// Create reply queue for RPC
+	replyQueue, err := suite.channel.QueueDeclare("", false, true, true, false, nil)
+	require.NoError(t, err)
+
+	replies, err := suite.channel.Consume(replyQueue.Name, "", true, false, false, false, nil)
+	require.NoError(t, err)
+
+	// Search all parties (no filter)
+	payload := SearchPartyPayload{}
+	body, _ := json.Marshal(payload)
+
+	err = suite.Handlers.HandleSearchParty(context.Background(), amqp.Delivery{
+		Body:          body,
+		ReplyTo:       replyQueue.Name,
+		CorrelationId: "search-mixed-test",
+	})
+	require.NoError(t, err)
+
+	// Receive and parse reply
+	select {
+	case reply := <-replies:
+		var results []map[string]interface{}
+		err := json.Unmarshal(reply.Body, &results)
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, len(results), 2, "Expected at least 2 results")
+
+		// Find our test parties and verify they have complete data
+		foundInd := false
+		foundOrg := false
+		for _, result := range results {
+			if result["id"] == "int-search-mixed-ind" {
+				foundInd = true
+				assert.Equal(t, "MixedTest", result["givenName"], "Individual should have givenName")
+				assert.Equal(t, "Person", result["familyName"], "Individual should have familyName")
+			}
+			if result["id"] == "int-search-mixed-org" {
+				foundOrg = true
+				assert.Equal(t, "MixedTestCorp", result["tradingName"], "Organization should have tradingName")
+				assert.Equal(t, false, result["isLegalEntity"], "Organization should have isLegalEntity")
+			}
+		}
+		assert.True(t, foundInd, "Should find the test Individual")
+		assert.True(t, foundOrg, "Should find the test Organization")
+
+	case <-time.After(2 * time.Second):
+		t.Fatal("Timeout waiting for search reply")
+	}
 }
 func TestIntegration_AuditTrail(t *testing.T) {
 	suite := setupTestSuite(t)
