@@ -7,6 +7,7 @@ const CUSTOMERS_KEY = 'customers';
 // Fetch all customers with optional search params
 async function fetchCustomers(params?: SearchCustomerParams): Promise<Customer[]> {
     const searchParams = new URLSearchParams();
+    if (params?.search) searchParams.set('search', params.search);
     if (params?.name) searchParams.set('name', params.name);
     if (params?.status) searchParams.set('status', params.status);
     if (params?.partyId) searchParams.set('partyId', params.partyId);

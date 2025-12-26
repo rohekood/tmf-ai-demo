@@ -41,12 +41,6 @@ func NewHandler(client RPCClient, hub *Hub) *Handler {
 
 // RegisterRoutes registers all API routes
 func (h *Handler) RegisterRoutes(r chi.Router) {
-	// WebSocket route (outside /api to avoid auth if needed, or included)
-	// For demo, we keep it unsecured or basic auth.
-	r.Get("/ws/debug", func(w http.ResponseWriter, r *http.Request) {
-		h.hub.ServeWs(w, r)
-	})
-
 	r.Route("/api", func(r chi.Router) {
 		// Customer routes
 		r.Route("/customers", func(r chi.Router) {
@@ -79,6 +73,9 @@ func getHeaders(r *http.Request) map[string]interface{} {
 func (h *Handler) SearchCustomers(w http.ResponseWriter, r *http.Request) {
 	payload := map[string]string{}
 
+	if v := r.URL.Query().Get("search"); v != "" {
+		payload["search"] = v
+	}
 	if v := r.URL.Query().Get("name"); v != "" {
 		payload["name"] = v
 	}
@@ -123,6 +120,39 @@ func (h *Handler) GetCustomer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Enrich with Party Name if possible
+	var customer map[string]interface{}
+	if err := json.Unmarshal(responseBytes, &customer); err == nil {
+		if partyID, ok := customer["partyId"].(string); ok && partyID != "" {
+			partyPayload := map[string]string{"id": partyID}
+			partyBytes, err := h.rpcClient.CallRPC(ctx, partyExchange, queryPartyGet, partyPayload, getHeaders(r))
+			if err == nil {
+				var party map[string]interface{}
+				if err := json.Unmarshal(partyBytes, &party); err == nil {
+					pType, _ := party["@type"].(string)
+					customer["partyType"] = pType
+
+					derivedName := ""
+					if pType == "Individual" {
+						givenName, _ := party["givenName"].(string)
+						familyName, _ := party["familyName"].(string)
+						derivedName = givenName + " " + familyName
+					} else if pType == "Organization" {
+						derivedName, _ = party["tradingName"].(string)
+					}
+					customer["partyName"] = derivedName
+
+					// Re-marshal
+					if enrichedBytes, err := json.Marshal(customer); err == nil {
+						responseBytes = enrichedBytes
+					}
+				}
+			} else {
+				slog.Warn("failed to fetch party for enrichment", "party_id", partyID, "error", err)
+			}
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(responseBytes)
 }
@@ -136,7 +166,7 @@ func (h *Handler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	var payload interface{}
+	var payload map[string]interface{}
 	if err := json.Unmarshal(body, &payload); err != nil {
 		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 		return
@@ -144,6 +174,41 @@ func (h *Handler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(r.Context(), customerRPCTimeout)
 	defer cancel()
+
+	// Name Derivation Logic:
+	// If partyId is present but name is missing, fetch party and derive name.
+	partyID, _ := payload["partyId"].(string)
+	name, _ := payload["name"].(string)
+
+	if partyID != "" && name == "" {
+		partyPayload := map[string]string{"id": partyID}
+		partyBytes, err := h.rpcClient.CallRPC(ctx, partyExchange, queryPartyGet, partyPayload, getHeaders(r))
+		if err != nil {
+			// If we fail to get party, we log but maybe we should fail?
+			// TMF says party must exist. If we can't check it, we can't derive name.
+			// Let's assume we proceed and let backend validate party existence,
+			// but we can't set name.
+			slog.Warn("failed to fetch party for name derivation", "party_id", partyID, "error", err)
+		} else {
+			var party map[string]interface{}
+			if err := json.Unmarshal(partyBytes, &party); err == nil {
+				derivedName := ""
+				pType, _ := party["@type"].(string)
+				if pType == "Individual" {
+					givenName, _ := party["givenName"].(string)
+					familyName, _ := party["familyName"].(string)
+					derivedName = givenName + " " + familyName
+				} else if pType == "Organization" {
+					derivedName, _ = party["tradingName"].(string)
+				}
+
+				if derivedName != "" {
+					payload["name"] = derivedName
+					slog.Info("derived customer name from party", "party_id", partyID, "derived_name", derivedName)
+				}
+			}
+		}
+	}
 
 	responseBytes, err := h.rpcClient.CallRPC(ctx, customerExchange, cmdCustomerOnboard, payload, getHeaders(r))
 	if err != nil {

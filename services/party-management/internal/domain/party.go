@@ -112,13 +112,17 @@ type Individual struct {
 	Party      `gorm:"embedded"` // Embedding might flatten fields in GORM default, but we will handle split persistence in Repo.
 	GivenName  string            `json:"givenName"`
 	FamilyName string            `json:"familyName"`
+	MiddleName string            `json:"middleName,omitempty"`
+	BirthDate  string            `json:"birthDate,omitempty"`
+	Gender     string            `json:"gender,omitempty"`
 }
 
 // Organization represents a company.
 type Organization struct {
-	Party         `gorm:"embedded"`
-	TradingName   string `json:"tradingName"`
-	IsLegalEntity bool   `json:"isLegalEntity"`
+	Party            `gorm:"embedded"`
+	TradingName      string `json:"tradingName"`
+	IsLegalEntity    bool   `json:"isLegalEntity"`
+	OrganizationType string `json:"organizationType,omitempty"`
 }
 
 // Repository defines the interface for Party storage.

@@ -24,7 +24,7 @@ export default function PartyListPage() {
     const searchQuery = searchParams.get('q') || '';
 
     const { data: parties = [], isLoading, error } = useParties(
-        searchQuery ? { givenName: searchQuery, tradingName: searchQuery } : undefined
+        searchQuery ? { search: searchQuery } : undefined
     );
 
     const deleteMutation = useDeleteParty();

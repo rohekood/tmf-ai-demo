@@ -4,6 +4,9 @@ import CustomerEditPage from './CustomerEditPage';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 // Mocks
+import userEvent from '@testing-library/user-event';
+
+// Mocks
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
     const actual = await vi.importActual('react-router-dom');
@@ -13,12 +16,17 @@ vi.mock('react-router-dom', async () => {
     };
 });
 
+import * as partyApi from '../parties/api';
+vi.mock('../parties/api');
+
 const mockCustomerData = {
     id: '123',
     name: 'Test Customer',
     status: 'active',
     taxExemptions: [],
-    privacyConsents: []
+    privacyConsents: [],
+    creditProfiles: [],
+    accounts: []
 };
 
 const mockMutateAsync = vi.fn();
@@ -36,6 +44,56 @@ vi.mock('./api', () => ({
 describe('CustomerEditPage', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        // Default mock for parties
+        vi.mocked(partyApi.useParties).mockReturnValue({
+            data: [],
+            isLoading: false
+        } as any);
+    });
+
+    it('updates customer party without sending redundant fields', async () => {
+        const user = userEvent.setup();
+
+        // Mock parties response
+        vi.mocked(partyApi.useParties).mockReturnValue({
+            data: [
+                { id: 'p2', '@type': 'Individual', givenName: 'New', familyName: 'Party', status: 'active', identifications: [] }
+            ],
+            isLoading: false
+        } as any);
+
+        render(
+            <MemoryRouter initialEntries={['/customers/123/edit']}>
+                <Routes>
+                    <Route path="/customers/:id/edit" element={<CustomerEditPage />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        // Search for new party
+        // First click 'Change Party'
+        const changeButton = screen.getByRole('button', { name: /change party/i });
+        await user.click(changeButton);
+
+        const searchInput = await screen.findByPlaceholderText('Search by name...');
+        await user.type(searchInput, 'New');
+
+        // Select new party
+        const partyOption = await screen.findByText('New Party');
+        await user.click(partyOption);
+
+        // Submit
+        const saveButton = screen.getByRole('button', { name: /save changes/i });
+        await user.click(saveButton);
+
+        await waitFor(() => {
+            expect(mockMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+                id: '123',
+                partyId: 'p2', // Updated party ID
+            }));
+
+
+        });
     });
 
     it('renders customer data correctly', () => {
@@ -51,7 +109,8 @@ describe('CustomerEditPage', () => {
         expect(screen.getByDisplayValue('Active')).toBeInTheDocument();
     });
 
-    it('submits form with updated data', async () => {
+    it('submits form with updated data including new fields', async () => {
+        const user = userEvent.setup();
         render(
             <MemoryRouter initialEntries={['/customers/123/edit']}>
                 <Routes>
@@ -60,16 +119,35 @@ describe('CustomerEditPage', () => {
             </MemoryRouter>
         );
 
+        // Update Name
         const nameInput = screen.getByLabelText('Customer Name');
-        fireEvent.change(nameInput, { target: { value: 'Updated Name' } });
+        await user.clear(nameInput);
+        await user.type(nameInput, 'Updated Name');
 
+        // Add Credit Profile
+        await user.click(screen.getByRole('button', { name: 'Add Profile' }));
+        const riskInput = screen.getByLabelText('Credit Risk Score');
+        await user.type(riskInput, '750');
+
+        // Add Account
+        await user.click(screen.getByRole('button', { name: 'Add Account' }));
+        const accNameInput = screen.getByLabelText('Account Name');
+        await user.type(accNameInput, 'New Account');
+
+        // Submit
         const saveButton = screen.getByRole('button', { name: /save changes/i });
-        fireEvent.click(saveButton);
+        await user.click(saveButton);
 
         await waitFor(() => {
             expect(mockMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
                 id: '123',
                 name: 'Updated Name',
+                creditProfiles: expect.arrayContaining([
+                    expect.objectContaining({ creditRiskScore: 750 })
+                ]),
+                accounts: expect.arrayContaining([
+                    expect.objectContaining({ name: 'New Account' })
+                ])
             }));
         });
 

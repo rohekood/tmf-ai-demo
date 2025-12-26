@@ -60,6 +60,9 @@ func (r *PartyRepository) CreateIndividual(ctx context.Context, ind *domain.Indi
 			"id":          ind.ID,
 			"given_name":  ind.GivenName,
 			"family_name": ind.FamilyName,
+			"middle_name": ind.MiddleName,
+			"birth_date":  ind.BirthDate,
+			"gender":      ind.Gender,
 		}
 
 		if err := tx.Table("individuals").Create(individualSpecifics).Error; err != nil {
@@ -90,6 +93,9 @@ func (r *PartyRepository) GetIndividual(ctx context.Context, id string) (*domain
 		type IndSpecifics struct {
 			GivenName  string
 			FamilyName string
+			MiddleName string
+			BirthDate  string
+			Gender     string
 		}
 		var specifics IndSpecifics
 		if err := tx.Table("individuals").Where("id = ?", id).First(&specifics).Error; err != nil {
@@ -101,6 +107,9 @@ func (r *PartyRepository) GetIndividual(ctx context.Context, id string) (*domain
 
 		ind.GivenName = specifics.GivenName
 		ind.FamilyName = specifics.FamilyName
+		ind.MiddleName = specifics.MiddleName
+		ind.BirthDate = specifics.BirthDate
+		ind.Gender = specifics.Gender
 		return nil
 	})
 
@@ -118,9 +127,10 @@ func (r *PartyRepository) CreateOrganization(ctx context.Context, org *domain.Or
 		}
 
 		orgSpecifics := map[string]interface{}{
-			"id":              org.ID,
-			"trading_name":    org.TradingName,
-			"is_legal_entity": org.IsLegalEntity,
+			"id":                org.ID,
+			"trading_name":      org.TradingName,
+			"is_legal_entity":   org.IsLegalEntity,
+			"organization_type": org.OrganizationType,
 		}
 
 		if err := tx.Table("organizations").Create(orgSpecifics).Error; err != nil {
@@ -147,8 +157,9 @@ func (r *PartyRepository) GetOrganization(ctx context.Context, id string) (*doma
 		}
 
 		type OrgSpecifics struct {
-			TradingName   string
-			IsLegalEntity bool
+			TradingName      string
+			IsLegalEntity    bool
+			OrganizationType string
 		}
 		var specifics OrgSpecifics
 		if err := tx.Table("organizations").Where("id = ?", id).First(&specifics).Error; err != nil {
@@ -160,6 +171,7 @@ func (r *PartyRepository) GetOrganization(ctx context.Context, id string) (*doma
 
 		org.TradingName = specifics.TradingName
 		org.IsLegalEntity = specifics.IsLegalEntity
+		org.OrganizationType = specifics.OrganizationType
 		return nil
 	})
 
@@ -180,14 +192,32 @@ func (r *PartyRepository) UpdateIndividual(ctx context.Context, ind *domain.Indi
 			return domain.ErrNotFound
 		}
 
-		// 2. Update Individual specifics
+		// 2. Update/Create Individual specifics
 		individualSpecifics := map[string]interface{}{
+			"id":          ind.ID,
 			"given_name":  ind.GivenName,
 			"family_name": ind.FamilyName,
+			"middle_name": ind.MiddleName,
+			"birth_date":  ind.BirthDate,
+			"gender":      ind.Gender,
 		}
 
-		if err := tx.Table("individuals").Where("id = ?", ind.ID).Updates(individualSpecifics).Error; err != nil {
-			return err
+		// Check if exists in individuals
+		var count int64
+		tx.Table("individuals").Where("id = ?", ind.ID).Count(&count)
+		if count > 0 {
+			if err := tx.Table("individuals").Where("id = ?", ind.ID).Updates(individualSpecifics).Error; err != nil {
+				return err
+			}
+		} else {
+			// Migration: Create new individual record
+			if err := tx.Table("individuals").Create(individualSpecifics).Error; err != nil {
+				return err
+			}
+			// Clean up organization if exists
+			if err := tx.Table("organizations").Where("id = ?", ind.ID).Delete(nil).Error; err != nil {
+				return err
+			}
 		}
 
 		// 3. Update Sub-resources (Replace Strategy)
@@ -210,14 +240,30 @@ func (r *PartyRepository) UpdateOrganization(ctx context.Context, org *domain.Or
 			return domain.ErrNotFound
 		}
 
-		// 2. Update Organization specifics
+		// 2. Update/Create Organization specifics
 		orgSpecifics := map[string]interface{}{
-			"trading_name":    org.TradingName,
-			"is_legal_entity": org.IsLegalEntity,
+			"id":                org.ID,
+			"trading_name":      org.TradingName,
+			"is_legal_entity":   org.IsLegalEntity,
+			"organization_type": org.OrganizationType,
 		}
 
-		if err := tx.Table("organizations").Where("id = ?", org.ID).Updates(orgSpecifics).Error; err != nil {
-			return err
+		// Check if exists in organizations
+		var count int64
+		tx.Table("organizations").Where("id = ?", org.ID).Count(&count)
+		if count > 0 {
+			if err := tx.Table("organizations").Where("id = ?", org.ID).Updates(orgSpecifics).Error; err != nil {
+				return err
+			}
+		} else {
+			// Migration: Create new organization record
+			if err := tx.Table("organizations").Create(orgSpecifics).Error; err != nil {
+				return err
+			}
+			// Clean up individual if exists
+			if err := tx.Table("individuals").Where("id = ?", org.ID).Delete(nil).Error; err != nil {
+				return err
+			}
 		}
 
 		// 3. Update Sub-resources (Replace Strategy)
@@ -272,9 +318,42 @@ func (r *PartyRepository) SearchParties(ctx context.Context, criteria map[string
 	joinedIndividual := false
 	joinedOrganization := false
 
+	// Handle generic search if provided
+	if searchVal, ok := criteria["search"]; ok {
+		if !joinedIndividual {
+			query = query.Joins("LEFT JOIN individuals ON individuals.id = parties.id")
+			joinedIndividual = true
+		}
+		if !joinedOrganization {
+			query = query.Joins("LEFT JOIN organizations ON organizations.id = parties.id")
+			joinedOrganization = true
+		}
+
+		searchTerm := "%" + searchVal.(string) + "%"
+		// Search across ID, Type, Names
+		query = query.Where("(parties.id = ? OR parties.type ILIKE ? OR individuals.given_name ILIKE ? OR individuals.family_name ILIKE ? OR organizations.trading_name ILIKE ?)",
+			searchVal, searchTerm, searchTerm, searchTerm, searchTerm)
+	} else if nameVal, ok := criteria["name"]; ok {
+		// Existing Name logic (only used if generic search is NOT present)
+		if !joinedIndividual {
+			query = query.Joins("LEFT JOIN individuals ON individuals.id = parties.id")
+			joinedIndividual = true
+		}
+		if !joinedOrganization {
+			query = query.Joins("LEFT JOIN organizations ON organizations.id = parties.id")
+			joinedOrganization = true
+		}
+
+		searchTerm := "%" + nameVal.(string) + "%"
+		query = query.Where("(individuals.given_name ILIKE ? OR individuals.family_name ILIKE ? OR organizations.trading_name ILIKE ?)", searchTerm, searchTerm, searchTerm)
+	}
+
 	if val, ok := criteria["given_name"]; ok {
-		query = query.Joins("JOIN individuals ON individuals.id = parties.id").Where("individuals.given_name = ?", val)
-		joinedIndividual = true
+		if !joinedIndividual {
+			query = query.Joins("JOIN individuals ON individuals.id = parties.id")
+			joinedIndividual = true
+		}
+		query = query.Where("individuals.given_name = ?", val)
 	}
 	if val, ok := criteria["family_name"]; ok {
 		if !joinedIndividual {
@@ -285,8 +364,11 @@ func (r *PartyRepository) SearchParties(ctx context.Context, criteria map[string
 	}
 
 	if val, ok := criteria["trading_name"]; ok {
-		query = query.Joins("JOIN organizations ON organizations.id = parties.id").Where("organizations.trading_name = ?", val)
-		joinedOrganization = true
+		if !joinedOrganization {
+			query = query.Joins("JOIN organizations ON organizations.id = parties.id")
+			joinedOrganization = true
+		}
+		query = query.Where("organizations.trading_name = ?", val)
 	}
 
 	if val, ok := criteria["is_legal_entity"]; ok {

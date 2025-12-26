@@ -13,16 +13,16 @@ const mockCustomer: Customer = {
     status: 'active',
     partyId: 'p1',
     partyName: 'Test Party',
-    creditProfile: {
+    taxExemptions: [],
+    privacyConsents: [],
+    creditProfiles: [{
         id: 'cp1',
         creditScore: 750,
         creditRiskScore: 10
-    },
+    }],
     accounts: [
         { id: 'a1', name: 'Main Account', accountType: 'postpaid', accountStatus: 'active' }
     ],
-    privacyConsents: [],
-    taxExemptions: [],
     characteristics: [],
     contactMediums: []
 };
@@ -73,7 +73,11 @@ describe('CustomerDetailPage', () => {
         expect(screen.getByRole('heading', { name: 'Basic Information' })).toBeInTheDocument();
         // Check for specific term/definitions or just text presence if roles are too generic
         expect(screen.getByText('c1')).toBeInTheDocument();
+
+        // Assert Credit Profile present
         expect(screen.getByText('750')).toBeInTheDocument();
+
+        // Assert Accounts present
         expect(screen.getByText('Main Account')).toBeInTheDocument();
     });
 

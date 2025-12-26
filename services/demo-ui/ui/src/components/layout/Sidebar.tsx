@@ -76,37 +76,41 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse }: SidebarProp
             </nav>
 
             <div className="sidebar-footer">
-                {!collapsed && (
-                    <div className="sidebar-auth mb-4 px-4">
-                        {!isLoading && (
-                            isAuthenticated ? (
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex items-center gap-2 mb-2 text-sm text-gray-600">
-                                        <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden shrink-0">
-                                            {user?.picture ? (
-                                                <img src={user.picture} alt={user.name} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <span className="flex items-center justify-center h-full w-full text-xs font-bold text-gray-500">
-                                                    {user?.name?.charAt(0) || 'U'}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="flex flex-col overflow-hidden">
-                                            <span className="font-medium text-gray-800 truncate" title={user?.name}>{user?.name}</span>
-                                            <span className="text-xs text-gray-500 truncate" title={user?.email}>{user?.email}</span>
-                                        </div>
+                <div className="sidebar-user-section">
+                    {!isLoading && (
+                        isAuthenticated ? (
+                            <div className="sidebar-user-card">
+                                <div className={`sidebar-user-avatar-wrapper ${collapsed ? 'mx-auto' : ''}`}>
+                                    <div className="sidebar-user-avatar">
+                                        {user?.picture ? (
+                                            <img src={user.picture} alt={user.name || 'User'} className="sidebar-user-avatar-img" />
+                                        ) : (
+                                            <span className="sidebar-user-avatar-fallback">
+                                                {user?.name?.charAt(0) || 'U'}
+                                            </span>
+                                        )}
                                     </div>
-                                    <LogoutButton />
                                 </div>
-                            ) : (
-                                <div className="text-center">
-                                    <p className="text-sm text-gray-500 mb-2">Please login to continue</p>
+                                {!collapsed && (
+                                    <>
+                                        <div className="sidebar-user-info" role="group" aria-label="User details">
+                                            <span className="sidebar-user-name" title={user?.name}>{user?.name}</span>
+                                            <span className="sidebar-user-email" title={user?.email}>{user?.email}</span>
+                                        </div>
+                                        <LogoutButton />
+                                    </>
+                                )}
+                            </div>
+                        ) : (
+                            !collapsed && (
+                                <div className="sidebar-login-prompt">
+                                    <p className="sidebar-login-text">Please login to continue</p>
                                     <LoginButton />
                                 </div>
                             )
-                        )}
-                    </div>
-                )}
+                        )
+                    )}
+                </div>
 
                 <div className={`sidebar-status ${collapsed ? 'justify-center' : ''}`} role="status">
                     <span className="sidebar-status-dot sidebar-status-dot--connected"></span>

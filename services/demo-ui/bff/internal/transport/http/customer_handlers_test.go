@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -73,6 +74,97 @@ func TestHandler_GetCustomer(t *testing.T) {
 			t.Errorf("Expected status OK, got %v", w.Code)
 		}
 	})
+}
+
+func TestHandler_CreateCustomer_DerivesName(t *testing.T) {
+	mockClient := &MockRPCClient{}
+	handler := NewHandler(mockClient, nil)
+
+	mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		if routingKey == "query.party.get" {
+			return []byte(`{"id":"p1", "@type":"Individual", "givenName":"John", "familyName":"Doe"}`), nil
+		}
+		if routingKey == "cmd.customer.onboard" {
+			p := payload.(map[string]interface{})
+			if p["name"] != "John Doe" {
+				t.Errorf("Expected name to be derived as 'John Doe', got %v", p["name"])
+			}
+			return []byte(`{"id":"c1", "name":"John Doe"}`), nil
+		}
+		return nil, errors.New("unexpected call")
+	}
+
+	body := `{"partyId":"p1"}` // No name provided
+	req := httptest.NewRequest("POST", "/api/customers", strings.NewReader(body))
+	w := httptest.NewRecorder()
+
+	handler.CreateCustomer(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Errorf("Expected status Created, got %v", w.Code)
+	}
+}
+
+func TestHandler_CreateCustomer_RespectsProvidedName(t *testing.T) {
+	mockClient := &MockRPCClient{}
+	handler := NewHandler(mockClient, nil)
+
+	mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		if routingKey == "cmd.customer.onboard" {
+			p := payload.(map[string]interface{})
+			if p["name"] != "Custom Name" {
+				t.Errorf("Expected name to be 'Custom Name', got %v", p["name"])
+			}
+			return []byte(`{"id":"c1", "name":"Custom Name"}`), nil
+		}
+		return nil, errors.New("unexpected call")
+	}
+
+	body := `{"partyId":"p1", "name":"Custom Name"}`
+	req := httptest.NewRequest("POST", "/api/customers", strings.NewReader(body))
+	w := httptest.NewRecorder()
+
+	handler.CreateCustomer(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Errorf("Expected status Created, got %v", w.Code)
+	}
+}
+
+func TestHandler_GetCustomer_EnrichesPartyDetails(t *testing.T) {
+	mockClient := &MockRPCClient{}
+	handler := NewHandler(mockClient, nil)
+
+	mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		if routingKey == "query.customer.get" {
+			return []byte(`{"id":"c1", "name":"Cust", "partyId":"p1"}`), nil
+		}
+		if routingKey == "query.party.get" {
+			return []byte(`{"id":"p1", "@type":"Individual", "givenName":"John", "familyName":"Doe"}`), nil
+		}
+		return nil, errors.New("unexpected call: " + routingKey)
+	}
+
+	req := httptest.NewRequest("GET", "/api/customers/c1", nil)
+	r := chi.NewRouter()
+	r.Get("/api/customers/{id}", handler.GetCustomer)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status OK, got %v", w.Code)
+	}
+
+	var response map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &response)
+
+	if response["partyName"] != "John Doe" {
+		t.Errorf("Expected partyName 'John Doe', got %v", response["partyName"])
+	}
+	if response["partyType"] != "Individual" {
+		t.Errorf("Expected partyType 'Individual', got %v", response["partyType"])
+	}
 }
 
 // Helper needed because Handler uses chi.URLParam which requires chi context

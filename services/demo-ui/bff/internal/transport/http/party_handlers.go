@@ -51,8 +51,14 @@ func (h *PartyHandler) RegisterRoutes(r chi.Router) {
 func (h *PartyHandler) SearchParties(w http.ResponseWriter, r *http.Request) {
 	payload := map[string]*string{}
 
+	if v := r.URL.Query().Get("search"); v != "" {
+		payload["search"] = &v
+	}
 	if v := r.URL.Query().Get("givenName"); v != "" {
 		payload["givenName"] = &v
+	}
+	if v := r.URL.Query().Get("name"); v != "" {
+		payload["name"] = &v
 	}
 	if v := r.URL.Query().Get("familyName"); v != "" {
 		payload["familyName"] = &v

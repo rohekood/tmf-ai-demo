@@ -24,7 +24,7 @@ export default function CustomerListPage() {
     const searchQuery = searchParams.get('q') || '';
 
     const { data: customers = [], isLoading, error } = useCustomers(
-        searchQuery ? { name: searchQuery } : undefined
+        searchQuery ? { search: searchQuery } : undefined
     );
 
     const deleteMutation = useDeleteCustomer();
@@ -53,7 +53,7 @@ export default function CustomerListPage() {
             columnHelper.accessor('status', {
                 header: 'Status',
                 cell: (info) => (
-                    <span className={`status-badge ${info.getValue()}`}>
+                    <span className={`status-badge ${info.getValue().toLowerCase()}`}>
                         {info.getValue()}
                     </span>
                 ),

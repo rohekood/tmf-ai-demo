@@ -54,7 +54,7 @@ export function DebugFilters({ filter, onChange, onClear, totalCount, filteredCo
             <div className="filter-group">
                 <label>Service:</label>
                 <div className="filter-chips">
-                    {['party', 'customer'].map((service) => (
+                    {['party', 'customer', 'bff'].map((service) => (
                         <button
                             key={service}
                             className={`chip ${filter.services.includes(service) ? 'active' : ''}`}
@@ -69,7 +69,7 @@ export function DebugFilters({ filter, onChange, onClear, totalCount, filteredCo
             <div className="filter-group">
                 <label>Type:</label>
                 <div className="filter-chips">
-                    {['command', 'event', 'query'].map((type) => (
+                    {['command', 'event', 'query', 'reply'].map((type) => (
                         <button
                             key={type}
                             className={`chip ${filter.types.includes(type) ? 'active' : ''}`}

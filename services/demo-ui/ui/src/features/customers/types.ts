@@ -13,6 +13,9 @@ export interface CreditProfile {
     id: string;
     creditRiskScore: number;
     creditScore: number;
+    creditProfileDate?: string;
+    validForStart?: string;
+    validForEnd?: string;
 }
 
 export interface ContactMedium {
@@ -56,10 +59,11 @@ export interface Customer {
     status: CustomerStatus;
     partyId: string;
     partyName?: string;
+    partyType?: string;
     createdAt?: string;
     updatedAt?: string;
     accounts?: CustomerAccount[];
-    creditProfile?: CreditProfile;
+    creditProfiles?: CreditProfile[];
     contactMediums?: ContactMedium[];
     characteristics?: Characteristic[];
     taxExemptions?: TaxExemption[];
@@ -70,8 +74,9 @@ export interface Customer {
 export interface OnboardCustomerPayload {
     name: string;
     partyId: string;
+    partyType?: string;
     accounts?: Omit<CustomerAccount, 'id'>[];
-    creditProfile?: Omit<CreditProfile, 'id'>;
+    creditProfiles?: Omit<CreditProfile, 'id'>[];
     contactMediums?: Omit<ContactMedium, 'id'>[];
     characteristics?: Omit<Characteristic, 'id'>[];
     taxExemptions?: Omit<TaxExemption, 'id'>[];
@@ -84,9 +89,15 @@ export interface UpdateCustomerPayload {
     name?: string;
     taxExemptions?: TaxExemption[];
     privacyConsents?: PrivacyConsent[];
+    accounts?: CustomerAccount[];
+    creditProfiles?: CreditProfile[];
+    partyId?: string;
+    partyName?: string;
+    partyType?: string;
 }
 
 export interface SearchCustomerParams {
+    search?: string;
     name?: string;
     status?: string;
     partyId?: string;

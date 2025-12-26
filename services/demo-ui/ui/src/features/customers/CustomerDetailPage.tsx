@@ -114,15 +114,15 @@ export default function CustomerDetailPage() {
                         <CreditCard size={18} />
                         <span>Credit Profile</span>
                     </h3>
-                    {customer.creditProfile ? (
+                    {customer.creditProfiles && customer.creditProfiles.length > 0 ? (
                         <dl className="detail-list">
                             <div className="detail-item">
                                 <dt>Credit Score</dt>
-                                <dd className="score-value">{customer.creditProfile.creditScore}</dd>
+                                <dd className="score-value">{customer.creditProfiles[0].creditScore}</dd>
                             </div>
                             <div className="detail-item">
                                 <dt>Risk Score</dt>
-                                <dd className="score-value">{customer.creditProfile.creditRiskScore}</dd>
+                                <dd className="score-value">{customer.creditProfiles[0].creditRiskScore}</dd>
                             </div>
                         </dl>
                     ) : (
