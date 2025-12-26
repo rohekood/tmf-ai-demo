@@ -2,6 +2,7 @@ package rabbitmq
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 
@@ -15,6 +16,23 @@ type Listener struct {
 
 func NewListener(conn *amqp.Connection) (*Listener, error) {
 	return &Listener{conn: conn}, nil
+}
+
+func (l *Listener) GetHandler(routingKey string, h *Handlers) (func(context.Context, amqp.Delivery) error, bool) {
+	switch routingKey {
+	case "cmd.customer.onboard":
+		return h.HandleOnboardCustomer, true
+	case "cmd.customer.update":
+		return h.HandleUpdateCustomer, true
+	case "query.customer.get":
+		return h.HandleGetCustomer, true
+	case "query.customer.search":
+		return h.HandleSearchCustomer, true
+	case "cmd.customer.delete":
+		return h.HandleDeleteCustomer, true
+	default:
+		return nil, false
+	}
 }
 
 func (l *Listener) Start(ctx context.Context, h *Handlers) error {
@@ -77,6 +95,8 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		"cmd.customer.update",
 		"cmd.customer.patch",
 		"query.customer.get",
+		"query.customer.search",
+		"cmd.customer.delete",
 	}
 
 	for _, rk := range routingKeys {
@@ -150,7 +170,7 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 	go func() {
 		// Wrap event handler with middlewares
 		wrappedHandler := Chain(h.HandlePartyEvent,
-			TracingMiddleware("customer-management"),
+			// TracingMiddleware("customer-management"),
 			AuthMiddleware(),
 			JWTMiddleware())
 
@@ -172,18 +192,8 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		case d := <-msgs:
 			go func(d amqp.Delivery) {
 				var targetHandler func(context.Context, amqp.Delivery) error
-				switch d.RoutingKey {
-				case "cmd.customer.onboard":
-					targetHandler = h.HandleOnboardCustomer
-				case "cmd.customer.update":
-					targetHandler = h.HandleUpdateCustomer
-				case "query.customer.get":
-					targetHandler = h.HandleGetCustomer
-				case "query.customer.search":
-					targetHandler = h.HandleSearchCustomer
-				case "cmd.customer.delete":
-					targetHandler = h.HandleDeleteCustomer
-				default:
+				targetHandler, valid := l.GetHandler(d.RoutingKey, h)
+				if !valid {
 					slog.Warn("unknown routing key", "routing_key", d.RoutingKey)
 					d.Nack(false, false)
 					return
@@ -191,13 +201,37 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 
 				// Wrap with middlewares
 				wrappedHandler := Chain(targetHandler,
-					TracingMiddleware("customer-management"),
+					// TracingMiddleware("customer-management"),
 					AuthMiddleware(),
 					JWTMiddleware())
 
 				err := wrappedHandler(ctx, d)
 				if err != nil {
 					slog.Error("error handling message", "routing_key", d.RoutingKey, "error", err)
+
+					// Attempt to reply with error
+					if d.ReplyTo != "" {
+						errResponse := map[string]string{"error": err.Error()}
+						errBody, _ := json.Marshal(errResponse)
+
+						ch, chErr := l.conn.Channel()
+						if chErr == nil {
+							defer ch.Close()
+							ch.PublishWithContext(ctx,
+								"",        // exchange
+								d.ReplyTo, // routing key
+								false,     // mandatory
+								false,     // immediate
+								amqp.Publishing{
+									ContentType:   "application/json",
+									CorrelationId: d.CorrelationId,
+									Body:          errBody,
+								})
+						} else {
+							slog.Error("failed to open channel to send error reply", "error", chErr)
+						}
+					}
+
 					d.Nack(false, false) // Don't requeue, send to DLX
 				} else {
 					d.Ack(false)

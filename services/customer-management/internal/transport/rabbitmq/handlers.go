@@ -188,7 +188,7 @@ func (h *Handlers) HandleOnboardCustomer(ctx context.Context, d amqp.Delivery) e
 		slog.Error("failed to publish event", "error", err)
 	}
 
-	return nil
+	return h.replyTo(ctx, d, customer)
 }
 
 func (h *Handlers) HandleUpdateCustomer(ctx context.Context, d amqp.Delivery) error {
@@ -228,7 +228,7 @@ func (h *Handlers) HandleUpdateCustomer(ctx context.Context, d amqp.Delivery) er
 		return fmt.Errorf("failed to update customer: %w", err)
 	}
 
-	return nil
+	return h.replyTo(ctx, d, map[string]string{"status": "updated"})
 }
 
 func (h *Handlers) HandleGetCustomer(ctx context.Context, d amqp.Delivery) error {
@@ -278,7 +278,7 @@ func (h *Handlers) HandleSearchCustomer(ctx context.Context, d amqp.Delivery) er
 	}
 
 	if d.ReplyTo != "" {
-		return h.publisher.Publish(ctx, "", d.ReplyTo, customers)
+		return h.replyTo(ctx, d, customers)
 	}
 
 	return nil
@@ -300,7 +300,7 @@ func (h *Handlers) HandleDeleteCustomer(ctx context.Context, d amqp.Delivery) er
 		slog.Error("failed to publish delete event", "error", err)
 	}
 
-	return nil
+	return h.replyTo(ctx, d, map[string]string{"status": "deleted"})
 }
 
 // Party Event Handlers
@@ -408,6 +408,33 @@ func (h *Handlers) mapTaxExemption(dto TaxExemptionDTO, customerID string) domai
 		res.ValidForEnd = &end
 	}
 	return res
+}
+
+func (h *Handlers) replyTo(ctx context.Context, d amqp.Delivery, payload interface{}) error {
+	if d.ReplyTo == "" {
+		return nil
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal response: %w", err)
+	}
+
+	ch, err := h.publisher.GetChannel()
+	if err != nil {
+		return fmt.Errorf("failed to get channel for reply: %w", err)
+	}
+
+	return ch.PublishWithContext(ctx,
+		"",        // exchange
+		d.ReplyTo, // routing key
+		false,     // mandatory
+		false,     // immediate
+		amqp.Publishing{
+			ContentType:   "application/json",
+			CorrelationId: d.CorrelationId,
+			Body:          body,
+		})
 }
 
 func (h *Handlers) mapPrivacyConsent(dto PrivacyConsentDTO, customerID string) domain.PrivacyConsent {

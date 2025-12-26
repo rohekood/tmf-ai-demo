@@ -20,22 +20,22 @@ const (
 
 // Customer represents a party playing a customer role.
 type Customer struct {
-	ID              string         `gorm:"primaryKey"`
-	Name            string         // Display name
-	Status          CustomerStatus `gorm:"not null"`
-	StatusReason    string
-	ValidForStart   time.Time
-	ValidForEnd     *time.Time
-	PartyID         string `gorm:"not null;index"` // Reference to TMF632 Party
-	PartyType       string // Individual or Organization
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	Accounts        []CustomerAccount        `gorm:"foreignKey:CustomerID"`
-	CreditProfiles  []CreditProfile          `gorm:"foreignKey:CustomerID"`
-	ContactMediums  []ContactMedium          `gorm:"foreignKey:CustomerID"`
-	Characteristics []CustomerCharacteristic `gorm:"foreignKey:CustomerID"`
-	TaxExemptions   []TaxExemption           `gorm:"foreignKey:CustomerID"`
-	PrivacyConsents []PrivacyConsent         `gorm:"foreignKey:CustomerID"`
+	ID              string                   `gorm:"primaryKey" json:"id"`
+	Name            string                   `json:"name"` // Display name
+	Status          CustomerStatus           `gorm:"not null" json:"status"`
+	StatusReason    string                   `json:"statusReason,omitempty"`
+	ValidForStart   time.Time                `json:"validForStart,omitempty"`
+	ValidForEnd     *time.Time               `json:"validForEnd,omitempty"`
+	PartyID         string                   `gorm:"not null;index" json:"partyId"`
+	PartyType       string                   `json:"partyType"` // Individual or Organization
+	CreatedAt       time.Time                `json:"createdAt"`
+	UpdatedAt       time.Time                `json:"updatedAt"`
+	Accounts        []CustomerAccount        `gorm:"foreignKey:CustomerID" json:"accounts,omitempty"`
+	CreditProfiles  []CreditProfile          `gorm:"foreignKey:CustomerID" json:"creditProfiles,omitempty"`
+	ContactMediums  []ContactMedium          `gorm:"foreignKey:CustomerID" json:"contactMediums,omitempty"`
+	Characteristics []CustomerCharacteristic `gorm:"foreignKey:CustomerID" json:"characteristics,omitempty"`
+	TaxExemptions   []TaxExemption           `gorm:"foreignKey:CustomerID" json:"taxExemptions,omitempty"`
+	PrivacyConsents []PrivacyConsent         `gorm:"foreignKey:CustomerID" json:"privacyConsents,omitempty"`
 }
 
 func (Customer) TableName() string {
@@ -58,13 +58,13 @@ func (c *Customer) IsActive(t time.Time) bool {
 
 // CustomerAccount represents a billing or financial relationship.
 type CustomerAccount struct {
-	ID            string `gorm:"primaryKey"`
-	CustomerID    string `gorm:"not null;index"`
-	Name          string
-	AccountStatus string
-	AccountType   string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID            string    `gorm:"primaryKey" json:"id"`
+	CustomerID    string    `gorm:"not null;index" json:"customerId"`
+	Name          string    `json:"name"`
+	AccountStatus string    `json:"accountStatus"`
+	AccountType   string    `json:"accountType"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
 func (CustomerAccount) TableName() string {
@@ -73,15 +73,15 @@ func (CustomerAccount) TableName() string {
 
 // CreditProfile provides information regarding the customer's creditworthiness.
 type CreditProfile struct {
-	ID                string `gorm:"primaryKey"`
-	CustomerID        string `gorm:"not null;index"`
-	CreditProfileDate time.Time
-	CreditRiskScore   int
-	CreditScore       int
-	ValidForStart     time.Time
-	ValidForEnd       *time.Time
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID                string     `gorm:"primaryKey" json:"id"`
+	CustomerID        string     `gorm:"not null;index" json:"customerId"`
+	CreditProfileDate time.Time  `json:"creditProfileDate"`
+	CreditRiskScore   int        `json:"creditRiskScore"`
+	CreditScore       int        `json:"creditScore"`
+	ValidForStart     time.Time  `json:"validForStart,omitempty"`
+	ValidForEnd       *time.Time `json:"validForEnd,omitempty"`
+	CreatedAt         time.Time  `json:"createdAt"`
+	UpdatedAt         time.Time  `json:"updatedAt"`
 }
 
 func (CreditProfile) TableName() string {
@@ -90,21 +90,21 @@ func (CreditProfile) TableName() string {
 
 // ContactMedium represents customer-specific contact information.
 type ContactMedium struct {
-	ID              string `gorm:"primaryKey"`
-	CustomerID      string `gorm:"not null;index"`
-	MediumType      string // e.g., Email, Phone
-	Preferred       bool
-	Value           string
-	Street1         string
-	Street2         string
-	City            string
-	StateOrProvince string
-	Postcode        string
-	Country         string
-	ValidForStart   time.Time
-	ValidForEnd     *time.Time
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID              string     `gorm:"primaryKey" json:"id"`
+	CustomerID      string     `gorm:"not null;index" json:"customerId"`
+	MediumType      string     `json:"mediumType"` // e.g., Email, Phone
+	Preferred       bool       `json:"preferred"`
+	Value           string     `json:"value"`
+	Street1         string     `json:"street1,omitempty"`
+	Street2         string     `json:"street2,omitempty"`
+	City            string     `json:"city,omitempty"`
+	StateOrProvince string     `json:"stateOrProvince,omitempty"`
+	Postcode        string     `json:"postcode,omitempty"`
+	Country         string     `json:"country,omitempty"`
+	ValidForStart   time.Time  `json:"validForStart,omitempty"`
+	ValidForEnd     *time.Time `json:"validForEnd,omitempty"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	UpdatedAt       time.Time  `json:"updatedAt"`
 }
 
 func (ContactMedium) TableName() string {
@@ -113,13 +113,13 @@ func (ContactMedium) TableName() string {
 
 // CustomerCharacteristic represents a dynamic attribute of a customer.
 type CustomerCharacteristic struct {
-	ID         string `gorm:"primaryKey"`
-	CustomerID string `gorm:"not null;index"`
-	Name       string
-	Value      string
-	ValueType  string
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID         string    `gorm:"primaryKey" json:"id"`
+	CustomerID string    `gorm:"not null;index" json:"customerId"`
+	Name       string    `json:"name"`
+	Value      string    `json:"value"`
+	ValueType  string    `json:"valueType,omitempty"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
 func (CustomerCharacteristic) TableName() string {
@@ -127,14 +127,14 @@ func (CustomerCharacteristic) TableName() string {
 }
 
 type TaxExemption struct {
-	ID                  string `gorm:"primaryKey"`
-	CustomerID          string `gorm:"not null;index"`
-	CertificateNumber   string
-	IssuingJurisdiction string
-	ValidForStart       time.Time
-	ValidForEnd         *time.Time
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
+	ID                  string     `gorm:"primaryKey" json:"id"`
+	CustomerID          string     `gorm:"not null;index" json:"customerId"`
+	CertificateNumber   string     `json:"certificateNumber"`
+	IssuingJurisdiction string     `json:"issuingJurisdiction"`
+	ValidForStart       time.Time  `json:"validForStart,omitempty"`
+	ValidForEnd         *time.Time `json:"validForEnd,omitempty"`
+	CreatedAt           time.Time  `json:"createdAt"`
+	UpdatedAt           time.Time  `json:"updatedAt"`
 }
 
 func (TaxExemption) TableName() string {
@@ -142,14 +142,14 @@ func (TaxExemption) TableName() string {
 }
 
 type PrivacyConsent struct {
-	ID            string `gorm:"primaryKey"`
-	CustomerID    string `gorm:"not null;index"`
-	ConsentType   string
-	Status        string
-	ValidForStart time.Time
-	ValidForEnd   *time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID            string     `gorm:"primaryKey" json:"id"`
+	CustomerID    string     `gorm:"not null;index" json:"customerId"`
+	ConsentType   string     `json:"consentType"`
+	Status        string     `json:"status"`
+	ValidForStart time.Time  `json:"validForStart,omitempty"`
+	ValidForEnd   *time.Time `json:"validForEnd,omitempty"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	UpdatedAt     time.Time  `json:"updatedAt"`
 }
 
 func (PrivacyConsent) TableName() string {

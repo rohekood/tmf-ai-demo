@@ -50,10 +50,14 @@ export default function PartyListPage() {
                 id: 'type',
                 header: 'Type',
                 cell: (info) => (
-                    <span className={`party-type-badge ${info.getValue().toLowerCase()}`}>
+                    <button
+                        type="button"
+                        className={`party-type-badge ${info.getValue().toLowerCase()}`}
+                        aria-label={`Filter by ${info.getValue()}`}
+                    >
                         {info.getValue() === 'Individual' ? <User size={14} /> : <Building2 size={14} />}
                         {info.getValue()}
-                    </span>
+                    </button>
                 ),
                 size: 140,
             }),

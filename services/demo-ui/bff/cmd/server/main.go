@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 	"net/http"
-	"os"
 	"tmf/services/demo-ui/bff/internal/auth"
+	"tmf/services/demo-ui/bff/internal/config"
 	httpTransport "tmf/services/demo-ui/bff/internal/transport/http"
 	"tmf/services/demo-ui/bff/internal/transport/rabbitmq"
 
@@ -14,8 +14,11 @@ import (
 )
 
 func main() {
+	// 0. Load Config
+	cfg := config.Load()
+
 	// 1. Initialize RabbitMQ RPC Client
-	rpcClient, err := rabbitmq.NewClient(os.Getenv("RABBITMQ_URL"))
+	rpcClient, err := rabbitmq.NewClient(cfg.RabbitMQURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
 	}
@@ -37,8 +40,12 @@ func main() {
 	}))
 
 	// 4. Auth Middleware
-	// TODO: Configure with real Okta credentials from env
-	r.Use(auth.Middleware)
+	// Strictly enforces Valid JWT
+	authValidator, err := auth.NewAuth0Validator(cfg.Auth0Domain, cfg.Auth0Audience)
+	if err != nil {
+		log.Fatalf("Failed to initialize auth validator: %v", err)
+	}
+	r.Use(auth.EnsureValidToken(authValidator, cfg.Auth0Domain, cfg.Auth0Audience))
 
 	// 5. Initialize WebSocket Hub
 	hub := httpTransport.NewHub()
@@ -57,12 +64,8 @@ func main() {
 	handler.RegisterRoutes(r)
 
 	// 6. Start Server
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-	log.Printf("BFF Server listening on port %s", port)
-	if err := http.ListenAndServe(":"+port, r); err != nil {
+	log.Printf("BFF Server listening on port %s", cfg.Port)
+	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }

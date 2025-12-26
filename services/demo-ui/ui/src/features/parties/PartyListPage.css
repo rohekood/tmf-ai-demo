@@ -147,6 +147,14 @@
     border-radius: 6px;
     font-size: 0.8125rem;
     font-weight: 500;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.2s;
+}
+
+.party-type-badge:hover {
+    opacity: 0.8;
 }
 
 .party-type-badge.individual {
