@@ -1,11 +1,12 @@
+
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, CreditCard, Shield, FileCheck, Loader2, ExternalLink, MessageSquarePlus } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, CreditCard, Shield, Loader2, ExternalLink, MessageSquarePlus } from 'lucide-react';
 import LogInteractionModal from './components/LogInteractionModal';
 import RelatedPartiesList from './components/RelatedPartiesList';
 import PaymentMethodsList from './components/PaymentMethodsList';
 import MarketSegmentsList from './components/MarketSegmentsList';
-import AppliedBillingRatesList from './components/AppliedBillingRatesList';
+
 import InteractionsList from './components/InteractionsList';
 import { useCustomer, useDeleteCustomer } from './api';
 import '../parties/PartyDetailPage.css';
@@ -19,7 +20,7 @@ export default function CustomerDetailPage() {
     const [showLogInteraction, setShowLogInteraction] = useState(false);
 
     const handleDelete = () => {
-        if (customer && confirm(`Are you sure you want to delete customer "${customer.name}"?`)) {
+        if (customer && confirm(`Are you sure you want to delete customer "${customer.name}" ? `)) {
             deleteMutation.mutate(customer.id, {
                 onSuccess: () => navigate('/customers'),
             });
@@ -60,10 +61,10 @@ export default function CustomerDetailPage() {
                     </Link>
                     <h2>{customer.name}</h2>
                     <div className="customer-meta">
-                        <span className={`status-badge ${customer.status}`}>
+                        <span className={`status - badge ${customer.status} `}>
                             {customer.status}
                         </span>
-                        <Link to={`/parties/${customer.partyId}`} className="party-ref">
+                        <Link to={`/ parties / ${customer.partyId} `} className="party-ref">
                             Party: {customer.partyName || customer.partyId.slice(0, 8)}
                             <ExternalLink size={14} />
                         </Link>
@@ -77,10 +78,10 @@ export default function CustomerDetailPage() {
                         <MessageSquarePlus size={18} />
                         <span>Log Interaction</span>
                     </button>
-                    <Link to={`/customers/${id}/edit`} className="btn btn-secondary">
+                    <Link to={`/ customers / ${id}/edit`} className="btn btn-secondary" >
                         <Edit size={18} />
                         <span>Edit</span>
-                    </Link>
+                    </Link >
                     <button
                         className="btn btn-danger"
                         onClick={handleDelete}
@@ -89,8 +90,8 @@ export default function CustomerDetailPage() {
                         <Trash2 size={18} />
                         <span>Delete</span>
                     </button>
-                </div>
-            </div>
+                </div >
+            </div >
 
             <div className="detail-grid">
                 {/* Basic Info */}
@@ -195,28 +196,7 @@ export default function CustomerDetailPage() {
                     )}
                 </div>
 
-                {/* Tax Exemptions */}
-                <div className="card detail-card">
-                    <h3>
-                        <FileCheck size={18} />
-                        <span>Tax Exemptions</span>
-                        <span className="count-badge">{customer.taxExemptions?.length || 0}</span>
-                    </h3>
-                    {customer.taxExemptions && customer.taxExemptions.length > 0 ? (
-                        <ul className="exemption-list">
-                            {customer.taxExemptions.map((exemption) => (
-                                <li key={exemption.id} className="exemption-item">
-                                    <div className="exemption-content">
-                                        <span className="exemption-cert">{exemption.certificateNumber}</span>
-                                        <span className="exemption-jurisdiction">{exemption.issuingJurisdiction}</span>
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className="empty-text">No tax exemptions</p>
-                    )}
-                </div>
+
 
                 {/* Related Parties */}
                 <div className="card detail-card">
@@ -236,11 +216,7 @@ export default function CustomerDetailPage() {
                     <MarketSegmentsList items={customer.marketSegments || []} />
                 </div>
 
-                {/* Applied Billing Rates */}
-                <div className="card detail-card">
-                    <h3>Applied Billing Rates</h3>
-                    <AppliedBillingRatesList items={customer.appliedBillingRates || []} />
-                </div>
+
 
                 {/* Interactions */}
                 <div className="card detail-card">
@@ -249,12 +225,14 @@ export default function CustomerDetailPage() {
                 </div>
             </div>
 
-            {showLogInteraction && customer && (
-                <LogInteractionModal
-                    customerId={customer.id}
-                    onClose={() => setShowLogInteraction(false)}
-                />
-            )}
-        </div>
+            {
+                showLogInteraction && customer && (
+                    <LogInteractionModal
+                        customerId={customer.id}
+                        onClose={() => setShowLogInteraction(false)}
+                    />
+                )
+            }
+        </div >
     );
 }

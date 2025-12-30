@@ -17,7 +17,7 @@ describe('LogInteractionModal', () => {
         vi.mocked(api.useLogInteraction).mockReturnValue({
             mutateAsync: mockMutateAsync,
             isPending: false
-        });
+        } as any);
     });
 
     it('renders correctly', () => {

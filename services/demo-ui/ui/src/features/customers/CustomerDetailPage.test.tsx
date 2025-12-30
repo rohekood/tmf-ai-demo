@@ -13,7 +13,7 @@ const mockCustomer: Customer = {
     status: 'active',
     partyId: 'p1',
     partyName: 'Test Party',
-    taxExemptions: [],
+
     privacyConsents: [],
     creditProfiles: [{
         id: 'cp1',
