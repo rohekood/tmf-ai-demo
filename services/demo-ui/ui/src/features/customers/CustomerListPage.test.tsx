@@ -86,6 +86,7 @@ describe('CustomerListPage', () => {
             {
                 id: '3',
                 name: 'Mixed Case Customer',
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 status: 'Active' as any, // Simulate backend returning capitalized value
                 partyId: 'p3',
                 partyName: 'Mixed Party',

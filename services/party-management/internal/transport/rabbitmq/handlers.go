@@ -62,17 +62,20 @@ func NewHandlers(repo domain.Repository, publisher *infraRabbit.Publisher) *Hand
 // --- Command Payloads ---
 
 type CreateIndividualPayload struct {
-	ID              string              `json:"id"`
-	GivenName       string              `json:"givenName"`
-	FamilyName      string              `json:"familyName"`
-	MiddleName      string              `json:"middleName,omitempty"`
-	BirthDate       string              `json:"birthDate,omitempty"`
-	Gender          string              `json:"gender,omitempty"`
-	Href            string              `json:"href"`
-	ContactMediums  []ContactMediumDTO  `json:"contactMediums,omitempty"`
-	Identifications []IdentificationDTO `json:"identifications,omitempty"`
-	RelatedParties  []RelatedPartyDTO   `json:"relatedParties,omitempty"`
-	Characteristics []CharacteristicDTO `json:"characteristics,omitempty"`
+	ID                 string                 `json:"id"`
+	GivenName          string                 `json:"givenName"`
+	FamilyName         string                 `json:"familyName"`
+	MiddleName         string                 `json:"middleName,omitempty"`
+	BirthDate          string                 `json:"birthDate,omitempty"`
+	Gender             string                 `json:"gender,omitempty"`
+	Href               string                 `json:"href"`
+	ContactMediums     []ContactMediumDTO     `json:"contactMediums,omitempty"`
+	Identifications    []IdentificationDTO    `json:"identifications,omitempty"`
+	RelatedParties     []RelatedPartyDTO      `json:"relatedParties,omitempty"`
+	Characteristics    []CharacteristicDTO    `json:"characteristics,omitempty"`
+	ExternalReferences []ExternalReferenceDTO `json:"externalReferences,omitempty"`
+	TaxExemptions      []TaxExemptionDTO      `json:"taxExemptions,omitempty"`
+	Attachments        []AttachmentDTO        `json:"attachments,omitempty"`
 }
 
 func (p *CreateIndividualPayload) Validate() error {
@@ -83,15 +86,18 @@ func (p *CreateIndividualPayload) Validate() error {
 }
 
 type CreateOrganizationPayload struct {
-	ID               string              `json:"id"`
-	TradingName      string              `json:"tradingName"`
-	IsLegalEntity    bool                `json:"isLegalEntity"`
-	OrganizationType string              `json:"organizationType,omitempty"`
-	Href             string              `json:"href"`
-	ContactMediums   []ContactMediumDTO  `json:"contactMediums,omitempty"`
-	Identifications  []IdentificationDTO `json:"identifications,omitempty"`
-	RelatedParties   []RelatedPartyDTO   `json:"relatedParties,omitempty"`
-	Characteristics  []CharacteristicDTO `json:"characteristics,omitempty"`
+	ID                 string                 `json:"id"`
+	TradingName        string                 `json:"tradingName"`
+	IsLegalEntity      bool                   `json:"isLegalEntity"`
+	OrganizationType   string                 `json:"organizationType,omitempty"`
+	Href               string                 `json:"href"`
+	ContactMediums     []ContactMediumDTO     `json:"contactMediums,omitempty"`
+	Identifications    []IdentificationDTO    `json:"identifications,omitempty"`
+	RelatedParties     []RelatedPartyDTO      `json:"relatedParties,omitempty"`
+	Characteristics    []CharacteristicDTO    `json:"characteristics,omitempty"`
+	ExternalReferences []ExternalReferenceDTO `json:"externalReferences,omitempty"`
+	TaxExemptions      []TaxExemptionDTO      `json:"taxExemptions,omitempty"`
+	Attachments        []AttachmentDTO        `json:"attachments,omitempty"`
 }
 
 func (p *CreateOrganizationPayload) Validate() error {
@@ -175,12 +181,13 @@ type GetPartyPayload struct {
 }
 
 type SearchPartyPayload struct {
-	Search      *string `json:"search,omitempty"`
-	Name        *string `json:"name,omitempty"`
-	GivenName   *string `json:"givenName,omitempty"`
-	FamilyName  *string `json:"familyName,omitempty"`
-	TradingName *string `json:"tradingName,omitempty"`
-	Type        *string `json:"type,omitempty"`
+	Search            *string `json:"search,omitempty"`
+	Name              *string `json:"name,omitempty"`
+	GivenName         *string `json:"givenName,omitempty"`
+	FamilyName        *string `json:"familyName,omitempty"`
+	TradingName       *string `json:"tradingName,omitempty"`
+	Type              *string `json:"type,omitempty"`
+	ExternalReference *string `json:"externalReference,omitempty"`
 }
 
 type ContactMediumDTO struct {
@@ -205,10 +212,11 @@ type IdentificationDTO struct {
 }
 
 type RelatedPartyDTO struct {
-	ID               string `json:"id"`
-	RelatedPartyID   string `json:"relatedPartyId"`
-	RelatedPartyName string `json:"relatedPartyName"`
-	Role             string `json:"role"`
+	ID               string   `json:"id"`
+	RelatedPartyID   string   `json:"relatedPartyId"`
+	RelatedPartyName string   `json:"relatedPartyName"`
+	Role             string   `json:"role"`
+	Permissions      []string `json:"permissions"`
 }
 
 type CharacteristicDTO struct {
@@ -216,6 +224,31 @@ type CharacteristicDTO struct {
 	Name      string `json:"name"`
 	Value     string `json:"value"`
 	ValueType string `json:"valueType"`
+}
+
+type ExternalReferenceDTO struct {
+	ID                  string `json:"id"`
+	ExternalSystemID    string `json:"externalSystemId"`
+	ExternalReferenceID string `json:"externalReferenceId"`
+}
+
+type TaxExemptionDTO struct {
+	ID                  string `json:"id"`
+	CertificateNumber   string `json:"certificateNumber"`
+	IssuingJurisdiction string `json:"issuingJurisdiction"`
+	ValidForStart       string `json:"validForStart"`
+	ValidForEnd         string `json:"validForEnd"`
+}
+
+type AttachmentDTO struct {
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	MimeType       string `json:"mimeType"`
+	AttachmentType string `json:"attachmentType"`
+	RefType        string `json:"refType"`
+	RefID          string `json:"refId"`
+	URL            string `json:"url,omitempty"`
+	Content        []byte `json:"content,omitempty"` // For upload
 }
 
 // --- Handlers ---
@@ -233,7 +266,8 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 
 	now := time.Now()
 
-	if typeInfo.Type == "Individual" {
+	switch typeInfo.Type {
+	case "Individual":
 		var payload CreateIndividualPayload
 		if err := json.Unmarshal(d.Body, &payload); err != nil {
 			return fmt.Errorf("failed to unmarshal Individual payload: %w", err)
@@ -267,6 +301,9 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 		ind.Identifications = h.mapIdentifications(payload.Identifications, ind.ID)
 		ind.RelatedParties = h.mapRelatedParties(payload.RelatedParties, ind.ID)
 		ind.Characteristics = h.mapCharacteristics(payload.Characteristics, ind.ID)
+		ind.ExternalReferences = h.mapExternalReferences(payload.ExternalReferences, ind.ID)
+		ind.TaxExemptions = h.mapTaxExemptions(payload.TaxExemptions, ind.ID)
+		ind.Attachments = h.mapAttachments(payload.Attachments, ind.ID)
 
 		if err := h.repo.CreateIndividual(ctx, ind); err != nil {
 			return fmt.Errorf("failed to create individual: %w", err)
@@ -282,7 +319,7 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 
 		return h.replyTo(ctx, d, ind)
 
-	} else if typeInfo.Type == "Organization" {
+	case "Organization":
 		var payload CreateOrganizationPayload
 		if err := json.Unmarshal(d.Body, &payload); err != nil {
 			return fmt.Errorf("failed to unmarshal Organization payload: %w", err)
@@ -314,6 +351,9 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 		org.Identifications = h.mapIdentifications(payload.Identifications, org.ID)
 		org.RelatedParties = h.mapRelatedParties(payload.RelatedParties, org.ID)
 		org.Characteristics = h.mapCharacteristics(payload.Characteristics, org.ID)
+		org.ExternalReferences = h.mapExternalReferences(payload.ExternalReferences, org.ID)
+		org.TaxExemptions = h.mapTaxExemptions(payload.TaxExemptions, org.ID)
+		org.Attachments = h.mapAttachments(payload.Attachments, org.ID)
 
 		if err := h.repo.CreateOrganization(ctx, org); err != nil {
 			return fmt.Errorf("failed to create organization: %w", err)
@@ -327,9 +367,10 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 		slog.Info("created organization", "party_id", org.ID)
 
 		return h.replyTo(ctx, d, org)
-	}
 
-	return domain.ErrInvalidType
+	default:
+		return domain.ErrInvalidType
+	}
 }
 
 func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error {
@@ -344,7 +385,8 @@ func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error
 
 	now := time.Now()
 
-	if typeInfo.Type == "Individual" {
+	switch typeInfo.Type {
+	case "Individual":
 		var payload CreateIndividualPayload // Use Same payload structure for update fields
 		if err := json.Unmarshal(d.Body, &payload); err != nil {
 			return fmt.Errorf("failed to unmarshal Update payload: %w", err)
@@ -354,7 +396,10 @@ func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error
 		var statusPayload struct {
 			Status string `json:"status"`
 		}
-		json.Unmarshal(d.Body, &statusPayload) // Ignore error, optional
+		if err := json.Unmarshal(d.Body, &statusPayload); err != nil {
+			// Optional, but if malformed JSON we might warn
+			slog.Warn("failed to unmarshal status from update body", "error", err)
+		}
 
 		if payload.ID == "" {
 			return domain.ErrIDRequired
@@ -390,6 +435,9 @@ func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error
 		ind.Identifications = h.mapIdentifications(payload.Identifications, ind.ID)
 		ind.RelatedParties = h.mapRelatedParties(payload.RelatedParties, ind.ID)
 		ind.Characteristics = h.mapCharacteristics(payload.Characteristics, ind.ID)
+		ind.ExternalReferences = h.mapExternalReferences(payload.ExternalReferences, ind.ID)
+		ind.TaxExemptions = h.mapTaxExemptions(payload.TaxExemptions, ind.ID)
+		ind.Attachments = h.mapAttachments(payload.Attachments, ind.ID)
 
 		if err := h.repo.UpdateIndividual(ctx, ind); err != nil {
 			return fmt.Errorf("failed to update individual: %w", err)
@@ -407,7 +455,7 @@ func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error
 
 		return h.replyTo(ctx, d, ind)
 
-	} else if typeInfo.Type == "Organization" {
+	case "Organization":
 		var payload CreateOrganizationPayload
 		if err := json.Unmarshal(d.Body, &payload); err != nil {
 			return fmt.Errorf("failed to unmarshal Organization update payload: %w", err)
@@ -416,7 +464,9 @@ func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error
 		var statusPayload struct {
 			Status string `json:"status"`
 		}
-		json.Unmarshal(d.Body, &statusPayload)
+		if err := json.Unmarshal(d.Body, &statusPayload); err != nil {
+			slog.Warn("failed to unmarshal status from update body", "error", err)
+		}
 
 		if payload.ID == "" {
 			return domain.ErrIDRequired
@@ -450,6 +500,9 @@ func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error
 		org.Identifications = h.mapIdentifications(payload.Identifications, org.ID)
 		org.RelatedParties = h.mapRelatedParties(payload.RelatedParties, org.ID)
 		org.Characteristics = h.mapCharacteristics(payload.Characteristics, org.ID)
+		org.ExternalReferences = h.mapExternalReferences(payload.ExternalReferences, org.ID)
+		org.TaxExemptions = h.mapTaxExemptions(payload.TaxExemptions, org.ID)
+		org.Attachments = h.mapAttachments(payload.Attachments, org.ID)
 
 		if err := h.repo.UpdateOrganization(ctx, org); err != nil {
 			return fmt.Errorf("failed to update organization: %w", err)
@@ -466,9 +519,10 @@ func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error
 		slog.Info("updated organization", "party_id", org.ID)
 
 		return h.replyTo(ctx, d, org)
-	}
 
-	return domain.ErrInvalidType
+	default:
+		return domain.ErrInvalidType
+	}
 }
 
 func (h *Handlers) HandlePatchParty(ctx context.Context, d amqp.Delivery) error {
@@ -488,7 +542,8 @@ func (h *Handlers) HandlePatchParty(ctx context.Context, d amqp.Delivery) error 
 		return fmt.Errorf("failed to get party for patch: %w", err)
 	}
 
-	if party.Type == domain.PartyTypeIndividual {
+	switch party.Type {
+	case domain.PartyTypeIndividual:
 		existing, err := h.repo.GetIndividual(ctx, payload.ID)
 		if err != nil {
 			return err
@@ -521,7 +576,7 @@ func (h *Handlers) HandlePatchParty(ctx context.Context, d amqp.Delivery) error 
 
 		return h.replyTo(ctx, d, existing)
 
-	} else if party.Type == domain.PartyTypeOrganization {
+	case domain.PartyTypeOrganization:
 		existingOrg, err := h.repo.GetOrganization(ctx, payload.ID)
 		if err != nil {
 			return err
@@ -640,11 +695,15 @@ func (h *Handlers) HandleFinalizeDeletion(ctx context.Context, d amqp.Delivery) 
 	if party.Type == domain.PartyTypeIndividual {
 		ind, _ := h.repo.GetIndividual(ctx, payload.ID)
 		ind.Status = newStatus
-		h.repo.UpdateIndividual(ctx, ind)
+		if err := h.repo.UpdateIndividual(ctx, ind); err != nil {
+			return fmt.Errorf("failed to finalize deletion (ind): %w", err)
+		}
 	} else {
 		org, _ := h.repo.GetOrganization(ctx, payload.ID)
 		org.Status = newStatus
-		h.repo.UpdateOrganization(ctx, org)
+		if err := h.repo.UpdateOrganization(ctx, org); err != nil {
+			return fmt.Errorf("failed to finalize deletion (org): %w", err)
+		}
 	}
 
 	h.publishEvent(ctx, EvtPartyDeleted, map[string]interface{}{"id": payload.ID})
@@ -680,11 +739,15 @@ func (h *Handlers) HandleCancelDeletion(ctx context.Context, d amqp.Delivery) er
 	if party.Type == domain.PartyTypeIndividual {
 		ind, _ := h.repo.GetIndividual(ctx, payload.ID)
 		ind.Status = newStatus
-		h.repo.UpdateIndividual(ctx, ind)
+		if err := h.repo.UpdateIndividual(ctx, ind); err != nil {
+			return fmt.Errorf("failed to cancel deletion (ind): %w", err)
+		}
 	} else {
 		org, _ := h.repo.GetOrganization(ctx, payload.ID)
 		org.Status = newStatus
-		h.repo.UpdateOrganization(ctx, org)
+		if err := h.repo.UpdateOrganization(ctx, org); err != nil {
+			return fmt.Errorf("failed to cancel deletion (org): %w", err)
+		}
 	}
 
 	h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
@@ -725,11 +788,17 @@ func (h *Handlers) HandleCustomerCreated(ctx context.Context, d amqp.Delivery) e
 		if party.Type == domain.PartyTypeIndividual {
 			ind, _ := h.repo.GetIndividual(ctx, payload.PartyID)
 			ind.Status = newStatus
-			h.repo.UpdateIndividual(ctx, ind)
+			if err := h.repo.UpdateIndividual(ctx, ind); err != nil {
+				slog.Error("failed to revert party status (ind)", "error", err)
+				return err
+			}
 		} else {
 			org, _ := h.repo.GetOrganization(ctx, payload.PartyID)
 			org.Status = newStatus
-			h.repo.UpdateOrganization(ctx, org)
+			if err := h.repo.UpdateOrganization(ctx, org); err != nil {
+				slog.Error("failed to revert party status (org)", "error", err)
+				return err
+			}
 		}
 
 		h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
@@ -792,6 +861,9 @@ func (h *Handlers) HandleSearchParty(ctx context.Context, d amqp.Delivery) error
 	}
 	if payload.Type != nil {
 		criteria["type"] = *payload.Type
+	}
+	if payload.ExternalReference != nil {
+		criteria["externalReference"] = *payload.ExternalReference
 	}
 
 	parties, err := h.repo.SearchParties(ctx, criteria)
@@ -867,16 +939,12 @@ func (h *Handlers) replyTo(ctx context.Context, d amqp.Delivery, response interf
 		})
 }
 
-const (
-	AuthContextKey = "authorization"
-)
-
 func (h *Handlers) extractUser(ctx context.Context, d amqp.Delivery) context.Context {
 	if user, ok := d.Headers["user"].(string); ok && user != "" {
 		ctx = context.WithValue(ctx, domain.UserContextKey, user)
 	}
 	if auth, ok := d.Headers["Authorization"].(string); ok && auth != "" {
-		ctx = context.WithValue(ctx, AuthContextKey, auth)
+		ctx = context.WithValue(ctx, domain.AuthContextKey, auth)
 	}
 	return ctx
 }
@@ -936,6 +1004,7 @@ func (h *Handlers) mapRelatedParties(dtos []RelatedPartyDTO, partyID string) []d
 			RelatedPartyID:   dto.RelatedPartyID,
 			RelatedPartyName: dto.RelatedPartyName,
 			Role:             dto.Role,
+			Permissions:      dto.Permissions,
 		})
 	}
 	return res
@@ -953,4 +1022,85 @@ func (h *Handlers) mapCharacteristics(dtos []CharacteristicDTO, partyID string) 
 		})
 	}
 	return res
+}
+
+func (h *Handlers) mapExternalReferences(dtos []ExternalReferenceDTO, partyID string) []domain.ExternalReference {
+	var results []domain.ExternalReference
+	for _, dto := range dtos {
+		if dto.ID == "" {
+			dto.ID = uuid.New().String()
+		}
+		results = append(results, domain.ExternalReference{
+			ID:                  dto.ID,
+			PartyID:             partyID,
+			ExternalSystemID:    dto.ExternalSystemID,
+			ExternalReferenceID: dto.ExternalReferenceID,
+			CreatedAt:           time.Now(),
+			UpdatedAt:           time.Now(),
+		})
+	}
+	return results
+}
+
+func (h *Handlers) mapTaxExemptions(dtos []TaxExemptionDTO, partyID string) []domain.TaxExemption {
+	var results []domain.TaxExemption
+	for _, dto := range dtos {
+		if dto.ID == "" {
+			dto.ID = uuid.New().String()
+		}
+		var start, end time.Time
+		if dto.ValidForStart != "" {
+			start, _ = time.Parse(time.RFC3339, dto.ValidForStart)
+		}
+		var endPtr *time.Time
+		if dto.ValidForEnd != "" {
+			end, _ = time.Parse(time.RFC3339, dto.ValidForEnd)
+			endPtr = &end
+		}
+
+		results = append(results, domain.TaxExemption{
+			ID:                  dto.ID,
+			PartyID:             partyID,
+			CertificateNumber:   dto.CertificateNumber,
+			IssuingJurisdiction: dto.IssuingJurisdiction,
+			ValidForStart:       start,
+			ValidForEnd:         endPtr,
+			CreatedAt:           time.Now(),
+			UpdatedAt:           time.Now(),
+		})
+	}
+	return results
+}
+
+func (h *Handlers) mapAttachments(dtos []AttachmentDTO, partyID string) []domain.Attachment {
+	var results []domain.Attachment
+	for _, dto := range dtos {
+		if dto.ID == "" {
+			dto.ID = uuid.New().String()
+		}
+
+		// If URL is provided and RefType/ID are missing, assume S3
+		if dto.RefType == "" {
+			if dto.URL != "" {
+				dto.RefType = "S3"
+				dto.RefID = dto.URL
+			} else {
+				dto.RefType = "Internal"
+			}
+		}
+
+		results = append(results, domain.Attachment{
+			ID:             dto.ID,
+			OwnerID:        partyID,
+			Name:           dto.Name,
+			MimeType:       dto.MimeType,
+			AttachmentType: dto.AttachmentType,
+			RefType:        dto.RefType,
+			RefID:          dto.RefID,
+			ContentData:    dto.Content, // Transferred for repository processing
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+		})
+	}
+	return results
 }

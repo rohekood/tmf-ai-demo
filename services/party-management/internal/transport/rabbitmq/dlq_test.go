@@ -16,7 +16,7 @@ func TestIntegration_DLQ(t *testing.T) {
 
 	ch, err := sharedConn.Channel()
 	require.NoError(t, err)
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 
 	// Setup DLX/DLQ
 	err = ch.ExchangeDeclare(DeadLetterExchange, "fanout", true, false, false, false, nil)
@@ -58,7 +58,7 @@ func TestIntegration_DLQ(t *testing.T) {
 	select {
 	case dlqMsg := <-dlqMsgs:
 		assert.Equal(t, []byte("party-fail"), dlqMsg.Body)
-		dlqMsg.Ack(false)
+		_ = dlqMsg.Ack(false)
 	case <-time.After(2 * time.Second):
 		t.Fatal("Message did not arrive in Party DLQ")
 	}

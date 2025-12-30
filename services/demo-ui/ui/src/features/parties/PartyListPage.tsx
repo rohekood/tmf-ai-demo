@@ -62,9 +62,9 @@ export default function PartyListPage() {
                 showToast('Party deleted successfully', 'success');
                 queryClient.invalidateQueries({ queryKey: ['parties'] });
             } else if (party.status === 'Active') {
-                    setDeletingId(null);
-                    showToast('Deletion failed: Party has active linked customers.', 'error');
-                    queryClient.invalidateQueries({ queryKey: ['parties'] });
+                setDeletingId(null);
+                showToast('Deletion failed: Party has active linked customers.', 'error');
+                queryClient.invalidateQueries({ queryKey: ['parties'] });
             } else if (party.status === 'DeletionPending') {
                 setTimeout(() => checkDeletionStatus(id, attempts + 1), 1000);
             } else {
@@ -177,7 +177,7 @@ export default function PartyListPage() {
                 size: 120,
             }),
         ],
-        [deleteMutation.isPending, handleDelete]
+        [deleteMutation.isPending, handleDelete, deletingId]
     );
 
     const table = useReactTable({

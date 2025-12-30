@@ -12,3 +12,5 @@ trigger: always_on
  * in backend
 * if bug is found you have to first create test and approve that test failes
  * after that you can start fixing bug
+
+use golint as $(go env GOPATH)/bin/golangci-lint

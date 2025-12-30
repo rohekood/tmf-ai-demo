@@ -85,3 +85,94 @@ Data retrieval is handled via **RPC-style Async Request-Reply**:
 *   `query.party.search`: Retrieve Parties by criteria.
 
 No synchronous HTTP endpoints will be provided.
+
+## 8. Gaps & Future Work (TMF Alignment)
+This section details the gaps between the current implementation and the TMF632 standard, including specific use cases, justification, and technical implementation strategies.
+
+### 8.1 Missing Features from Analysis
+
+#### 8.1.1 External References
+*   **Context**: Use Case 7 mentions linking to external systems (Legacy CRM, Identity Providers), but the domain model currently lacks this capability.
+*   **Use Case**:
+    *   **Legacy Data Import**: An acquired ISP has customers with IDs like `LEGACY_001`. Support agents need to search by this old ID to find the new UUID-based record.
+    *   **SSO Integration**: An identity provider (Auth0/Keycloak) holds the subject ID (`auth0|xyz`). This needs to be mapped to the `Party.ID` for authentication resolution.
+*   **Implementation Strategy**:
+    1.  **Domain Model**: Add a `ExternalReference` struct.
+        ```go
+        type ExternalReference struct {
+            ID                string `json:"id"`
+            PartyID           string `json:"partyId"`
+            ExternalSystemID  string `json:"externalSystemId"` // e.g. "LegacyCRM", "Auth0"
+            ExternalReference string `json:"externalReference"` // e.g. "LEGACY_001"
+        }
+        ```
+    2.  **Schema**: Create table `external_references` with a composite index on `(external_system_id, external_reference)`.
+    3.  **API**: Update `SearchParties` to accept an `externalReference` filter which joins this table.
+
+#### 8.1.2 Tax Exemptions (Party Level)
+*   **Context**: Use Case 6 identifies Tax Exemption as a requirement. Currently, this exists only in the **Customer** service, which is structurally incorrect for TMF alignment.
+*   **Use Case**:
+    *   **Charitable Organization**: A registered non-profit is VAT-exempt for *all* purchases and services. This is a property of the *Organization*, not just a specific customer account.
+    *   **Diplomatic Immunity**: A diplomat (Individual) has tax-exempt status that applies universally.
+*   **Implementation Strategy**:
+    1.  **Domain Model**: Port the `TaxExemption` struct (currently in Customer) to `party.go`.
+        ```go
+        type TaxExemption struct {
+            ID                  string    `json:"id"`
+            PartyID             string    `json:"partyId"`
+            CertificateNumber   string    `json:"certificateNumber"`
+            IssuingJurisdiction string    `json:"issuingJurisdiction"`
+            ValidFor            TimePeriod `json:"validFor"`
+        }
+        ```
+    2.  **Migration**: Create `party_tax_exemptions` table. In the future, the Customer service should look up tax exemptions from the Party service via RPC during billing calculation.
+
+### 8.2 Standard TMF632 Gaps
+
+#### 8.2.1 Identification Attachments (Files)
+*   **Context**: TMF632 includes an `Attachment` resource. Currently, we only store metadata (ID numbers).
+*   **Use Case**:
+    *   **KYC Compliance**: Exploring a prepaid SIM requires uploading a scan of a Passport.
+    *   **Audit Proof**: An organization must provide a PDF of their Trade License.
+*   **Implementation Strategy**:
+    1.  **Storage**: Define a `FileStorage` interface to abstract blob operations. Initially, implement this using PostgreSQL (e.g., `bytea` columns), ensuring the architecture allows for a seamless transition to S3/MinIO in the future.
+    2.  **Domain Model**:
+        ```go
+        type Attachment struct {
+            ID       string `json:"id"`
+            OwnerID  string `json:"ownerId"` // PartyID
+            MimeType string `json:"mimeType"`
+            Name     string `json:"name"`
+            URL      string `json:"url"` // Presigned URL or proxy path
+            Type     string `json:"type"` // e.g., "Scan", "Form"
+        }
+        ```
+    3.  **Security**: The `URL` returned in API responses should be a temporary pre-signed URL (valid for 15m) to prevent unauthorized public access.
+
+#### 8.2.2 Granular Party Roles
+*   **Context**: The current `RelatedParty` is a simple link. TMF suggests a more robust `PartyRole` pattern.
+*   **Use Case**:
+    *   **B2B Permissions**: An Employee (Individual) is related to their Company (Organization). We need to know if they are a "Billing Admin" (can pay bills) or a "Technical Contact" (can only open tickets).
+*   **Implementation Strategy**:
+    1.  **Enhanced Relationship**: Add metadata to `RelatedParty`.
+        ```go
+        type RelatedParty struct {
+            // ... existing fields
+            Role string `json:"role"` // e.g. "Employee", "Guardian"
+            Permissions []string `json:"permissions"` // e.g. ["ManageBilling", "ViewService"]
+        }
+        ```
+    2.  **Validation Logic**: Implement checking rules (e.g., "A Guardian must be >18 years old").
+
+#### 8.2.3 Financial Profiles (Scope Clarification)
+*   **Context**: Requirement to store Bank Accounts or Credit Cards.
+*   **Analysis**:
+    *   **TMF632 Party Management** deals with *Identity*. It does not typically store financial instruments due to PCI-DSS scope and separation of concerns.
+    *   **TMF670 Payment Method Management** is the dedicated API for managing Credit Cards, Direct Debits, and Digital Wallets.
+    *   **TMF666 Account Management** links these methods to a billing relationship.
+*   **Decision**:
+    *   We will **NOT** implement `payment_methods` in the Party Service.
+    *   **Future Work**: Implement **TMF670** as a separate microservice.
+    *   For the MVP, if simple storage is needed, it should reside in the **Customer** service (as `CustomerAccount.PaymentMethod`) or a dedicated Payment Service, effectively treating "Financial Profile" as a non-Party concern.
+
+

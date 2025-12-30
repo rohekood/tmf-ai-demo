@@ -5,7 +5,7 @@ import PartyDetailPage from './PartyDetailPage';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import * as api from './api';
 import { type Individual, type Organization } from './types';
-import { NotificationProvider } from '../../components/common/Toast';
+import { NotificationProvider } from '../../components/common/ToastProvider';
 
 vi.mock('./api');
 vi.mock('@tanstack/react-query', async () => {

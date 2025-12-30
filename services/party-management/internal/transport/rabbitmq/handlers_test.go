@@ -7,14 +7,15 @@ import (
 
 	"tmf/services/party-management/internal/domain"
 
+	testifymock "github.com/stretchr/testify/mock"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
 // MockRepository implements domain.Repository for testing
 type MockRepository struct {
-	mock.Mock
+	testifymock.Mock
 }
 
 func (m *MockRepository) GetParty(ctx context.Context, id string) (*domain.Party, error) {
@@ -84,16 +85,14 @@ func TestHandleCreateParty_Individual(t *testing.T) {
 	// For these tests, let's just focus on Repo calls if we can't easily mock the publisher without an interface.
 
 	ctx := context.Background()
-	mockRepo.On("CreateIndividual", ctx, mock.AnythingOfType("*domain.Individual")).Return(nil)
+	mockRepo.On("CreateIndividual", ctx, testifymock.AnythingOfType("*domain.Individual")).Return(nil)
 
-	payload := CreatePartyPayload{
-		Type: "Individual",
-		Individual: &CreateIndividualPayload{
-			ID:         "test-ind-1",
-			GivenName:  "Test",
-			FamilyName: "User",
-			Href:       "http://example.com/test-ind-1",
-		},
+	payload := map[string]interface{}{
+		"@type":      "Individual",
+		"id":         "test-ind-1",
+		"givenName":  "Test",
+		"familyName": "User",
+		"href":       "http://example.com/test-ind-1",
 	}
 	body, _ := json.Marshal(payload)
 
@@ -101,7 +100,7 @@ func TestHandleCreateParty_Individual(t *testing.T) {
 	err := h.HandleCreateParty(ctx, delivery)
 
 	assert.NoError(t, err)
-	mockRepo.AssertCalled(t, "CreateIndividual", ctx, mock.AnythingOfType("*domain.Individual"))
+	mockRepo.AssertCalled(t, "CreateIndividual", ctx, testifymock.AnythingOfType("*domain.Individual"))
 }
 
 func TestHandleCreateParty_Organization(t *testing.T) {
@@ -109,16 +108,14 @@ func TestHandleCreateParty_Organization(t *testing.T) {
 	h := NewHandlers(mockRepo, nil)
 
 	ctx := context.Background()
-	mockRepo.On("CreateOrganization", ctx, mock.AnythingOfType("*domain.Organization")).Return(nil)
+	mockRepo.On("CreateOrganization", ctx, testifymock.AnythingOfType("*domain.Organization")).Return(nil)
 
-	payload := CreatePartyPayload{
-		Type: "Organization",
-		Organization: &CreateOrganizationPayload{
-			ID:            "test-org-1",
-			TradingName:   "Test Corp",
-			IsLegalEntity: true,
-			Href:          "http://example.com/test-org-1",
-		},
+	payload := map[string]interface{}{
+		"@type":         "Organization",
+		"id":            "test-org-1",
+		"tradingName":   "Test Corp",
+		"isLegalEntity": true,
+		"href":          "http://example.com/test-org-1",
 	}
 	body, _ := json.Marshal(payload)
 
@@ -126,7 +123,7 @@ func TestHandleCreateParty_Organization(t *testing.T) {
 	err := h.HandleCreateParty(ctx, delivery)
 
 	assert.NoError(t, err)
-	mockRepo.AssertCalled(t, "CreateOrganization", ctx, mock.AnythingOfType("*domain.Organization"))
+	mockRepo.AssertCalled(t, "CreateOrganization", ctx, testifymock.AnythingOfType("*domain.Organization"))
 }
 
 func TestHandleDeleteParty(t *testing.T) {
@@ -148,7 +145,7 @@ func TestHandleDeleteParty(t *testing.T) {
 	}, nil)
 
 	// 3. UpdateIndividual is called with "DeletionPending"
-	mockRepo.On("UpdateIndividual", ctx, mock.MatchedBy(func(ind *domain.Individual) bool {
+	mockRepo.On("UpdateIndividual", ctx, testifymock.MatchedBy(func(ind *domain.Individual) bool {
 		return ind.Status == "DeletionPending"
 	})).Return(nil)
 
@@ -161,7 +158,7 @@ func TestHandleDeleteParty(t *testing.T) {
 	assert.NoError(t, err)
 	mockRepo.AssertCalled(t, "GetParty", ctx, "delete-test-1")
 	mockRepo.AssertCalled(t, "GetIndividual", ctx, "delete-test-1")
-	mockRepo.AssertCalled(t, "UpdateIndividual", ctx, mock.Anything)
+	mockRepo.AssertCalled(t, "UpdateIndividual", ctx, testifymock.Anything)
 }
 
 func TestHandleSearchParty_ReturnsCompleteIndividualData(t *testing.T) {
@@ -175,7 +172,7 @@ func TestHandleSearchParty_ReturnsCompleteIndividualData(t *testing.T) {
 		{ID: "ind-1", Type: domain.PartyTypeIndividual, Status: "Active"},
 		{ID: "ind-2", Type: domain.PartyTypeIndividual, Status: "Active"},
 	}
-	mockRepo.On("SearchParties", ctx, mock.Anything).Return(baseParties, nil)
+	mockRepo.On("SearchParties", ctx, testifymock.Anything).Return(baseParties, nil)
 
 	// Mock GetIndividual to return full Individual objects with givenName/familyName
 	mockRepo.On("GetIndividual", ctx, "ind-1").Return(&domain.Individual{
@@ -211,7 +208,7 @@ func TestHandleSearchParty_ReturnsCompleteOrganizationData(t *testing.T) {
 	baseParties := []domain.Party{
 		{ID: "org-1", Type: domain.PartyTypeOrganization, Status: "Active"},
 	}
-	mockRepo.On("SearchParties", ctx, mock.Anything).Return(baseParties, nil)
+	mockRepo.On("SearchParties", ctx, testifymock.Anything).Return(baseParties, nil)
 
 	// Mock GetOrganization to return full Organization object with tradingName
 	mockRepo.On("GetOrganization", ctx, "org-1").Return(&domain.Organization{
@@ -242,7 +239,7 @@ func TestHandleSearchParty_MixedTypes(t *testing.T) {
 		{ID: "ind-1", Type: domain.PartyTypeIndividual, Status: "Active"},
 		{ID: "org-1", Type: domain.PartyTypeOrganization, Status: "Active"},
 	}
-	mockRepo.On("SearchParties", ctx, mock.Anything).Return(baseParties, nil)
+	mockRepo.On("SearchParties", ctx, testifymock.Anything).Return(baseParties, nil)
 
 	// Mock GetIndividual and GetOrganization
 	mockRepo.On("GetIndividual", ctx, "ind-1").Return(&domain.Individual{

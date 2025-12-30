@@ -1,46 +1,44 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, UserPlus, Loader2, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, UserPlus, Loader2 } from 'lucide-react';
 import { useOnboardCustomer } from './api';
 import PartySelector from '../parties/PartySelector';
 import { getPartyDisplayName } from '../parties/types';
-import type { OnboardCustomerPayload, CreditProfile, CustomerAccount, TaxExemption } from './types';
 import type { PartyUnion } from '../parties/types';
-import '../parties/PartyFormPage.css';
-import './CustomerOnboardPage.css';
+import type {
+    OnboardCustomerPayload,
+    PrivacyConsent,
+    CreditProfile,
+    CustomerAccount,
+    TaxExemption,
+    RelatedParty,
+    PaymentMethod,
+    MarketSegment,
+    AppliedBillingRate
+} from './types';
+import RelatedPartiesForm from './components/RelatedPartiesForm';
+import PaymentMethodsForm from './components/PaymentMethodsForm';
+import MarketSegmentsForm from './components/MarketSegmentsForm';
+import AppliedBillingRatesForm from './components/AppliedBillingRatesForm';
 
 export default function CustomerOnboardPage() {
     const navigate = useNavigate();
     const onboardMutation = useOnboardCustomer();
 
-    const [selectedParty, setSelectedParty] = useState<PartyUnion | null>(null as PartyUnion | null);
+    const [selectedParty, setSelectedParty] = useState<PartyUnion | null>(null);
     const [customerName, setCustomerName] = useState('');
-
-    const [privacyConsents, setPrivacyConsents] = useState<{ consentType: string; status: 'given' | 'revoked' | 'pending' }[]>([]);
-
-    // New State for enhancements
+    const [privacyConsents, setPrivacyConsents] = useState<Omit<PrivacyConsent, 'id'>[]>([]);
     const [creditProfile, setCreditProfile] = useState<Omit<CreditProfile, 'id'> | null>(null);
     const [accounts, setAccounts] = useState<Omit<CustomerAccount, 'id'>[]>([]);
     const [taxExemptions, setTaxExemptions] = useState<Omit<TaxExemption, 'id'>[]>([]);
-
-    // Prefill customer name when party is selected
-    useEffect(() => {
-        if (selectedParty) {
-            // Only update if name is empty
-            if (!customerName) {
-                setCustomerName(getPartyDisplayName(selectedParty));
-            }
-        }
-    }, [selectedParty]);
+    // New state for TMF629 features
+    const [relatedParties, setRelatedParties] = useState<Omit<RelatedParty, 'id'>[]>([]);
+    const [paymentMethods, setPaymentMethods] = useState<Omit<PaymentMethod, 'id'>[]>([]);
+    const [marketSegments, setMarketSegments] = useState<Omit<MarketSegment, 'id'>[]>([]);
+    const [billingRates, setBillingRates] = useState<Omit<AppliedBillingRate, 'id'>[]>([]);
 
 
 
-    // ... handlers ...
-    // (Omitting handlers for brevity as they are unchanged usually, but I need to make sure I don't break the file structure.
-    //  The previous ReplaceFileContent targeted lines 132-200. This is line 43-69.)
-    // Wait, I can only do ONE block. I'll split this.
-
-    // Update handleSubmit
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -60,6 +58,10 @@ export default function CustomerOnboardPage() {
             }] : [],
             accounts: accounts,
             taxExemptions: taxExemptions,
+            relatedParties: relatedParties,
+            paymentMethods: paymentMethods,
+            marketSegments: marketSegments,
+            appliedBillingRates: billingRates,
         };
 
         try {
@@ -92,7 +94,7 @@ export default function CustomerOnboardPage() {
 
     // Account Handlers
     const addAccount = () => {
-        setAccounts(prev => [...prev, { name: '', accountType: '', accountStatus: 'active' }]);
+        setAccounts(prev => [...prev, { name: '', accountType: '', accountStatus: 'active', billFormat: 'PDF', billingCycle: 'Monthly' }]);
     };
     const removeAccount = (index: number) => {
         setAccounts(prev => prev.filter((_, i) => i !== index));
@@ -154,8 +156,13 @@ export default function CustomerOnboardPage() {
                         </div>
                     ) : (
                         <PartySelector
-                            selectedPartyId={(selectedParty as any)?.id}
-                            onSelect={(party) => setSelectedParty(party)}
+                            onSelect={(party) => {
+                                setSelectedParty(party);
+                                // Prefill name if empty or if needed (here we force prefill on selection)
+                                if (!customerName) {
+                                    setCustomerName(getPartyDisplayName(party));
+                                }
+                            }}
                         />
                     )}
                 </div>
@@ -163,66 +170,91 @@ export default function CustomerOnboardPage() {
                 {/* Customer Details */}
                 <div className="card form-section">
                     <h3>Customer Details</h3>
-
-                    <div className="form-grid">
-                        <div className="form-group form-group--full">
-                            <label htmlFor="customerName">Customer Name *</label>
-                            <input
-                                id="customerName"
-                                type="text"
-                                value={customerName}
-                                onChange={(e) => setCustomerName(e.target.value)}
-                                required
-                                placeholder="Enter customer display name"
-                            />
-                            <span className="form-hint">
-                                This name will be used to identify the customer relationship
-                            </span>
-                        </div>
+                    <div className="form-group">
+                        <label htmlFor="customerName">Customer Name</label>
+                        <input
+                            id="customerName"
+                            type="text"
+                            value={customerName}
+                            onChange={(e) => setCustomerName(e.target.value)}
+                            placeholder="e.g. John Doe or Acme Corp"
+                            required
+                        />
                     </div>
+                </div>
+
+                {/* Privacy Consents */}
+                <div className="card form-section">
+                    <div className="section-header">
+                        <h3>Privacy Consents</h3>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={addPrivacyConsent}>
+                            Add Consent
+                        </button>
+                    </div>
+                    {privacyConsents.length > 0 ? (
+                        <div className="items-list">
+                            {privacyConsents.map((consent, index) => (
+                                <div key={index} className="item-row">
+                                    <div className="form-group">
+                                        <input
+                                            type="text"
+                                            value={consent.consentType}
+                                            onChange={(e) => {
+                                                const updated = [...privacyConsents];
+                                                updated[index].consentType = e.target.value;
+                                                setPrivacyConsents(updated);
+                                            }}
+                                            placeholder="Consent Type"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="btn-icon danger"
+                                        onClick={() => removePrivacyConsent(index)}
+                                    >
+                                        &times;
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="empty-text">No privacy consents added</p>
+                    )}
                 </div>
 
                 {/* Credit Profile */}
                 <div className="card form-section">
                     <div className="section-header">
                         <h3>Credit Profile</h3>
-                        <button
-                            type="button"
-                            className={`btn btn-sm ${creditProfile ? 'btn-danger-outline' : 'btn-secondary'}`}
-                            onClick={toggleCreditProfile}
-                        >
-                            {creditProfile ? <Trash2 size={16} /> : <Plus size={16} />}
-                            <span>{creditProfile ? 'Remove Profile' : 'Add Profile'}</span>
-                        </button>
+                        <div className="form-check">
+                            <input
+                                type="checkbox"
+                                id="hasCreditProfile"
+                                checked={!!creditProfile}
+                                onChange={toggleCreditProfile}
+                            />
+                            <label htmlFor="hasCreditProfile">Add Credit Profile</label>
+                        </div>
                     </div>
 
                     {creditProfile && (
                         <div className="form-grid">
                             <div className="form-group">
-                                <label htmlFor="credit-risk-score">Credit Risk Score</label>
+                                <label htmlFor="creditScore">Credit Score</label>
                                 <input
-                                    id="credit-risk-score"
+                                    id="creditScore"
                                     type="number"
-                                    value={creditProfile.creditRiskScore}
-                                    onChange={(e) => setCreditProfile({ ...creditProfile, creditRiskScore: parseInt(e.target.value) || 0 })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label htmlFor="credit-score">Credit Score</label>
-                                <input
-                                    id="credit-score"
-                                    type="number"
-                                    value={creditProfile.creditScore}
+                                    value={creditProfile.creditScore || ''}
                                     onChange={(e) => setCreditProfile({ ...creditProfile, creditScore: parseInt(e.target.value) || 0 })}
                                 />
                             </div>
                             <div className="form-group">
-                                <label htmlFor="valid-for-start">Valid From</label>
+                                <label htmlFor="riskScore">Risk Score</label>
                                 <input
-                                    id="valid-for-start"
-                                    type="date"
-                                    value={creditProfile.validForStart || ''}
-                                    onChange={(e) => setCreditProfile({ ...creditProfile, validForStart: e.target.value })}
+                                    id="riskScore"
+                                    type="number"
+                                    value={creditProfile.creditRiskScore || ''}
+                                    onChange={(e) => setCreditProfile({ ...creditProfile, creditRiskScore: parseInt(e.target.value) || 0 })}
                                 />
                             </div>
                         </div>
@@ -232,73 +264,75 @@ export default function CustomerOnboardPage() {
                 {/* Customer Accounts */}
                 <div className="card form-section">
                     <div className="section-header">
-                        <h3>Accounts</h3>
+                        <h3>Customer Accounts</h3>
                         <button type="button" className="btn btn-secondary btn-sm" onClick={addAccount}>
-                            <Plus size={16} />
-                            <span>Add Account</span>
+                            Add Account
                         </button>
                     </div>
-
-                    {accounts.length === 0 ? (
-                        <p className="empty-text">No accounts added</p>
-                    ) : (
-                        <div className="repeatable-list">
+                    {accounts.length > 0 ? (
+                        <div className="items-list">
                             {accounts.map((account, index) => (
-                                <div key={index} className="repeatable-item">
-                                    <div className="form-grid">
-                                        <div className="form-group">
-                                            <label htmlFor={`account-name-${index}`}>Account Name</label>
-                                            <input
-                                                id={`account-name-${index}`}
-                                                type="text"
-                                                value={account.name}
-                                                onChange={(e) => {
-                                                    const updated = [...accounts];
-                                                    updated[index] = { ...account, name: e.target.value };
-                                                    setAccounts(updated);
-                                                }}
-                                                required
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <label htmlFor={`account-type-${index}`}>Type</label>
-                                            <input
-                                                id={`account-type-${index}`}
-                                                type="text"
-                                                value={account.accountType}
-                                                onChange={(e) => {
-                                                    const updated = [...accounts];
-                                                    updated[index] = { ...account, accountType: e.target.value };
-                                                    setAccounts(updated);
-                                                }}
-                                                placeholder="e.g. Savings, Checking"
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <label htmlFor={`account-status-${index}`}>Status</label>
-                                            <select
-                                                id={`account-status-${index}`}
-                                                value={account.accountStatus}
-                                                onChange={(e) => {
-                                                    const updated = [...accounts];
-                                                    updated[index] = { ...account, accountStatus: e.target.value as 'active' | 'inactive' | 'suspended' };
-                                                    setAccounts(updated);
-                                                }}
-                                            >
-                                                <option value="active">Active</option>
-                                                <option value="inactive">Inactive</option>
-                                                <option value="suspended">Suspended</option>
-                                            </select>
-                                        </div>
-                                        <div className="form-group form-group--action">
-                                            <button type="button" className="btn-icon btn-icon--danger" onClick={() => removeAccount(index)}>
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
+                                <div key={index} className="item-row">
+                                    <div className="form-group">
+                                        <input
+                                            type="text"
+                                            value={account.name}
+                                            onChange={(e) => {
+                                                const updated = [...accounts];
+                                                updated[index].name = e.target.value;
+                                                setAccounts(updated);
+                                            }}
+                                            placeholder="Account Name"
+                                        />
                                     </div>
+                                    <div className="form-group">
+                                        <input
+                                            type="text"
+                                            value={account.accountType}
+                                            onChange={(e) => {
+                                                const updated = [...accounts];
+                                                updated[index].accountType = e.target.value;
+                                                setAccounts(updated);
+                                            }}
+                                            placeholder="Type"
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <input
+                                            type="text"
+                                            value={account.billFormat}
+                                            onChange={(e) => {
+                                                const updated = [...accounts];
+                                                updated[index].billFormat = e.target.value;
+                                                setAccounts(updated);
+                                            }}
+                                            placeholder="Bill Format"
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <input
+                                            type="text"
+                                            value={account.billingCycle}
+                                            onChange={(e) => {
+                                                const updated = [...accounts];
+                                                updated[index].billingCycle = e.target.value;
+                                                setAccounts(updated);
+                                            }}
+                                            placeholder="Cycle"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="btn-icon danger"
+                                        onClick={() => removeAccount(index)}
+                                    >
+                                        &times;
+                                    </button>
                                 </div>
                             ))}
                         </div>
+                    ) : (
+                        <p className="empty-text">No accounts added</p>
                     )}
                 </div>
 
@@ -307,119 +341,64 @@ export default function CustomerOnboardPage() {
                     <div className="section-header">
                         <h3>Tax Exemptions</h3>
                         <button type="button" className="btn btn-secondary btn-sm" onClick={addTaxExemption}>
-                            <Plus size={16} />
-                            <span>Add Exemption</span>
+                            Add Exemption
                         </button>
                     </div>
-
-                    {taxExemptions.length === 0 ? (
-                        <p className="empty-text">No tax exemptions added</p>
-                    ) : (
-                        <div className="repeatable-list">
+                    {taxExemptions.length > 0 ? (
+                        <div className="items-list">
                             {taxExemptions.map((exemption, index) => (
-                                <div key={index} className="repeatable-item">
-                                    <div className="form-grid">
-                                        <div className="form-group">
-                                            <label htmlFor={`tax-cert-${index}`}>Certificate Number</label>
-                                            <input
-                                                id={`tax-cert-${index}`}
-                                                type="text"
-                                                value={exemption.certificateNumber}
-                                                onChange={(e) => {
-                                                    const updated = [...taxExemptions];
-                                                    updated[index] = { ...exemption, certificateNumber: e.target.value };
-                                                    setTaxExemptions(updated);
-                                                }}
-                                                required
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <label htmlFor={`tax-jur-${index}`}>Issuing Jurisdiction</label>
-                                            <input
-                                                id={`tax-jur-${index}`}
-                                                type="text"
-                                                value={exemption.issuingJurisdiction}
-                                                onChange={(e) => {
-                                                    const updated = [...taxExemptions];
-                                                    updated[index] = { ...exemption, issuingJurisdiction: e.target.value };
-                                                    setTaxExemptions(updated);
-                                                }}
-                                                required
-                                            />
-                                        </div>
-                                        <div className="form-group form-group--action">
-                                            <button type="button" className="btn-icon btn-icon--danger" onClick={() => removeTaxExemption(index)}>
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
+                                <div key={index} className="item-row">
+                                    <div className="form-group">
+                                        <input
+                                            type="text"
+                                            value={exemption.certificateNumber}
+                                            onChange={(e) => {
+                                                const updated = [...taxExemptions];
+                                                updated[index].certificateNumber = e.target.value;
+                                                setTaxExemptions(updated);
+                                            }}
+                                            placeholder="Certificate Number"
+                                        />
                                     </div>
+                                    <div className="form-group">
+                                        <input
+                                            type="text"
+                                            value={exemption.issuingJurisdiction}
+                                            onChange={(e) => {
+                                                const updated = [...taxExemptions];
+                                                updated[index].issuingJurisdiction = e.target.value;
+                                                setTaxExemptions(updated);
+                                            }}
+                                            placeholder="Jurisdiction"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="btn-icon danger"
+                                        onClick={() => removeTaxExemption(index)}
+                                    >
+                                        &times;
+                                    </button>
                                 </div>
                             ))}
                         </div>
-                    )}
-                </div>
-
-                {/* Privacy Consents */}
-                <div className="card form-section">
-                    <div className="section-header">
-                        <h3>Privacy Consents</h3>
-                        <button type="button" className="btn btn-secondary btn-sm" onClick={addPrivacyConsent}>
-                            <Plus size={16} />
-                            <span>Add Consent</span>
-                        </button>
-                    </div>
-
-                    {privacyConsents.length === 0 ? (
-                        <p className="empty-text">No privacy consents</p>
                     ) : (
-                        <div className="repeatable-list">
-                            {privacyConsents.map((consent, index) => (
-                                <div key={index} className="repeatable-item">
-                                    <div className="form-grid">
-                                        <div className="form-group">
-                                            <label>Consent Type</label>
-                                            <input
-                                                type="text"
-                                                value={consent.consentType || ''}
-                                                onChange={(e) => {
-                                                    const updated = [...privacyConsents];
-                                                    updated[index] = { ...updated[index], consentType: e.target.value };
-                                                    setPrivacyConsents(updated);
-                                                }}
-                                                placeholder="e.g., Marketing, Analytics"
-                                                required
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Status</label>
-                                            <select
-                                                value={consent.status || 'pending'}
-                                                onChange={(e) => {
-                                                    const updated = [...privacyConsents];
-                                                    updated[index] = { ...updated[index], status: e.target.value as 'given' | 'revoked' | 'pending' };
-                                                    setPrivacyConsents(updated);
-                                                }}
-                                            >
-                                                <option value="pending">Pending</option>
-                                                <option value="given">Given</option>
-                                                <option value="revoked">Revoked</option>
-                                            </select>
-                                        </div>
-                                        <div className="form-group form-group--action">
-                                            <button
-                                                type="button"
-                                                className="btn-icon btn-icon--danger"
-                                                onClick={() => removePrivacyConsent(index)}
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        <p className="empty-text">No tax exemptions added</p>
                     )}
                 </div>
+
+                {/* Related Parties - New Component */}
+                <RelatedPartiesForm items={relatedParties} onChange={setRelatedParties} />
+
+                {/* Payment Methods - New Component */}
+                <PaymentMethodsForm items={paymentMethods} onChange={setPaymentMethods} />
+
+                {/* Market Segments - New Component */}
+                <MarketSegmentsForm items={marketSegments} onChange={setMarketSegments} />
+
+                {/* Applied Billing Rates - New Component */}
+                <AppliedBillingRatesForm items={billingRates} onChange={setBillingRates} />
+
             </form>
         </div>
     );

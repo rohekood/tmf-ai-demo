@@ -66,6 +66,7 @@ export default function PartyFormPage() {
 
     useEffect(() => {
         if (existingParty) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setForm({
                 type: existingParty['@type'],
                 givenName: existingParty['@type'] === 'Individual' ? existingParty.givenName : '',

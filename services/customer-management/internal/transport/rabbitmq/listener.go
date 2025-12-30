@@ -30,6 +30,8 @@ func (l *Listener) GetHandler(routingKey string, h *Handlers) (func(context.Cont
 		return h.HandleSearchCustomer, true
 	case "cmd.customer.delete":
 		return h.HandleDeleteCustomer, true
+	case CmdCustomerLogInteraction:
+		return h.HandleLogInteraction, true
 	default:
 		return nil, false
 	}
@@ -97,6 +99,7 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		"query.customer.get",
 		"query.customer.search",
 		"cmd.customer.delete",
+		CmdCustomerLogInteraction,
 	}
 
 	for _, rk := range routingKeys {

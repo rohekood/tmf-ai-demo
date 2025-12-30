@@ -36,7 +36,7 @@ func InitTracer(serviceName string) (func(context.Context) error, error) {
 	// 2. Metrics
 	stopMetrics, err := initMetrics(ctx, res)
 	if err != nil {
-		stopTracing(ctx)
+		_ = stopTracing(ctx)
 		return nil, err
 	}
 

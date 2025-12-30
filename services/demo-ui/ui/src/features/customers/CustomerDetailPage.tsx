@@ -1,5 +1,12 @@
+import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, CreditCard, Shield, FileCheck, Loader2, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, CreditCard, Shield, FileCheck, Loader2, ExternalLink, MessageSquarePlus } from 'lucide-react';
+import LogInteractionModal from './components/LogInteractionModal';
+import RelatedPartiesList from './components/RelatedPartiesList';
+import PaymentMethodsList from './components/PaymentMethodsList';
+import MarketSegmentsList from './components/MarketSegmentsList';
+import AppliedBillingRatesList from './components/AppliedBillingRatesList';
+import InteractionsList from './components/InteractionsList';
 import { useCustomer, useDeleteCustomer } from './api';
 import '../parties/PartyDetailPage.css';
 import './CustomerDetailPage.css';
@@ -9,6 +16,7 @@ export default function CustomerDetailPage() {
     const navigate = useNavigate();
     const { data: customer, isLoading, error } = useCustomer(id);
     const deleteMutation = useDeleteCustomer();
+    const [showLogInteraction, setShowLogInteraction] = useState(false);
 
     const handleDelete = () => {
         if (customer && confirm(`Are you sure you want to delete customer "${customer.name}"?`)) {
@@ -62,6 +70,13 @@ export default function CustomerDetailPage() {
                     </div>
                 </div>
                 <div className="page-actions">
+                    <button
+                        className="btn btn-secondary"
+                        onClick={() => setShowLogInteraction(true)}
+                    >
+                        <MessageSquarePlus size={18} />
+                        <span>Log Interaction</span>
+                    </button>
                     <Link to={`/customers/${id}/edit`} className="btn btn-secondary">
                         <Edit size={18} />
                         <span>Edit</span>
@@ -202,7 +217,44 @@ export default function CustomerDetailPage() {
                         <p className="empty-text">No tax exemptions</p>
                     )}
                 </div>
+
+                {/* Related Parties */}
+                <div className="card detail-card">
+                    <h3>Related Parties</h3>
+                    <RelatedPartiesList items={customer.relatedParties || []} />
+                </div>
+
+                {/* Payment Methods */}
+                <div className="card detail-card">
+                    <h3>Payment Methods</h3>
+                    <PaymentMethodsList items={customer.paymentMethods || []} />
+                </div>
+
+                {/* Market Segments */}
+                <div className="card detail-card">
+                    <h3>Market Segments</h3>
+                    <MarketSegmentsList items={customer.marketSegments || []} />
+                </div>
+
+                {/* Applied Billing Rates */}
+                <div className="card detail-card">
+                    <h3>Applied Billing Rates</h3>
+                    <AppliedBillingRatesList items={customer.appliedBillingRates || []} />
+                </div>
+
+                {/* Interactions */}
+                <div className="card detail-card">
+                    <h3>Interactions</h3>
+                    <InteractionsList items={customer.customerInteractions || []} />
+                </div>
             </div>
+
+            {showLogInteraction && customer && (
+                <LogInteractionModal
+                    customerId={customer.id}
+                    onClose={() => setShowLogInteraction(false)}
+                />
+            )}
         </div>
     );
 }

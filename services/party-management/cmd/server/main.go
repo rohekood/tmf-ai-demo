@@ -34,7 +34,7 @@ func main() {
 	if err != nil {
 		slog.Error("failed to initialize tracer", "error", err)
 	} else {
-		defer shutdown(context.Background())
+		defer func() { _ = shutdown(context.Background()) }()
 	}
 
 	cfg := config.Load()
@@ -68,7 +68,7 @@ func main() {
 		slog.Error("failed to connect to rabbitmq", "error", err)
 		os.Exit(1)
 	}
-	defer connMgr.Close()
+	defer func() { _ = connMgr.Close() }()
 
 	// 4. Initialize Repository and Publisher
 	repo := infraPostgres.NewPartyRepository(db)
@@ -124,7 +124,7 @@ func main() {
 
 	// 8. Graceful Shutdown
 	// Listener stops when context is cancelled or main exits
-	connMgr.Close()
+	_ = connMgr.Close()
 
 	slog.Info("service stopped")
 }

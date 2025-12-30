@@ -26,16 +26,20 @@ func NewHandlers(repo domain.Repository, publisher *infraRabbit.Publisher) *Hand
 // Payloads
 
 type OnboardCustomerPayload struct {
-	ID              string               `json:"id"`
-	Name            string               `json:"name"`
-	PartyID         string               `json:"partyId"`
-	PartyType       string               `json:"partyType"`
-	Accounts        []CustomerAccountDTO `json:"accounts"`
-	CreditProfiles  []CreditProfileDTO   `json:"creditProfiles"`
-	ContactMediums  []ContactMediumDTO   `json:"contactMediums"`
-	Characteristics []CharacteristicDTO  `json:"characteristics"`
-	TaxExemptions   []TaxExemptionDTO    `json:"taxExemptions"`
-	PrivacyConsents []PrivacyConsentDTO  `json:"privacyConsents"`
+	ID                  string                  `json:"id"`
+	Name                string                  `json:"name"`
+	PartyID             string                  `json:"partyId"`
+	PartyType           string                  `json:"partyType"`
+	Accounts            []CustomerAccountDTO    `json:"accounts"`
+	CreditProfiles      []CreditProfileDTO      `json:"creditProfiles"`
+	ContactMediums      []ContactMediumDTO      `json:"contactMediums"`
+	Characteristics     []CharacteristicDTO     `json:"characteristics"`
+	TaxExemptions       []TaxExemptionDTO       `json:"taxExemptions"`
+	PrivacyConsents     []PrivacyConsentDTO     `json:"privacyConsents"`
+	RelatedParties      []RelatedPartyDTO       `json:"relatedParties"`
+	PaymentMethods      []PaymentMethodDTO      `json:"paymentMethods"`
+	MarketSegments      []MarketSegmentDTO      `json:"marketSegments"`
+	AppliedBillingRates []AppliedBillingRateDTO `json:"appliedBillingRates"`
 }
 
 type CustomerAccountDTO struct {
@@ -43,6 +47,8 @@ type CustomerAccountDTO struct {
 	Name          string `json:"name"`
 	AccountStatus string `json:"accountStatus"`
 	AccountType   string `json:"accountType"`
+	BillFormat    string `json:"billFormat"`
+	BillingCycle  string `json:"billingCycle"`
 }
 
 type CreditProfileDTO struct {
@@ -86,17 +92,55 @@ type PrivacyConsentDTO struct {
 	ValidForStart string `json:"validForStart"`
 }
 
+type RelatedPartyDTO struct {
+	ID             string `json:"id"`
+	RelatedPartyID string `json:"relatedPartyId"`
+	Role           string `json:"role"`
+	Name           string `json:"name"`
+	ValidForStart  string `json:"validForStart"`
+	ValidForEnd    string `json:"validForEnd"`
+}
+
+type PaymentMethodDTO struct {
+	ID            string `json:"id"`
+	Type          string `json:"type"`
+	Token         string `json:"token"`
+	Details       string `json:"details"` // JSON string
+	IsDefault     bool   `json:"isDefault"`
+	ValidForStart string `json:"validForStart"`
+	ValidForEnd   string `json:"validForEnd"`
+}
+
+type MarketSegmentDTO struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Category string `json:"category"`
+}
+
+type AppliedBillingRateDTO struct {
+	ID            string  `json:"id"`
+	ProductRef    string  `json:"productRef"`
+	RateType      string  `json:"rateType"`
+	Value         float64 `json:"value"`
+	ValidForStart string  `json:"validForStart"`
+	ValidForEnd   string  `json:"validForEnd"`
+}
+
 type UpdateCustomerPayload struct {
-	ID              string                `json:"id"`
-	Status          domain.CustomerStatus `json:"status"`
-	Name            string                `json:"name"`
-	PartyID         string                `json:"partyId"`
-	ContactMediums  []ContactMediumDTO    `json:"contactMediums"`
-	Characteristics []CharacteristicDTO   `json:"characteristics"`
-	TaxExemptions   []TaxExemptionDTO     `json:"taxExemptions"`
-	PrivacyConsents []PrivacyConsentDTO   `json:"privacyConsents"`
-	Accounts        []CustomerAccountDTO  `json:"accounts"`
-	CreditProfiles  []CreditProfileDTO    `json:"creditProfiles"`
+	ID                  string                  `json:"id"`
+	Status              domain.CustomerStatus   `json:"status"`
+	Name                string                  `json:"name"`
+	PartyID             string                  `json:"partyId"`
+	ContactMediums      []ContactMediumDTO      `json:"contactMediums"`
+	Characteristics     []CharacteristicDTO     `json:"characteristics"`
+	TaxExemptions       []TaxExemptionDTO       `json:"taxExemptions"`
+	PrivacyConsents     []PrivacyConsentDTO     `json:"privacyConsents"`
+	Accounts            []CustomerAccountDTO    `json:"accounts"`
+	CreditProfiles      []CreditProfileDTO      `json:"creditProfiles"`
+	RelatedParties      []RelatedPartyDTO       `json:"relatedParties"`
+	PaymentMethods      []PaymentMethodDTO      `json:"paymentMethods"`
+	MarketSegments      []MarketSegmentDTO      `json:"marketSegments"`
+	AppliedBillingRates []AppliedBillingRateDTO `json:"appliedBillingRates"`
 }
 
 type GetCustomerPayload struct {
@@ -113,6 +157,16 @@ type SearchCustomerPayload struct {
 
 type DeleteCustomerPayload struct {
 	ID string `json:"id"`
+}
+
+type LogInteractionPayload struct {
+	ID              string `json:"id"`
+	CustomerID      string `json:"customerId"`
+	InteractionDate string `json:"interactionDate"`
+	Channel         string `json:"channel"`
+	Type            string `json:"type"`
+	Description     string `json:"description"`
+	AgentID         string `json:"agentId"`
 }
 
 // Handlers
@@ -142,6 +196,8 @@ func (h *Handlers) HandleOnboardCustomer(ctx context.Context, d amqp.Delivery) e
 			Name:          acc.Name,
 			AccountStatus: acc.AccountStatus,
 			AccountType:   acc.AccountType,
+			BillFormat:    acc.BillFormat,
+			BillingCycle:  acc.BillingCycle,
 		})
 	}
 
@@ -183,6 +239,22 @@ func (h *Handlers) HandleOnboardCustomer(ctx context.Context, d amqp.Delivery) e
 
 	for _, p := range payload.PrivacyConsents {
 		customer.PrivacyConsents = append(customer.PrivacyConsents, h.mapPrivacyConsent(p, customer.ID))
+	}
+
+	for _, rp := range payload.RelatedParties {
+		customer.RelatedParties = append(customer.RelatedParties, h.mapRelatedParty(rp, customer.ID))
+	}
+
+	for _, pm := range payload.PaymentMethods {
+		customer.PaymentMethods = append(customer.PaymentMethods, h.mapPaymentMethod(pm, customer.ID))
+	}
+
+	for _, ms := range payload.MarketSegments {
+		customer.MarketSegments = append(customer.MarketSegments, h.mapMarketSegment(ms, customer.ID))
+	}
+
+	for _, ab := range payload.AppliedBillingRates {
+		customer.AppliedBillingRates = append(customer.AppliedBillingRates, h.mapAppliedBillingRate(ab, customer.ID))
 	}
 
 	if err := h.repo.CreateCustomer(ctx, customer); err != nil {
@@ -252,6 +324,34 @@ func (h *Handlers) HandleUpdateCustomer(ctx context.Context, d amqp.Delivery) er
 			})
 		}
 		updates["credit_profiles"] = profiles
+	}
+	if len(payload.RelatedParties) > 0 {
+		var related []domain.RelatedParty
+		for _, rp := range payload.RelatedParties {
+			related = append(related, h.mapRelatedParty(rp, payload.ID))
+		}
+		updates["related_parties"] = related
+	}
+	if len(payload.PaymentMethods) > 0 {
+		var payment []domain.PaymentMethod
+		for _, pm := range payload.PaymentMethods {
+			payment = append(payment, h.mapPaymentMethod(pm, payload.ID))
+		}
+		updates["payment_methods"] = payment
+	}
+	if len(payload.MarketSegments) > 0 {
+		var segments []domain.MarketSegment
+		for _, ms := range payload.MarketSegments {
+			segments = append(segments, h.mapMarketSegment(ms, payload.ID))
+		}
+		updates["market_segments"] = segments
+	}
+	if len(payload.AppliedBillingRates) > 0 {
+		var rates []domain.AppliedBillingRate
+		for _, ab := range payload.AppliedBillingRates {
+			rates = append(rates, h.mapAppliedBillingRate(ab, payload.ID))
+		}
+		updates["applied_billing_rates"] = rates
 	}
 
 	if len(updates) == 0 {
@@ -333,6 +433,41 @@ func (h *Handlers) HandleDeleteCustomer(ctx context.Context, d amqp.Delivery) er
 	}
 
 	return h.replyTo(ctx, d, map[string]string{"status": "deleted"})
+}
+
+func (h *Handlers) HandleLogInteraction(ctx context.Context, d amqp.Delivery) error {
+	ctx = h.extractUser(ctx, d)
+	var payload LogInteractionPayload
+	if err := json.Unmarshal(d.Body, &payload); err != nil {
+		return fmt.Errorf("failed to unmarshal payload: %w", err)
+	}
+
+	if payload.ID == "" {
+		payload.ID = uuid.New().String()
+	}
+
+	var interactionDate time.Time
+	if payload.InteractionDate != "" {
+		interactionDate, _ = time.Parse(time.RFC3339, payload.InteractionDate)
+	} else {
+		interactionDate = time.Now()
+	}
+
+	interaction := &domain.CustomerInteraction{
+		ID:              payload.ID,
+		CustomerID:      payload.CustomerID,
+		InteractionDate: interactionDate,
+		Channel:         payload.Channel,
+		Type:            payload.Type,
+		Description:     payload.Description,
+		AgentID:         payload.AgentID,
+	}
+
+	if err := h.repo.AddInteraction(ctx, interaction); err != nil {
+		return fmt.Errorf("failed to log interaction: %w", err)
+	}
+
+	return h.replyTo(ctx, d, map[string]string{"status": "logged", "id": interaction.ID})
 }
 
 // Party Event Handlers
@@ -525,4 +660,86 @@ func (h *Handlers) mapPrivacyConsent(dto PrivacyConsentDTO, customerID string) d
 		Status:        dto.Status,
 		ValidForStart: start,
 	}
+}
+
+func (h *Handlers) mapRelatedParty(dto RelatedPartyDTO, customerID string) domain.RelatedParty {
+	var start, end time.Time
+	if dto.ValidForStart != "" {
+		start, _ = time.Parse(time.RFC3339, dto.ValidForStart)
+	}
+	if dto.ValidForEnd != "" {
+		parsedEnd, _ := time.Parse(time.RFC3339, dto.ValidForEnd)
+		end = parsedEnd
+	}
+
+	res := domain.RelatedParty{
+		ID:             dto.ID,
+		CustomerID:     customerID,
+		RelatedPartyID: dto.RelatedPartyID,
+		Role:           dto.Role,
+		Name:           dto.Name,
+		ValidForStart:  start,
+	}
+	if !end.IsZero() {
+		res.ValidForEnd = &end
+	}
+	return res
+}
+
+func (h *Handlers) mapPaymentMethod(dto PaymentMethodDTO, customerID string) domain.PaymentMethod {
+	var start, end time.Time
+	if dto.ValidForStart != "" {
+		start, _ = time.Parse(time.RFC3339, dto.ValidForStart)
+	}
+	if dto.ValidForEnd != "" {
+		parsedEnd, _ := time.Parse(time.RFC3339, dto.ValidForEnd)
+		end = parsedEnd
+	}
+
+	res := domain.PaymentMethod{
+		ID:            dto.ID,
+		CustomerID:    customerID,
+		Type:          dto.Type,
+		Token:         dto.Token,
+		Details:       json.RawMessage(dto.Details),
+		IsDefault:     dto.IsDefault,
+		ValidForStart: start,
+	}
+	if !end.IsZero() {
+		res.ValidForEnd = &end
+	}
+	return res
+}
+
+func (h *Handlers) mapMarketSegment(dto MarketSegmentDTO, customerID string) domain.MarketSegment {
+	return domain.MarketSegment{
+		ID:         dto.ID,
+		CustomerID: customerID,
+		Name:       dto.Name,
+		Category:   dto.Category,
+	}
+}
+
+func (h *Handlers) mapAppliedBillingRate(dto AppliedBillingRateDTO, customerID string) domain.AppliedBillingRate {
+	var start, end time.Time
+	if dto.ValidForStart != "" {
+		start, _ = time.Parse(time.RFC3339, dto.ValidForStart)
+	}
+	if dto.ValidForEnd != "" {
+		parsedEnd, _ := time.Parse(time.RFC3339, dto.ValidForEnd)
+		end = parsedEnd
+	}
+
+	res := domain.AppliedBillingRate{
+		ID:            dto.ID,
+		CustomerID:    customerID,
+		ProductRef:    dto.ProductRef,
+		RateType:      dto.RateType,
+		Value:         dto.Value,
+		ValidForStart: start,
+	}
+	if !end.IsZero() {
+		res.ValidForEnd = &end
+	}
+	return res
 }

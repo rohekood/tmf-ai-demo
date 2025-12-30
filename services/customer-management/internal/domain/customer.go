@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,22 +24,27 @@ const (
 
 // Customer represents a party playing a customer role.
 type Customer struct {
-	ID              string                   `gorm:"primaryKey" json:"id"`
-	Name            string                   `json:"name"` // Display name
-	Status          CustomerStatus           `gorm:"not null" json:"status"`
-	StatusReason    string                   `json:"statusReason,omitempty"`
-	ValidForStart   time.Time                `json:"validForStart,omitempty"`
-	ValidForEnd     *time.Time               `json:"validForEnd,omitempty"`
-	PartyID         string                   `gorm:"not null;index" json:"partyId"`
-	PartyType       string                   `json:"partyType"` // Individual or Organization
-	CreatedAt       time.Time                `json:"createdAt"`
-	UpdatedAt       time.Time                `json:"updatedAt"`
-	Accounts        []CustomerAccount        `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"accounts,omitempty"`
-	CreditProfiles  []CreditProfile          `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"creditProfiles,omitempty"`
-	ContactMediums  []ContactMedium          `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"contactMediums,omitempty"`
-	Characteristics []CustomerCharacteristic `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"characteristics,omitempty"`
-	TaxExemptions   []TaxExemption           `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"taxExemptions,omitempty"`
-	PrivacyConsents []PrivacyConsent         `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"privacyConsents,omitempty"`
+	ID                   string                   `gorm:"primaryKey" json:"id"`
+	Name                 string                   `json:"name"` // Display name
+	Status               CustomerStatus           `gorm:"not null" json:"status"`
+	StatusReason         string                   `json:"statusReason,omitempty"`
+	ValidForStart        time.Time                `json:"validForStart,omitempty"`
+	ValidForEnd          *time.Time               `json:"validForEnd,omitempty"`
+	PartyID              string                   `gorm:"not null;index" json:"partyId"`
+	PartyType            string                   `json:"partyType"` // Individual or Organization
+	CreatedAt            time.Time                `json:"createdAt"`
+	UpdatedAt            time.Time                `json:"updatedAt"`
+	Accounts             []CustomerAccount        `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"accounts,omitempty"`
+	CreditProfiles       []CreditProfile          `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"creditProfiles,omitempty"`
+	ContactMediums       []ContactMedium          `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"contactMediums,omitempty"`
+	Characteristics      []CustomerCharacteristic `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"characteristics,omitempty"`
+	TaxExemptions        []TaxExemption           `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"taxExemptions,omitempty"`
+	PrivacyConsents      []PrivacyConsent         `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"privacyConsents,omitempty"`
+	RelatedParties       []RelatedParty           `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"relatedParties,omitempty"`
+	PaymentMethods       []PaymentMethod          `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"paymentMethods,omitempty"`
+	MarketSegments       []MarketSegment          `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"marketSegments,omitempty"`
+	CustomerInteractions []CustomerInteraction    `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"customerInteractions,omitempty"`
+	AppliedBillingRates  []AppliedBillingRate     `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"appliedBillingRates,omitempty"`
 }
 
 func (Customer) TableName() string {
@@ -68,6 +74,8 @@ type CustomerAccount struct {
 	AccountType   string    `json:"accountType"`
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`
+	BillFormat    string    `json:"billFormat"`
+	BillingCycle  string    `json:"billingCycle"`
 }
 
 func (CustomerAccount) TableName() string {
@@ -201,6 +209,114 @@ func (p *PrivacyConsent) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
+type RelatedParty struct {
+	ID             string     `gorm:"primaryKey" json:"id"`
+	CustomerID     string     `gorm:"not null;index" json:"customerId"`
+	RelatedPartyID string     `json:"relatedPartyId"`
+	Role           string     `json:"role"`
+	Name           string     `json:"name"`
+	ValidForStart  time.Time  `json:"validForStart"`
+	ValidForEnd    *time.Time `json:"validForEnd,omitempty"`
+	CreatedAt      time.Time  `json:"createdAt"`
+	UpdatedAt      time.Time  `json:"updatedAt"`
+}
+
+func (RelatedParty) TableName() string {
+	return "related_parties"
+}
+
+func (r *RelatedParty) BeforeCreate(tx *gorm.DB) error {
+	if r.ID == "" {
+		r.ID = uuid.New().String()
+	}
+	return nil
+}
+
+type PaymentMethod struct {
+	ID            string          `gorm:"primaryKey" json:"id"`
+	CustomerID    string          `gorm:"not null;index" json:"customerId"`
+	Type          string          `json:"type"`
+	Token         string          `json:"-"` // Never expose via default JSON
+	Details       json.RawMessage `gorm:"type:jsonb" json:"details"`
+	IsDefault     bool            `json:"isDefault"`
+	ValidForStart time.Time       `json:"validForStart"`
+	ValidForEnd   *time.Time      `json:"validForEnd,omitempty"`
+	CreatedAt     time.Time       `json:"createdAt"`
+	UpdatedAt     time.Time       `json:"updatedAt"`
+}
+
+func (PaymentMethod) TableName() string {
+	return "payment_methods"
+}
+
+func (p *PaymentMethod) BeforeCreate(tx *gorm.DB) error {
+	if p.ID == "" {
+		p.ID = uuid.New().String()
+	}
+	return nil
+}
+
+type MarketSegment struct {
+	ID         string `gorm:"primaryKey" json:"id"`
+	CustomerID string `gorm:"not null;index" json:"customerId"`
+	Name       string `json:"name"`
+	Category   string `json:"category"`
+}
+
+func (MarketSegment) TableName() string {
+	return "market_segments"
+}
+
+func (m *MarketSegment) BeforeCreate(tx *gorm.DB) error {
+	if m.ID == "" {
+		m.ID = uuid.New().String()
+	}
+	return nil
+}
+
+type CustomerInteraction struct {
+	ID              string    `gorm:"primaryKey" json:"id"`
+	CustomerID      string    `gorm:"not null;index" json:"customerId"`
+	InteractionDate time.Time `json:"interactionDate"`
+	Channel         string    `json:"channel"`
+	Type            string    `json:"type"`
+	Description     string    `json:"description"`
+	AgentID         string    `json:"agentId"`
+	CreatedAt       time.Time `json:"createdAt"`
+}
+
+func (CustomerInteraction) TableName() string {
+	return "customer_interactions"
+}
+
+func (c *CustomerInteraction) BeforeCreate(tx *gorm.DB) error {
+	if c.ID == "" {
+		c.ID = uuid.New().String()
+	}
+	return nil
+}
+
+type AppliedBillingRate struct {
+	ID            string     `gorm:"primaryKey" json:"id"`
+	CustomerID    string     `gorm:"not null;index" json:"customerId"`
+	ProductRef    string     `json:"productRef"`
+	RateType      string     `json:"rateType"`
+	Value         float64    `json:"value"`
+	ValidForStart time.Time  `json:"validForStart"`
+	ValidForEnd   *time.Time `json:"validForEnd,omitempty"`
+}
+
+func (AppliedBillingRate) TableName() string {
+	return "applied_billing_rates"
+}
+
+func (a *AppliedBillingRate) BeforeCreate(tx *gorm.DB) error {
+	if a.ID == "" {
+		a.ID = uuid.New().String()
+	}
+	return nil
+}
+
 // Repository defines the interface for Customer storage.
 type Repository interface {
 	CreateCustomer(ctx context.Context, c *Customer) error
@@ -209,4 +325,5 @@ type Repository interface {
 	PatchCustomer(ctx context.Context, id string, updates map[string]interface{}) error
 	DeleteCustomer(ctx context.Context, id string) error
 	SearchCustomers(ctx context.Context, criteria map[string]interface{}) ([]Customer, error)
+	AddInteraction(ctx context.Context, interaction *CustomerInteraction) error
 }
