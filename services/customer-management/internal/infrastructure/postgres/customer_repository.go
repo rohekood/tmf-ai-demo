@@ -40,7 +40,6 @@ func (r *CustomerRepository) GetCustomer(ctx context.Context, id string) (*domai
 		Preload("PaymentMethods").
 		Preload("MarketSegments").
 		Preload("CustomerInteractions").
-		Preload("AppliedBillingRates").
 		First(&customer, "id = ?", id).Error
 
 	if err != nil {
@@ -137,15 +136,6 @@ func (r *CustomerRepository) PatchCustomer(ctx context.Context, id string, updat
 				return fmt.Errorf("failed to replace market segments: %w", err)
 			}
 			delete(updates, "market_segments")
-		}
-		if rates, ok := updates["applied_billing_rates"]; ok {
-			if err := tx.Delete(&domain.AppliedBillingRate{}, "customer_id = ?", id).Error; err != nil {
-				return fmt.Errorf("failed to delete old billing rates: %w", err)
-			}
-			if err := tx.Model(&domain.Customer{ID: id}).Association("AppliedBillingRates").Replace(rates); err != nil {
-				return fmt.Errorf("failed to replace billing rates: %w", err)
-			}
-			delete(updates, "applied_billing_rates")
 		}
 
 		// Update scalar fields if any remain
@@ -343,19 +333,6 @@ func (r *CustomerRepository) updateSubResources(tx *gorm.DB, customerID string, 
 			c.MarketSegments[i].CustomerID = customerID
 		}
 		if err := tx.Create(&c.MarketSegments).Error; err != nil {
-			return err
-		}
-	}
-
-	// 10. AppliedBillingRates
-	if err := tx.Delete(&domain.AppliedBillingRate{}, "customer_id = ?", customerID).Error; err != nil {
-		return err
-	}
-	if len(c.AppliedBillingRates) > 0 {
-		for i := range c.AppliedBillingRates {
-			c.AppliedBillingRates[i].CustomerID = customerID
-		}
-		if err := tx.Create(&c.AppliedBillingRates).Error; err != nil {
 			return err
 		}
 	}

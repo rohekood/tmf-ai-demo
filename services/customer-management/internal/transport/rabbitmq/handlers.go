@@ -26,20 +26,19 @@ func NewHandlers(repo domain.Repository, publisher *infraRabbit.Publisher) *Hand
 // Payloads
 
 type OnboardCustomerPayload struct {
-	ID                  string                  `json:"id"`
-	Name                string                  `json:"name"`
-	PartyID             string                  `json:"partyId"`
-	PartyType           string                  `json:"partyType"`
-	Accounts            []CustomerAccountDTO    `json:"accounts"`
-	CreditProfiles      []CreditProfileDTO      `json:"creditProfiles"`
-	ContactMediums      []ContactMediumDTO      `json:"contactMediums"`
-	Characteristics     []CharacteristicDTO     `json:"characteristics"`
-	TaxExemptions       []TaxExemptionDTO       `json:"taxExemptions"`
-	PrivacyConsents     []PrivacyConsentDTO     `json:"privacyConsents"`
-	RelatedParties      []RelatedPartyDTO       `json:"relatedParties"`
-	PaymentMethods      []PaymentMethodDTO      `json:"paymentMethods"`
-	MarketSegments      []MarketSegmentDTO      `json:"marketSegments"`
-	AppliedBillingRates []AppliedBillingRateDTO `json:"appliedBillingRates"`
+	ID              string               `json:"id"`
+	Name            string               `json:"name"`
+	PartyID         string               `json:"partyId"`
+	PartyType       string               `json:"partyType"`
+	Accounts        []CustomerAccountDTO `json:"accounts"`
+	CreditProfiles  []CreditProfileDTO   `json:"creditProfiles"`
+	ContactMediums  []ContactMediumDTO   `json:"contactMediums"`
+	Characteristics []CharacteristicDTO  `json:"characteristics"`
+	TaxExemptions   []TaxExemptionDTO    `json:"taxExemptions"`
+	PrivacyConsents []PrivacyConsentDTO  `json:"privacyConsents"`
+	RelatedParties  []RelatedPartyDTO    `json:"relatedParties"`
+	PaymentMethods  []PaymentMethodDTO   `json:"paymentMethods"`
+	MarketSegments  []MarketSegmentDTO   `json:"marketSegments"`
 }
 
 type CustomerAccountDTO struct {
@@ -117,30 +116,20 @@ type MarketSegmentDTO struct {
 	Category string `json:"category"`
 }
 
-type AppliedBillingRateDTO struct {
-	ID            string  `json:"id"`
-	ProductRef    string  `json:"productRef"`
-	RateType      string  `json:"rateType"`
-	Value         float64 `json:"value"`
-	ValidForStart string  `json:"validForStart"`
-	ValidForEnd   string  `json:"validForEnd"`
-}
-
 type UpdateCustomerPayload struct {
-	ID                  string                  `json:"id"`
-	Status              domain.CustomerStatus   `json:"status"`
-	Name                string                  `json:"name"`
-	PartyID             string                  `json:"partyId"`
-	ContactMediums      []ContactMediumDTO      `json:"contactMediums"`
-	Characteristics     []CharacteristicDTO     `json:"characteristics"`
-	TaxExemptions       []TaxExemptionDTO       `json:"taxExemptions"`
-	PrivacyConsents     []PrivacyConsentDTO     `json:"privacyConsents"`
-	Accounts            []CustomerAccountDTO    `json:"accounts"`
-	CreditProfiles      []CreditProfileDTO      `json:"creditProfiles"`
-	RelatedParties      []RelatedPartyDTO       `json:"relatedParties"`
-	PaymentMethods      []PaymentMethodDTO      `json:"paymentMethods"`
-	MarketSegments      []MarketSegmentDTO      `json:"marketSegments"`
-	AppliedBillingRates []AppliedBillingRateDTO `json:"appliedBillingRates"`
+	ID              string                `json:"id"`
+	Status          domain.CustomerStatus `json:"status"`
+	Name            string                `json:"name"`
+	PartyID         string                `json:"partyId"`
+	ContactMediums  []ContactMediumDTO    `json:"contactMediums"`
+	Characteristics []CharacteristicDTO   `json:"characteristics"`
+	TaxExemptions   []TaxExemptionDTO     `json:"taxExemptions"`
+	PrivacyConsents []PrivacyConsentDTO   `json:"privacyConsents"`
+	Accounts        []CustomerAccountDTO  `json:"accounts"`
+	CreditProfiles  []CreditProfileDTO    `json:"creditProfiles"`
+	RelatedParties  []RelatedPartyDTO     `json:"relatedParties"`
+	PaymentMethods  []PaymentMethodDTO    `json:"paymentMethods"`
+	MarketSegments  []MarketSegmentDTO    `json:"marketSegments"`
 }
 
 type GetCustomerPayload struct {
@@ -253,10 +242,6 @@ func (h *Handlers) HandleOnboardCustomer(ctx context.Context, d amqp.Delivery) e
 		customer.MarketSegments = append(customer.MarketSegments, h.mapMarketSegment(ms, customer.ID))
 	}
 
-	for _, ab := range payload.AppliedBillingRates {
-		customer.AppliedBillingRates = append(customer.AppliedBillingRates, h.mapAppliedBillingRate(ab, customer.ID))
-	}
-
 	if err := h.repo.CreateCustomer(ctx, customer); err != nil {
 		return fmt.Errorf("failed to create customer: %w", err)
 	}
@@ -345,13 +330,6 @@ func (h *Handlers) HandleUpdateCustomer(ctx context.Context, d amqp.Delivery) er
 			segments = append(segments, h.mapMarketSegment(ms, payload.ID))
 		}
 		updates["market_segments"] = segments
-	}
-	if len(payload.AppliedBillingRates) > 0 {
-		var rates []domain.AppliedBillingRate
-		for _, ab := range payload.AppliedBillingRates {
-			rates = append(rates, h.mapAppliedBillingRate(ab, payload.ID))
-		}
-		updates["applied_billing_rates"] = rates
 	}
 
 	if len(updates) == 0 {
@@ -720,28 +698,4 @@ func (h *Handlers) mapMarketSegment(dto MarketSegmentDTO, customerID string) dom
 		Name:       dto.Name,
 		Category:   dto.Category,
 	}
-}
-
-func (h *Handlers) mapAppliedBillingRate(dto AppliedBillingRateDTO, customerID string) domain.AppliedBillingRate {
-	var start, end time.Time
-	if dto.ValidForStart != "" {
-		start, _ = time.Parse(time.RFC3339, dto.ValidForStart)
-	}
-	if dto.ValidForEnd != "" {
-		parsedEnd, _ := time.Parse(time.RFC3339, dto.ValidForEnd)
-		end = parsedEnd
-	}
-
-	res := domain.AppliedBillingRate{
-		ID:            dto.ID,
-		CustomerID:    customerID,
-		ProductRef:    dto.ProductRef,
-		RateType:      dto.RateType,
-		Value:         dto.Value,
-		ValidForStart: start,
-	}
-	if !end.IsZero() {
-		res.ValidForEnd = &end
-	}
-	return res
 }

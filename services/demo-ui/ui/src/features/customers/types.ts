@@ -90,14 +90,7 @@ export interface CustomerInteraction {
     agentId: string;
 }
 
-export interface AppliedBillingRate {
-    id: string;
-    productRef: string;
-    rateType: string;
-    value: number;
-    validForStart?: string;
-    validForEnd?: string;
-}
+
 
 export interface Customer {
     id: string;
@@ -118,7 +111,7 @@ export interface Customer {
     paymentMethods?: PaymentMethod[];
     marketSegments?: MarketSegment[];
     customerInteractions?: CustomerInteraction[];
-    appliedBillingRates?: AppliedBillingRate[];
+
 }
 
 // API Payloads
@@ -135,7 +128,7 @@ export interface OnboardCustomerPayload {
     relatedParties?: Omit<RelatedParty, 'id'>[];
     paymentMethods?: Omit<PaymentMethod, 'id'>[];
     marketSegments?: Omit<MarketSegment, 'id'>[];
-    appliedBillingRates?: Omit<AppliedBillingRate, 'id'>[];
+
 }
 
 export interface UpdateCustomerPayload {
@@ -152,7 +145,7 @@ export interface UpdateCustomerPayload {
     relatedParties?: RelatedParty[];
     paymentMethods?: PaymentMethod[];
     marketSegments?: MarketSegment[];
-    appliedBillingRates?: AppliedBillingRate[];
+
 }
 
 export interface SearchCustomerParams {

@@ -261,9 +261,6 @@ func TestUseCase_Onboard_NewTMFFeatures(t *testing.T) {
 		MarketSegments: []MarketSegmentDTO{
 			{Name: "Enterprise", Category: "B2B"},
 		},
-		AppliedBillingRates: []AppliedBillingRateDTO{
-			{ProductRef: "prod-1", RateType: "Discount", Value: 10.5},
-		},
 	}
 	body, _ := json.Marshal(payload)
 
@@ -296,9 +293,6 @@ func TestUseCase_Onboard_NewTMFFeatures(t *testing.T) {
 	require.Len(t, saved.MarketSegments, 1)
 	assert.Equal(t, "Enterprise", saved.MarketSegments[0].Name)
 
-	// Verify Applied Billing Rates
-	require.Len(t, saved.AppliedBillingRates, 1)
-	assert.Equal(t, 10.5, saved.AppliedBillingRates[0].Value)
 }
 
 // 2. Update Customer Use Case
