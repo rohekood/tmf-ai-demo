@@ -24,7 +24,7 @@ func setupTestDB(t *testing.T) (*gorm.DB, string) {
 		"payment_methods",
 		"related_parties",
 		"privacy_consents",
-		"tax_exemptions",
+
 		"customer_characteristics",
 		"contact_mediums",
 		"credit_profiles",
@@ -109,12 +109,7 @@ func TestPatchCustomer(t *testing.T) {
 	updates := map[string]interface{}{
 		"name":   "Patched Name",
 		"status": domain.CustomerStatusClosed,
-		"tax_exemptions": []domain.TaxExemption{
-			{
-				ID:                "tax-1",
-				CertificateNumber: "CERT-123",
-			},
-		},
+
 		"privacy_consents": []domain.PrivacyConsent{
 			{
 				ID:          "privacy-1",
@@ -130,8 +125,7 @@ func TestPatchCustomer(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "Patched Name", patched.Name)
 	assert.Equal(t, domain.CustomerStatusClosed, patched.Status)
-	assert.Len(t, patched.TaxExemptions, 1)
-	assert.Equal(t, "CERT-123", patched.TaxExemptions[0].CertificateNumber)
+
 	assert.Len(t, patched.PrivacyConsents, 1)
 	assert.Equal(t, "Marketing", patched.PrivacyConsents[0].ConsentType)
 }

@@ -4,6 +4,9 @@ import { ArrowLeft, Edit, Trash2, Mail, Phone, MapPin, CreditCard, Users, Loader
 import { useParty, useDeleteParty } from './api';
 import { getPartyDisplayName, isIndividual } from './types';
 import { useNotification } from '../../components/common/Toast';
+import { ExternalReferencesSection } from './components/ExternalReferencesSection';
+import { TaxExemptionsSection } from './components/TaxExemptionsSection';
+import { AttachmentsSection } from './components/AttachmentsSection';
 import './PartyDetailPage.css';
 
 export default function PartyDetailPage() {
@@ -267,7 +270,12 @@ export default function PartyDetailPage() {
                                     <Users size={18} className="related-icon" />
                                     <div className="related-content">
                                         <span className="related-name">{related.relatedPartyName || related.relatedPartyId}</span>
-                                        <span className="related-role">{related.role}</span>
+                                        <span className="related-role">
+                                            {related.role}
+                                            {related.permissions && related.permissions.length > 0 && (
+                                                <span className="related-permissions"> • {related.permissions.join(', ')}</span>
+                                            )}
+                                        </span>
                                     </div>
                                     <Link to={`/parties/${related.relatedPartyId}`} className="btn btn-link">
                                         View
@@ -279,6 +287,11 @@ export default function PartyDetailPage() {
                         <p className="empty-text">No related parties</p>
                     )}
                 </div>
+
+                {/* New Sections */}
+                <ExternalReferencesSection references={party.externalReferences} />
+                <TaxExemptionsSection exemptions={party.taxExemptions} />
+                <AttachmentsSection attachments={party.attachments} />
             </div>
         </div>
     );

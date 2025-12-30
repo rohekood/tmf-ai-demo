@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useParty, useCreateParty, useUpdateParty } from './api';
-import type { PartyType, CreatePartyPayload, UpdatePartyPayload, ContactMedium, Identification } from './types';
+import type { PartyType, CreatePartyPayload, UpdatePartyPayload, ContactMedium, Identification, TaxExemption } from './types';
 import './PartyFormPage.css';
 
 interface FormState {
@@ -20,6 +20,7 @@ interface FormState {
     // Sub-resources
     contactMediums: Partial<ContactMedium>[];
     identifications: Partial<Identification>[];
+    taxExemptions: Partial<TaxExemption>[];
 }
 
 const initialState: FormState = {
@@ -34,6 +35,7 @@ const initialState: FormState = {
     organizationType: '',
     contactMediums: [],
     identifications: [],
+    taxExemptions: [],
 };
 
 export default function PartyFormPage() {
@@ -59,6 +61,7 @@ export default function PartyFormPage() {
                 organizationType: existingParty['@type'] === 'Organization' ? existingParty.organizationType || '' : '',
                 contactMediums: existingParty.contactMediums || [],
                 identifications: existingParty.identifications || [],
+                taxExemptions: existingParty.taxExemptions || [],
             };
         }
         return initialState;
@@ -79,6 +82,7 @@ export default function PartyFormPage() {
                 organizationType: existingParty['@type'] === 'Organization' ? existingParty.organizationType || '' : '',
                 contactMediums: existingParty.contactMediums || [],
                 identifications: existingParty.identifications || [],
+                taxExemptions: existingParty.taxExemptions || [],
             });
         }
     }, [existingParty]);
@@ -99,6 +103,7 @@ export default function PartyFormPage() {
                         gender: form.gender || undefined,
                         contactMediums: form.contactMediums.length > 0 ? form.contactMediums as Omit<ContactMedium, 'id'>[] : undefined,
                         identifications: form.identifications.length > 0 ? form.identifications as Omit<Identification, 'id'>[] : undefined,
+                        taxExemptions: form.taxExemptions.length > 0 ? form.taxExemptions as Omit<TaxExemption, 'id'>[] : undefined,
                     }
                     : {
                         id,
@@ -108,6 +113,7 @@ export default function PartyFormPage() {
                         organizationType: form.organizationType || undefined,
                         contactMediums: form.contactMediums.length > 0 ? form.contactMediums as Omit<ContactMedium, 'id'>[] : undefined,
                         identifications: form.identifications.length > 0 ? form.identifications as Omit<Identification, 'id'>[] : undefined,
+                        taxExemptions: form.taxExemptions.length > 0 ? form.taxExemptions as Omit<TaxExemption, 'id'>[] : undefined,
                     };
                 await updateMutation.mutateAsync(payload);
             } else {
@@ -121,6 +127,7 @@ export default function PartyFormPage() {
                         gender: form.gender || undefined,
                         contactMediums: form.contactMediums.length > 0 ? form.contactMediums as Omit<ContactMedium, 'id'>[] : undefined,
                         identifications: form.identifications.length > 0 ? form.identifications as Omit<Identification, 'id'>[] : undefined,
+                        taxExemptions: form.taxExemptions.length > 0 ? form.taxExemptions as Omit<TaxExemption, 'id'>[] : undefined,
                     }
                     : {
                         '@type': 'Organization',
@@ -129,6 +136,7 @@ export default function PartyFormPage() {
                         organizationType: form.organizationType || undefined,
                         contactMediums: form.contactMediums.length > 0 ? form.contactMediums as Omit<ContactMedium, 'id'>[] : undefined,
                         identifications: form.identifications.length > 0 ? form.identifications as Omit<Identification, 'id'>[] : undefined,
+                        taxExemptions: form.taxExemptions.length > 0 ? form.taxExemptions as Omit<TaxExemption, 'id'>[] : undefined,
                     };
                 await createMutation.mutateAsync(payload);
             }
@@ -163,6 +171,24 @@ export default function PartyFormPage() {
         setForm((prev) => ({
             ...prev,
             identifications: prev.identifications.filter((_, i) => i !== index),
+        }));
+    };
+
+    const addTaxExemption = () => {
+        setForm((prev) => ({
+            ...prev,
+            taxExemptions: [...prev.taxExemptions, {
+                certificateNumber: '',
+                issuingJurisdiction: '',
+                validFor: { startDateTime: new Date().toISOString() }
+            }],
+        }));
+    };
+
+    const removeTaxExemption = (index: number) => {
+        setForm((prev) => ({
+            ...prev,
+            taxExemptions: prev.taxExemptions.filter((_, i) => i !== index),
         }));
     };
 
@@ -440,6 +466,81 @@ export default function PartyFormPage() {
                                                 type="button"
                                                 className="btn-icon btn-icon--danger"
                                                 onClick={() => removeIdentification(index)}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Tax Exemptions */}
+                <div className="card form-section">
+                    <div className="section-header">
+                        <h3>Tax Exemptions</h3>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={addTaxExemption}>
+                            <Plus size={16} />
+                            <span>Add Exemption</span>
+                        </button>
+                    </div>
+
+                    {form.taxExemptions.length === 0 ? (
+                        <p className="empty-text">No tax exemptions added</p>
+                    ) : (
+                        <div className="repeatable-list">
+                            {form.taxExemptions.map((ex, index) => (
+                                <div key={index} className="repeatable-item">
+                                    <div className="form-grid">
+                                        <div className="form-group">
+                                            <label>Certificate Number</label>
+                                            <input
+                                                type="text"
+                                                value={ex.certificateNumber || ''}
+                                                onChange={(e) => {
+                                                    const newExemptions = [...form.taxExemptions];
+                                                    newExemptions[index] = { ...newExemptions[index], certificateNumber: e.target.value };
+                                                    setForm((prev) => ({ ...prev, taxExemptions: newExemptions }));
+                                                }}
+                                                placeholder="Certificate #"
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Jurisdiction</label>
+                                            <input
+                                                type="text"
+                                                value={ex.issuingJurisdiction || ''}
+                                                onChange={(e) => {
+                                                    const newExemptions = [...form.taxExemptions];
+                                                    newExemptions[index] = { ...newExemptions[index], issuingJurisdiction: e.target.value };
+                                                    setForm((prev) => ({ ...prev, taxExemptions: newExemptions }));
+                                                }}
+                                                placeholder="Issuing Jurisdiction"
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Start Date</label>
+                                            <input
+                                                type="date"
+                                                value={ex.validFor?.startDateTime ? new Date(ex.validFor.startDateTime).toISOString().split('T')[0] : ''}
+                                                onChange={(e) => {
+                                                    const newExemptions = [...form.taxExemptions];
+                                                    const currentValidFor = newExemptions[index].validFor || {};
+                                                    newExemptions[index] = {
+                                                        ...newExemptions[index],
+                                                        validFor: { ...currentValidFor, startDateTime: new Date(e.target.value).toISOString() }
+                                                    };
+                                                    setForm((prev) => ({ ...prev, taxExemptions: newExemptions }));
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="form-group form-group--action">
+                                            <button
+                                                type="button"
+                                                className="btn-icon btn-icon--danger"
+                                                onClick={() => removeTaxExemption(index)}
                                             >
                                                 <Trash2 size={16} />
                                             </button>

@@ -34,7 +34,6 @@ type OnboardCustomerPayload struct {
 	CreditProfiles  []CreditProfileDTO   `json:"creditProfiles"`
 	ContactMediums  []ContactMediumDTO   `json:"contactMediums"`
 	Characteristics []CharacteristicDTO  `json:"characteristics"`
-	TaxExemptions   []TaxExemptionDTO    `json:"taxExemptions"`
 	PrivacyConsents []PrivacyConsentDTO  `json:"privacyConsents"`
 	RelatedParties  []RelatedPartyDTO    `json:"relatedParties"`
 	PaymentMethods  []PaymentMethodDTO   `json:"paymentMethods"`
@@ -76,14 +75,6 @@ type CharacteristicDTO struct {
 	ValueType string `json:"valueType"`
 }
 
-type TaxExemptionDTO struct {
-	ID                  string `json:"id"`
-	CertificateNumber   string `json:"certificateNumber"`
-	IssuingJurisdiction string `json:"issuingJurisdiction"`
-	ValidForStart       string `json:"validForStart"`
-	ValidForEnd         string `json:"validForEnd"`
-}
-
 type PrivacyConsentDTO struct {
 	ID            string `json:"id"`
 	ConsentType   string `json:"consentType"`
@@ -123,7 +114,6 @@ type UpdateCustomerPayload struct {
 	PartyID         string                `json:"partyId"`
 	ContactMediums  []ContactMediumDTO    `json:"contactMediums"`
 	Characteristics []CharacteristicDTO   `json:"characteristics"`
-	TaxExemptions   []TaxExemptionDTO     `json:"taxExemptions"`
 	PrivacyConsents []PrivacyConsentDTO   `json:"privacyConsents"`
 	Accounts        []CustomerAccountDTO  `json:"accounts"`
 	CreditProfiles  []CreditProfileDTO    `json:"creditProfiles"`
@@ -222,10 +212,6 @@ func (h *Handlers) HandleOnboardCustomer(ctx context.Context, d amqp.Delivery) e
 		})
 	}
 
-	for _, t := range payload.TaxExemptions {
-		customer.TaxExemptions = append(customer.TaxExemptions, h.mapTaxExemption(t, customer.ID))
-	}
-
 	for _, p := range payload.PrivacyConsents {
 		customer.PrivacyConsents = append(customer.PrivacyConsents, h.mapPrivacyConsent(p, customer.ID))
 	}
@@ -271,13 +257,7 @@ func (h *Handlers) HandleUpdateCustomer(ctx context.Context, d amqp.Delivery) er
 	if payload.PartyID != "" {
 		updates["party_id"] = payload.PartyID
 	}
-	if len(payload.TaxExemptions) > 0 {
-		var taxes []domain.TaxExemption
-		for _, t := range payload.TaxExemptions {
-			taxes = append(taxes, h.mapTaxExemption(t, payload.ID))
-		}
-		updates["tax_exemptions"] = taxes
-	}
+
 	if len(payload.PrivacyConsents) > 0 {
 		var privacy []domain.PrivacyConsent
 		for _, p := range payload.PrivacyConsents {
@@ -575,29 +555,6 @@ func (h *Handlers) extractUser(ctx context.Context, d amqp.Delivery) context.Con
 		ctx = context.WithValue(ctx, authKey, auth)
 	}
 	return ctx
-}
-
-func (h *Handlers) mapTaxExemption(dto TaxExemptionDTO, customerID string) domain.TaxExemption {
-	var start, end time.Time
-	if dto.ValidForStart != "" {
-		start, _ = time.Parse(time.RFC3339, dto.ValidForStart)
-	}
-	if dto.ValidForEnd != "" {
-		parsedEnd, _ := time.Parse(time.RFC3339, dto.ValidForEnd)
-		end = parsedEnd
-	}
-
-	res := domain.TaxExemption{
-		ID:                  dto.ID,
-		CustomerID:          customerID,
-		CertificateNumber:   dto.CertificateNumber,
-		IssuingJurisdiction: dto.IssuingJurisdiction,
-		ValidForStart:       start,
-	}
-	if !end.IsZero() {
-		res.ValidForEnd = &end
-	}
-	return res
 }
 
 func (h *Handlers) replyTo(ctx context.Context, d amqp.Delivery, payload interface{}) error {

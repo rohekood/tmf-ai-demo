@@ -152,13 +152,6 @@ describe('CustomerOnboardPage', () => {
         const accTypeInput = screen.getByPlaceholderText('Type');
         await user.type(accTypeInput, 'Checking');
 
-        // Add Tax Exemption
-        await user.click(screen.getByRole('button', { name: 'Add Exemption' }));
-        const certInput = screen.getByPlaceholderText('Certificate Number');
-        await user.type(certInput, 'TAX-123');
-        const jurInput = screen.getByPlaceholderText('Jurisdiction');
-        await user.type(jurInput, 'CA');
-
         // Submit
         const submitBtn = screen.getByRole('button', { name: /onboard customer/i });
         await user.click(submitBtn);
@@ -180,7 +173,6 @@ describe('CustomerOnboardPage', () => {
                 relatedParties: [],
                 paymentMethods: [],
                 marketSegments: [],
-                appliedBillingRates: []
             }));
             expect(mockNavigate).toHaveBeenCalledWith('/customers');
         });
