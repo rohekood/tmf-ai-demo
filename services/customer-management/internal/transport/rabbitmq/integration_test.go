@@ -118,7 +118,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatalf("failed to declare exchange: %v", err)
 	}
-	ch.Close()
+	_ = ch.Close()
 
 	sharedPublisher, err = infraRabbit.NewPublisher(sharedConn)
 	if err != nil {
@@ -129,9 +129,9 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	// Cleanup
-	sharedConn.Close()
-	pgInstance.Terminate(ctx)
-	rabbitInstance.Terminate(ctx)
+	_ = sharedConn.Close()
+	_ = pgInstance.Terminate(ctx)
+	_ = rabbitInstance.Terminate(ctx)
 
 	os.Exit(code)
 }
@@ -395,7 +395,8 @@ func TestUseCase_RetrieveCustomer(t *testing.T) {
 	// Prepare RPC reply queue
 	ch, err := sharedConn.Channel()
 	require.NoError(t, err)
-	defer ch.Close()
+	require.NoError(t, err)
+	defer func() { _ = ch.Close() }()
 	replyQueue, _ := ch.QueueDeclare("", false, true, true, false, nil)
 	msgs, _ := ch.Consume(replyQueue.Name, "", true, true, false, false, nil)
 
@@ -412,7 +413,8 @@ func TestUseCase_RetrieveCustomer(t *testing.T) {
 	case msg := <-msgs:
 		assert.Equal(t, corrID, msg.CorrelationId)
 		var resp domain.Customer
-		json.Unmarshal(msg.Body, &resp)
+		err = json.Unmarshal(msg.Body, &resp)
+		require.NoError(t, err)
 
 		assert.Equal(t, custID, resp.ID)
 		assert.Equal(t, "Get Test", resp.Name)
@@ -448,7 +450,7 @@ func TestUseCase_SearchCustomers(t *testing.T) {
 	// RPC Setup
 	ch, err := sharedConn.Channel()
 	require.NoError(t, err)
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 	replyQueue, _ := ch.QueueDeclare("", false, true, true, false, nil)
 	msgs, _ := ch.Consume(replyQueue.Name, "", true, true, false, false, nil)
 
@@ -465,7 +467,8 @@ func TestUseCase_SearchCustomers(t *testing.T) {
 	case msg := <-msgs:
 		assert.Equal(t, corrID, msg.CorrelationId)
 		var results []domain.Customer
-		json.Unmarshal(msg.Body, &results)
+		err = json.Unmarshal(msg.Body, &results)
+		require.NoError(t, err)
 
 		assert.NotEmpty(t, results)
 		assert.Equal(t, "UniqueTarget", results[0].Name)
@@ -599,7 +602,7 @@ func TestUseCase_PartyEvent_DeletionInitiated_ActiveCustomer(t *testing.T) {
 	// Setup: Mock Party Exchange and Queue to catch commands
 	ch, err := sharedConn.Channel()
 	require.NoError(t, err)
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 
 	partyExchange := "tmf.party"
 	err = ch.ExchangeDeclare(partyExchange, "topic", true, false, false, false, nil)
@@ -628,7 +631,8 @@ func TestUseCase_PartyEvent_DeletionInitiated_ActiveCustomer(t *testing.T) {
 	case msg := <-msgs:
 		assert.Equal(t, CmdPartyCancelDeletion, msg.RoutingKey)
 		var p map[string]string
-		json.Unmarshal(msg.Body, &p)
+		err = json.Unmarshal(msg.Body, &p)
+		require.NoError(t, err)
 		assert.Equal(t, partyID, p["id"])
 	case <-time.After(2 * time.Second):
 		t.Fatal("Timeout waiting for cancel command")
@@ -645,7 +649,7 @@ func TestUseCase_PartyEvent_DeletionInitiated_NoCustomer(t *testing.T) {
 	// Setup: Mock Party Exchange and Queue to catch commands
 	ch, err := sharedConn.Channel()
 	require.NoError(t, err)
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 
 	partyExchange := "tmf.party"
 	err = ch.ExchangeDeclare(partyExchange, "topic", true, false, false, false, nil)
@@ -674,7 +678,8 @@ func TestUseCase_PartyEvent_DeletionInitiated_NoCustomer(t *testing.T) {
 	case msg := <-msgs:
 		assert.Equal(t, CmdPartyFinalizeDeletion, msg.RoutingKey)
 		var p map[string]string
-		json.Unmarshal(msg.Body, &p)
+		err = json.Unmarshal(msg.Body, &p)
+		require.NoError(t, err)
 		assert.Equal(t, partyID, p["id"])
 	case <-time.After(2 * time.Second):
 		t.Fatal("Timeout waiting for finalize command")

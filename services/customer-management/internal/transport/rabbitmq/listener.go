@@ -42,7 +42,11 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 	if err != nil {
 		return fmt.Errorf("failed to open channel: %w", err)
 	}
-	defer ch.Close()
+	defer func() {
+		if err := ch.Close(); err != nil {
+			slog.Error("failed to close channel", "error", err)
+		}
+	}()
 
 	// Declare DLX and DLQ
 	err = ch.ExchangeDeclare(DeadLetterExchange, "fanout", true, false, false, false, nil)
@@ -57,10 +61,7 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 
 	err = ch.QueueBind(DeadLetterQueue, "", DeadLetterExchange, false, nil)
 	if err != nil {
-		// Ignore bind error if routing key mismatch, but direct exchange with # is not standard.
-		// Using empty routing key for direct DLX or topic DLX with #.
-		// Let's use fanout for DLX or bind with specific keys.
-		// To keep it simple, bind everything to DLQ.
+		return fmt.Errorf("failed to bind DLQ to DLX: %w", err)
 	}
 
 	// Declare exchange
@@ -182,9 +183,13 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 			err := wrappedHandler(ctx, d)
 			if err != nil {
 				slog.Error("error handling event", "routing_key", d.RoutingKey, "error", err)
-				d.Nack(false, false) // Don't requeue, send to DLX
+				if nackErr := d.Nack(false, false); nackErr != nil {
+					slog.Error("failed to nack message", "error", nackErr)
+				} // Don't requeue, send to DLX
 			} else {
-				d.Ack(false)
+				if ackErr := d.Ack(false); ackErr != nil {
+					slog.Error("failed to ack message", "error", ackErr)
+				}
 			}
 		}
 	}()
@@ -199,7 +204,9 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 				targetHandler, valid := l.GetHandler(d.RoutingKey, h)
 				if !valid {
 					slog.Warn("unknown routing key", "routing_key", d.RoutingKey)
-					d.Nack(false, false)
+					if nackErr := d.Nack(false, false); nackErr != nil {
+						slog.Error("failed to nack message", "error", nackErr)
+					}
 					return
 				}
 
@@ -220,8 +227,12 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 
 						ch, chErr := l.conn.Channel()
 						if chErr == nil {
-							defer ch.Close()
-							ch.PublishWithContext(ctx,
+							defer func() {
+								if err := ch.Close(); err != nil {
+									slog.Error("failed to close error reply channel", "error", err)
+								}
+							}()
+							if pubErr := ch.PublishWithContext(ctx,
 								"",        // exchange
 								d.ReplyTo, // routing key
 								false,     // mandatory
@@ -230,15 +241,21 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 									ContentType:   "application/json",
 									CorrelationId: d.CorrelationId,
 									Body:          errBody,
-								})
+								}); pubErr != nil {
+								slog.Error("failed to publish error reply", "error", pubErr)
+							}
 						} else {
 							slog.Error("failed to open channel to send error reply", "error", chErr)
 						}
 					}
 
-					d.Nack(false, false) // Don't requeue, send to DLX
+					if nackErr := d.Nack(false, false); nackErr != nil {
+						slog.Error("failed to nack message", "error", nackErr)
+					} // Don't requeue, send to DLX
 				} else {
-					d.Ack(false)
+					if ackErr := d.Ack(false); ackErr != nil {
+						slog.Error("failed to ack message", "error", ackErr)
+					}
 				}
 			}(d)
 		}

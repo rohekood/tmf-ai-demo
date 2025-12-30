@@ -2,64 +2,50 @@ package postgres
 
 import (
 	"context"
-	"path/filepath"
-	"runtime"
 	"testing"
-	"time"
 	"tmf/services/customer-management/internal/domain"
 
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
-	gormPostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 func setupTestDB(t *testing.T) (*gorm.DB, string) {
-	ctx := context.Background()
+	if sharedDB == nil {
+		t.Fatal("Shared DB not initialized. Ensure TestMain is running.")
+	}
 
-	pgContainer, err := postgres.Run(ctx,
-		"postgres:15",
-		postgres.WithDatabase("testdb"),
-		postgres.WithUsername("postgres"),
-		postgres.WithPassword("postgres"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).
-				WithStartupTimeout(30*time.Second)),
-	)
-	require.NoError(t, err)
+	// Truncate tables to ensure clean state
+	// Order matters due to FKs
+	tables := []string{
+		"applied_billing_rates",
+		"customer_interactions",
+		"market_segments",
+		"payment_methods",
+		"related_parties",
+		"privacy_consents",
+		"tax_exemptions",
+		"customer_characteristics",
+		"contact_mediums",
+		"credit_profiles",
+		"customer_accounts",
+		"customers",
+		"audit.logged_actions",
+	}
 
-	t.Cleanup(func() {
-		if err := pgContainer.Terminate(ctx); err != nil {
-			t.Fatalf("failed to terminate container: %s", err)
+	for _, table := range tables {
+		// Use Unscoped to ensure even soft-deleted records are gone if we were using Delete,
+		// but for Truncate it's explicit.
+		// Using EXEC for Truncate
+		if err := sharedDB.Exec("TRUNCATE TABLE " + table + " CASCADE").Error; err != nil {
+			// Some tables might not exist yet if migrations changed, but they should.
+			// Or if specific tables are empty it's fine.
+			// Warning: CASCADE might be needed.
+			t.Logf("Failed to truncate table %s: %v", table, err)
 		}
-	})
+	}
 
-	connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-
-	// Run migrations
-	_, filename, _, _ := runtime.Caller(0)
-	migrationsPath := filepath.Join(filepath.Dir(filename), "migrations")
-
-	m, err := migrate.New(
-		"file://"+migrationsPath,
-		connStr,
-	)
-	require.NoError(t, err)
-	require.NoError(t, m.Up())
-
-	// Connect GORM
-	db, err := gorm.Open(gormPostgres.Open(connStr), &gorm.Config{})
-	require.NoError(t, err)
-
-	return db, connStr
+	return sharedDB, sharedConnStr
 }
 
 func TestCreateCustomer(t *testing.T) {
