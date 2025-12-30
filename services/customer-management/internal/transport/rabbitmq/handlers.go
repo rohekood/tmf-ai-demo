@@ -592,7 +592,9 @@ func (h *Handlers) extractUser(ctx context.Context, d amqp.Delivery) context.Con
 		ctx = context.WithValue(ctx, domain.UserContextKey, user)
 	}
 	if auth, ok := d.Headers["Authorization"].(string); ok && auth != "" {
-		ctx = context.WithValue(ctx, "authorization", auth)
+		type contextKey string
+		const authKey contextKey = "authorization"
+		ctx = context.WithValue(ctx, authKey, auth)
 	}
 	return ctx
 }

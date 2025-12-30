@@ -19,6 +19,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	amqp "github.com/rabbitmq/amqp091-go"
+
 	gormPostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -35,7 +36,11 @@ func main() {
 	if err != nil {
 		slog.Error("failed to initialize tracer", "error", err)
 	} else {
-		defer shutdown(context.Background())
+		defer func() {
+			if err := shutdown(context.Background()); err != nil {
+				slog.Error("Failed to shutdown", "error", err)
+			}
+		}()
 	}
 
 	// Configuration (using defaults or env vars)
@@ -59,14 +64,22 @@ func main() {
 		slog.Error("failed to connect to RabbitMQ", "error", err)
 		os.Exit(1)
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			slog.Error("Failed to close DB connection", "error", err)
+		}
+	}()
 
 	publisher, err := infraRabbit.NewPublisher(conn)
 	if err != nil {
 		slog.Error("failed to create publisher", "error", err)
 		os.Exit(1)
 	}
-	defer publisher.Close()
+	defer func() {
+		if err := publisher.Close(); err != nil {
+			slog.Error("Failed to close publisher", "error", err)
+		}
+	}()
 
 	// 4. Handlers & Listener
 	handlers := rabbitmq.NewHandlers(repo, publisher)

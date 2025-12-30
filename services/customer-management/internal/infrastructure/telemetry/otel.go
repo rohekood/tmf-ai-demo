@@ -3,6 +3,7 @@ package telemetry
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -36,7 +37,10 @@ func InitTracer(serviceName string) (func(context.Context) error, error) {
 	// 2. Metrics
 	stopMetrics, err := initMetrics(ctx, res)
 	if err != nil {
-		stopTracing(ctx)
+		if traceErr := stopTracing(ctx); traceErr != nil {
+			// standard logger if slog not valid, but we will add slog
+			slog.Error("failed to stop tracing during cleanup", "error", traceErr)
+		}
 		return nil, err
 	}
 
