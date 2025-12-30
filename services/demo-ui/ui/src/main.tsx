@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Auth0Provider } from '@auth0/auth0-react'
 import { router } from './router'
 import { AuthTokenSync } from './components/auth/AuthTokenSync'
-import { NotificationProvider } from './components/common/Toast'
+import { NotificationProvider } from './components/common/ToastProvider'
 import './index.css'
 
 // Create a client with default options

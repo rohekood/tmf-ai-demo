@@ -240,6 +240,67 @@ func TestUseCase_Onboard_AutoGenerateIDs(t *testing.T) {
 	assert.NotEmpty(t, saved.TaxExemptions[0].ID)
 }
 
+func TestUseCase_Onboard_NewTMFFeatures(t *testing.T) {
+	ctx := context.Background()
+	handlers := NewHandlers(sharedRepo, sharedPublisher)
+
+	payload := OnboardCustomerPayload{
+		ID:        "cust-tmf-1",
+		Name:      "TMF Features Customer",
+		PartyID:   "party-tmf-1",
+		PartyType: "Organization",
+		Accounts: []CustomerAccountDTO{
+			{Name: "Detailed Account", AccountStatus: "active", BillFormat: "Email", BillingCycle: "Weekly"},
+		},
+		RelatedParties: []RelatedPartyDTO{
+			{RelatedPartyID: "rp-1", Role: "ParentCompany", Name: "Big Corp"},
+		},
+		PaymentMethods: []PaymentMethodDTO{
+			{Type: "CreditCard", Token: "tok_123", IsDefault: true, Details: "{}"},
+		},
+		MarketSegments: []MarketSegmentDTO{
+			{Name: "Enterprise", Category: "B2B"},
+		},
+		AppliedBillingRates: []AppliedBillingRateDTO{
+			{ProductRef: "prod-1", RateType: "Discount", Value: 10.5},
+		},
+	}
+	body, _ := json.Marshal(payload)
+
+	err := handlers.HandleOnboardCustomer(ctx, amqp.Delivery{
+		Body:     body,
+		Exchange: "tmf.events",
+	})
+	require.NoError(t, err)
+
+	// Verify DB state
+	saved, err := sharedRepo.GetCustomer(ctx, "cust-tmf-1")
+	require.NoError(t, err)
+
+	// Verify Account Logic
+	require.Len(t, saved.Accounts, 1)
+	assert.Equal(t, "Email", saved.Accounts[0].BillFormat)
+	assert.Equal(t, "Weekly", saved.Accounts[0].BillingCycle)
+
+	// Verify Related Parties
+	require.Len(t, saved.RelatedParties, 1)
+	assert.Equal(t, "Big Corp", saved.RelatedParties[0].Name)
+	assert.Equal(t, "ParentCompany", saved.RelatedParties[0].Role)
+
+	// Verify Payment Methods
+	require.Len(t, saved.PaymentMethods, 1)
+	assert.Equal(t, "CreditCard", saved.PaymentMethods[0].Type)
+	assert.Equal(t, "tok_123", saved.PaymentMethods[0].Token)
+
+	// Verify Market Segments
+	require.Len(t, saved.MarketSegments, 1)
+	assert.Equal(t, "Enterprise", saved.MarketSegments[0].Name)
+
+	// Verify Applied Billing Rates
+	require.Len(t, saved.AppliedBillingRates, 1)
+	assert.Equal(t, 10.5, saved.AppliedBillingRates[0].Value)
+}
+
 // 2. Update Customer Use Case
 func TestUseCase_UpdateCustomerProfile(t *testing.T) {
 	ctx := context.Background()

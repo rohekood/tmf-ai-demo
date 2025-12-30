@@ -78,6 +78,7 @@ export default function PartySelector({ selectedPartyId, onSelect }: PartySelect
         [selectedPartyId]
     );
 
+    // eslint-disable-next-line react-hooks/incompatible-library
     const table = useReactTable({
         data: parties,
         columns,

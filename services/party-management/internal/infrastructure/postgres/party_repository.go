@@ -39,6 +39,9 @@ func (r *PartyRepository) GetParty(ctx context.Context, id string) (*domain.Part
 		Preload("Identifications").
 		Preload("RelatedParties").
 		Preload("Characteristics").
+		Preload("ExternalReferences").
+		Preload("TaxExemptions").
+		Preload("Attachments").
 		First(&p, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrNotFound
@@ -51,10 +54,24 @@ func (r *PartyRepository) GetParty(ctx context.Context, id string) (*domain.Part
 
 func (r *PartyRepository) CreateIndividual(ctx context.Context, ind *domain.Individual) error {
 	return r.withUser(ctx, func(tx *gorm.DB) error {
-		// 1. Create Party (with sub-resources)
-		if err := tx.Create(&ind.Party).Error; err != nil {
+		// 1. Create Party (base) - Use a copy to avoid GORM clearing associations
+		partyBase := ind.Party
+		// Ensure associations are nil in the copy so GORM doesn't try to save them
+		partyBase.ContactMediums = nil
+		partyBase.Identifications = nil
+		partyBase.RelatedParties = nil
+		partyBase.Characteristics = nil
+		partyBase.ExternalReferences = nil
+		partyBase.TaxExemptions = nil
+		partyBase.Attachments = nil
+
+		if err := tx.Create(&partyBase).Error; err != nil {
 			return err
 		}
+
+		// Sync back generated fields (CreatedAt, UpdatedAt)
+		ind.CreatedAt = partyBase.CreatedAt
+		ind.UpdatedAt = partyBase.UpdatedAt
 
 		individualSpecifics := map[string]interface{}{
 			"id":          ind.ID,
@@ -68,6 +85,12 @@ func (r *PartyRepository) CreateIndividual(ctx context.Context, ind *domain.Indi
 		if err := tx.Table("individuals").Create(individualSpecifics).Error; err != nil {
 			return err
 		}
+
+		// 3. Create Sub-resources (using original ind with data)
+		if err := r.updateSubResources(tx, ind.ID, &ind.Party); err != nil {
+			return err
+		}
+
 		return nil
 	})
 }
@@ -82,6 +105,9 @@ func (r *PartyRepository) GetIndividual(ctx context.Context, id string) (*domain
 			Preload("Identifications").
 			Preload("RelatedParties").
 			Preload("Characteristics").
+			Preload("ExternalReferences").
+			Preload("TaxExemptions").
+			Preload("Attachments").
 			Where("id = ?", id).First(&ind.Party).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return domain.ErrNotFound
@@ -116,15 +142,31 @@ func (r *PartyRepository) GetIndividual(ctx context.Context, id string) (*domain
 	if err != nil {
 		return nil, err
 	}
+
+	_ = r.loadAttachmentContents(ctx, &ind.Party)
+
 	return &ind, nil
 }
 
 func (r *PartyRepository) CreateOrganization(ctx context.Context, org *domain.Organization) error {
 	return r.withUser(ctx, func(tx *gorm.DB) error {
-		// 1. Create Party (with sub-resources)
-		if err := tx.Create(&org.Party).Error; err != nil {
+		// 1. Create Party (base) - Use a copy
+		partyBase := org.Party
+		partyBase.ContactMediums = nil
+		partyBase.Identifications = nil
+		partyBase.RelatedParties = nil
+		partyBase.Characteristics = nil
+		partyBase.ExternalReferences = nil
+		partyBase.TaxExemptions = nil
+		partyBase.Attachments = nil
+
+		if err := tx.Create(&partyBase).Error; err != nil {
 			return err
 		}
+
+		// Sync back
+		org.CreatedAt = partyBase.CreatedAt
+		org.UpdatedAt = partyBase.UpdatedAt
 
 		orgSpecifics := map[string]interface{}{
 			"id":                org.ID,
@@ -136,6 +178,12 @@ func (r *PartyRepository) CreateOrganization(ctx context.Context, org *domain.Or
 		if err := tx.Table("organizations").Create(orgSpecifics).Error; err != nil {
 			return err
 		}
+
+		// 3. Create Sub-resources
+		if err := r.updateSubResources(tx, org.ID, &org.Party); err != nil {
+			return err
+		}
+
 		return nil
 	})
 }
@@ -149,6 +197,9 @@ func (r *PartyRepository) GetOrganization(ctx context.Context, id string) (*doma
 			Preload("Identifications").
 			Preload("RelatedParties").
 			Preload("Characteristics").
+			Preload("ExternalReferences").
+			Preload("TaxExemptions").
+			Preload("Attachments").
 			Where("id = ?", id).First(&org.Party).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return domain.ErrNotFound
@@ -275,6 +326,23 @@ func (r *PartyRepository) UpdateOrganization(ctx context.Context, org *domain.Or
 	})
 }
 
+func (r *PartyRepository) loadAttachmentContents(ctx context.Context, p *domain.Party) error {
+	if len(p.Attachments) == 0 {
+		return nil
+	}
+	for i := range p.Attachments {
+		att := &p.Attachments[i]
+		if att.RefType == "Internal" && att.RefID != "" {
+			var content domain.AttachmentContent
+			if err := r.db.WithContext(ctx).Table("attachment_contents").Where("id = ?", att.RefID).First(&content).Error; err != nil {
+				continue
+			}
+			att.ContentData = content.Data
+		}
+	}
+	return nil
+}
+
 func (r *PartyRepository) DeleteParty(ctx context.Context, id string) error {
 	return r.withUser(ctx, func(tx *gorm.DB) error {
 		var p domain.Party
@@ -348,6 +416,12 @@ func (r *PartyRepository) SearchParties(ctx context.Context, criteria map[string
 		query = query.Where("(individuals.given_name ILIKE ? OR individuals.family_name ILIKE ? OR organizations.trading_name ILIKE ?)", searchTerm, searchTerm, searchTerm)
 	}
 
+	// External Reference Search
+	if extRefVal, ok := criteria["externalReference"]; ok {
+		query = query.Joins("JOIN external_references ON external_references.party_id = parties.id").
+			Where("external_references.external_reference_id = ?", extRefVal)
+	}
+
 	if val, ok := criteria["given_name"]; ok {
 		if !joinedIndividual {
 			query = query.Joins("JOIN individuals ON individuals.id = parties.id")
@@ -358,7 +432,7 @@ func (r *PartyRepository) SearchParties(ctx context.Context, criteria map[string
 	if val, ok := criteria["family_name"]; ok {
 		if !joinedIndividual {
 			query = query.Joins("JOIN individuals ON individuals.id = parties.id")
-			joinedIndividual = true
+			// unique join
 		}
 		query = query.Where("individuals.family_name = ?", val)
 	}
@@ -374,7 +448,7 @@ func (r *PartyRepository) SearchParties(ctx context.Context, criteria map[string
 	if val, ok := criteria["is_legal_entity"]; ok {
 		if !joinedOrganization {
 			query = query.Joins("JOIN organizations ON organizations.id = parties.id")
-			joinedOrganization = true
+			// unique join
 		}
 		query = query.Where("organizations.is_legal_entity = ?", val)
 	}
@@ -437,6 +511,66 @@ func (r *PartyRepository) updateSubResources(tx *gorm.DB, partyID string, p *dom
 			p.Characteristics[i].PartyID = partyID
 		}
 		if err := tx.Create(&p.Characteristics).Error; err != nil {
+			return err
+		}
+	}
+
+	// ExternalReferences
+	if err := tx.Delete(&domain.ExternalReference{}, "party_id = ?", partyID).Error; err != nil {
+		return err
+	}
+	if len(p.ExternalReferences) > 0 {
+		for i := range p.ExternalReferences {
+			p.ExternalReferences[i].PartyID = partyID
+		}
+		if err := tx.Create(&p.ExternalReferences).Error; err != nil {
+			return err
+		}
+	}
+
+	// TaxExemptions
+	if err := tx.Delete(&domain.TaxExemption{}, "party_id = ?", partyID).Error; err != nil {
+		return err
+	}
+	if len(p.TaxExemptions) > 0 {
+		for i := range p.TaxExemptions {
+			p.TaxExemptions[i].PartyID = partyID
+		}
+		if err := tx.Create(&p.TaxExemptions).Error; err != nil {
+			return err
+		}
+	}
+
+	// Attachments (Split Storage Strategy)
+	if err := tx.Delete(&domain.Attachment{}, "owner_id = ?", partyID).Error; err != nil {
+		return err
+	}
+
+	if len(p.Attachments) > 0 {
+		for i := range p.Attachments {
+			att := &p.Attachments[i]
+			att.OwnerID = partyID
+
+			if len(att.ContentData) > 0 {
+				att.RefType = "Internal"
+
+				att.RefID = att.ID
+
+				content := domain.AttachmentContent{
+					ID:   att.RefID,
+					Data: att.ContentData,
+				}
+				if err := tx.Create(&content).Error; err != nil {
+					return err
+				}
+			} else {
+				if att.RefType == "" {
+					att.RefType = "S3" // Default fallthrough
+				}
+			}
+		}
+
+		if err := tx.Create(&p.Attachments).Error; err != nil {
 			return err
 		}
 	}

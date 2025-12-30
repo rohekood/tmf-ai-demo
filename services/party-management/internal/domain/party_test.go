@@ -31,7 +31,7 @@ func TestIndividualCreation(t *testing.T) {
 	assert.Equal(t, "ind-1", ind.ID)
 	assert.Equal(t, domain.PartyTypeIndividual, ind.Type)
 	assert.Equal(t, "John", ind.GivenName)
-	assert.Equal(t, "parties", ind.Party.TableName())
+	assert.Equal(t, "parties", ind.TableName())
 }
 
 func TestOrganizationCreation(t *testing.T) {

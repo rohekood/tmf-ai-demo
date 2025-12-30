@@ -7,6 +7,8 @@ export interface CustomerAccount {
     name: string;
     accountStatus: 'active' | 'inactive' | 'suspended';
     accountType: string;
+    billFormat?: string;
+    billingCycle?: string;
 }
 
 export interface CreditProfile {
@@ -53,6 +55,50 @@ export interface PrivacyConsent {
     validForStart?: string;
 }
 
+export interface RelatedParty {
+    id: string;
+    relatedPartyId: string;
+    role: string;
+    name: string;
+    validForStart?: string;
+    validForEnd?: string;
+}
+
+export interface PaymentMethod {
+    id: string;
+    type: string;
+    token: string;
+    details?: string;
+    isDefault: boolean;
+    validForStart?: string;
+    validForEnd?: string;
+}
+
+export interface MarketSegment {
+    id: string;
+    name: string;
+    category: string;
+}
+
+export interface CustomerInteraction {
+    id: string;
+    customerId: string;
+    interactionDate: string;
+    channel: string;
+    type: string;
+    description: string;
+    agentId: string;
+}
+
+export interface AppliedBillingRate {
+    id: string;
+    productRef: string;
+    rateType: string;
+    value: number;
+    validForStart?: string;
+    validForEnd?: string;
+}
+
 export interface Customer {
     id: string;
     name: string;
@@ -68,6 +114,11 @@ export interface Customer {
     characteristics?: Characteristic[];
     taxExemptions?: TaxExemption[];
     privacyConsents?: PrivacyConsent[];
+    relatedParties?: RelatedParty[];
+    paymentMethods?: PaymentMethod[];
+    marketSegments?: MarketSegment[];
+    customerInteractions?: CustomerInteraction[];
+    appliedBillingRates?: AppliedBillingRate[];
 }
 
 // API Payloads
@@ -81,6 +132,10 @@ export interface OnboardCustomerPayload {
     characteristics?: Omit<Characteristic, 'id'>[];
     taxExemptions?: Omit<TaxExemption, 'id'>[];
     privacyConsents?: Omit<PrivacyConsent, 'id'>[];
+    relatedParties?: Omit<RelatedParty, 'id'>[];
+    paymentMethods?: Omit<PaymentMethod, 'id'>[];
+    marketSegments?: Omit<MarketSegment, 'id'>[];
+    appliedBillingRates?: Omit<AppliedBillingRate, 'id'>[];
 }
 
 export interface UpdateCustomerPayload {
@@ -94,6 +149,10 @@ export interface UpdateCustomerPayload {
     partyId?: string;
     partyName?: string;
     partyType?: string;
+    relatedParties?: RelatedParty[];
+    paymentMethods?: PaymentMethod[];
+    marketSegments?: MarketSegment[];
+    appliedBillingRates?: AppliedBillingRate[];
 }
 
 export interface SearchCustomerParams {

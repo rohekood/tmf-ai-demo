@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
-import type { Customer, OnboardCustomerPayload, UpdateCustomerPayload, SearchCustomerParams } from './types';
+import type { Customer, OnboardCustomerPayload, UpdateCustomerPayload, SearchCustomerParams, CustomerInteraction } from './types';
 
 const CUSTOMERS_KEY = 'customers';
 
@@ -37,6 +37,11 @@ async function updateCustomer(payload: UpdateCustomerPayload): Promise<Customer>
 // Delete customer
 async function deleteCustomer(id: string): Promise<void> {
     await apiClient.delete(`/api/customers/${id}`);
+}
+
+// Log Interaction
+async function logInteraction(payload: CustomerInteraction): Promise<void> {
+    await apiClient.post(`/api/customers/${payload.customerId}/interactions`, payload);
 }
 
 // React Query Hooks
@@ -86,6 +91,17 @@ export function useDeleteCustomer() {
         mutationFn: deleteCustomer,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: [CUSTOMERS_KEY] });
+        },
+    });
+}
+
+export function useLogInteraction() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: logInteraction,
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: [CUSTOMERS_KEY, variables.customerId] });
         },
     });
 }

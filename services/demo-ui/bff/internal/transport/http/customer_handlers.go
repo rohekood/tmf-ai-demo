@@ -13,12 +13,13 @@ import (
 
 const (
 	// Customer Management RabbitMQ topics
-	customerExchange    = "tmf.customer"
-	cmdCustomerOnboard  = "cmd.customer.onboard"
-	cmdCustomerUpdate   = "cmd.customer.update"
-	cmdCustomerDelete   = "cmd.customer.delete"
-	queryCustomerGet    = "query.customer.get"
-	queryCustomerSearch = "query.customer.search"
+	customerExchange          = "tmf.customer"
+	cmdCustomerOnboard        = "cmd.customer.onboard"
+	cmdCustomerUpdate         = "cmd.customer.update"
+	cmdCustomerDelete         = "cmd.customer.delete"
+	queryCustomerGet          = "query.customer.get"
+	queryCustomerSearch       = "query.customer.search"
+	cmdCustomerLogInteraction = "cmd.customer.interaction.log"
 
 	customerRPCTimeout = 10 * time.Second
 )
@@ -49,6 +50,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			r.Get("/{id}", h.GetCustomer)
 			r.Put("/{id}", h.UpdateCustomer)
 			r.Delete("/{id}", h.DeleteCustomer)
+			r.Post("/{id}/interactions", h.LogInteraction)
 		})
 
 		// Party routes (delegated to PartyHandler)
@@ -281,4 +283,45 @@ func (h *Handler) DeleteCustomer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// LogInteraction handles POST /api/customers/:id/interactions
+func (h *Handler) LogInteraction(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		http.Error(w, "Customer ID is required", http.StatusBadRequest)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	// Ensure Customer ID is set
+	payload["customerId"] = id
+	// Ensure ID is generated if not present, though backend might handle it.
+	// But let's leave it to backend or payload content.
+
+	ctx, cancel := context.WithTimeout(r.Context(), customerRPCTimeout)
+	defer cancel()
+
+	responseBytes, err := h.rpcClient.CallRPC(ctx, customerExchange, cmdCustomerLogInteraction, payload, getHeaders(r))
+	if err != nil {
+		slog.Error("error logging interaction", "error", err)
+		http.Error(w, "Failed to log interaction: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	w.Write(responseBytes)
 }

@@ -17,9 +17,10 @@ const (
 	// Subscribed Events
 	EvtPartyUpdated = "evt.party.updated"
 	EvtPartyDeleted = "evt.party.deleted"
-	
+
 	// Saga events/commands
 	EvtPartyDeletionInitiated = "evt.party.deletion_initiated"
 	CmdPartyFinalizeDeletion  = "cmd.party.finalize_deletion"
 	CmdPartyCancelDeletion    = "cmd.party.cancel_deletion"
+	CmdCustomerLogInteraction = "cmd.customer.interaction.log"
 )

@@ -37,7 +37,7 @@ describe('PartySelector', () => {
             data: mockParties,
             isLoading: false,
             error: null
-        } as any);
+        } as unknown as ReturnType<typeof api.useParties>);
     });
 
     it('renders the search input and table headers', () => {
@@ -106,7 +106,7 @@ describe('PartySelector', () => {
             data: [],
             isLoading: false,
             error: null
-        } as any);
+        } as unknown as ReturnType<typeof api.useParties>);
 
         render(<PartySelector onSelect={mockOnSelect} />);
         expect(screen.getByText(/no parties found/i)).toBeInTheDocument();

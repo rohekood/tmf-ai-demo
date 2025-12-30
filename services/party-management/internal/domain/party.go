@@ -8,6 +8,7 @@ import (
 type contextKey string
 
 const UserContextKey contextKey = "user_id"
+const AuthContextKey contextKey = "authorization"
 
 // PartyType defines the type of party (Individual or Organization)
 type PartyType string
@@ -36,10 +37,13 @@ type Party struct {
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 
-	ContactMediums  []ContactMedium       `gorm:"foreignKey:PartyID" json:"contactMediums,omitempty"`
-	Identifications []Identification      `gorm:"foreignKey:PartyID" json:"identifications,omitempty"`
-	RelatedParties  []RelatedParty        `gorm:"foreignKey:PartyID" json:"relatedParties,omitempty"`
-	Characteristics []PartyCharacteristic `gorm:"foreignKey:PartyID" json:"characteristics,omitempty"`
+	ContactMediums     []ContactMedium       `gorm:"foreignKey:PartyID" json:"contactMediums,omitempty"`
+	Identifications    []Identification      `gorm:"foreignKey:PartyID" json:"identifications,omitempty"`
+	RelatedParties     []RelatedParty        `gorm:"foreignKey:PartyID" json:"relatedParties,omitempty"`
+	Characteristics    []PartyCharacteristic `gorm:"foreignKey:PartyID" json:"characteristics,omitempty"`
+	ExternalReferences []ExternalReference   `gorm:"foreignKey:PartyID" json:"externalReferences,omitempty"`
+	TaxExemptions      []TaxExemption        `gorm:"foreignKey:PartyID" json:"taxExemptions,omitempty"`
+	Attachments        []Attachment          `gorm:"foreignKey:OwnerID" json:"attachments,omitempty"`
 }
 
 func (Party) TableName() string {
@@ -91,6 +95,7 @@ type RelatedParty struct {
 	RelatedPartyID   string     `json:"relatedPartyId"`
 	RelatedPartyName string     `json:"relatedPartyName"`
 	Role             string     `json:"role"`
+	Permissions      []string   `gorm:"serializer:json" json:"permissions,omitempty"` // stored as JSON array in DB
 	ValidForStart    time.Time  `json:"validForStart,omitempty"`
 	ValidForEnd      *time.Time `json:"validForEnd,omitempty"`
 	CreatedAt        time.Time  `json:"createdAt"`
@@ -113,6 +118,63 @@ type PartyCharacteristic struct {
 
 func (PartyCharacteristic) TableName() string {
 	return "party_characteristics"
+}
+
+type ExternalReference struct {
+	ID                  string    `gorm:"primaryKey" json:"id"`
+	PartyID             string    `gorm:"not null;index" json:"partyId"`
+	ExternalSystemID    string    `gorm:"index:idx_ext_ref,priority:1" json:"externalSystemId"`
+	ExternalReferenceID string    `gorm:"index:idx_ext_ref,priority:2" json:"externalReferenceId"`
+	CreatedAt           time.Time `json:"createdAt"`
+	UpdatedAt           time.Time `json:"updatedAt"`
+}
+
+func (ExternalReference) TableName() string {
+	return "external_references"
+}
+
+type TaxExemption struct {
+	ID                  string     `gorm:"primaryKey" json:"id"`
+	PartyID             string     `gorm:"not null;index" json:"partyId"`
+	CertificateNumber   string     `json:"certificateNumber"`
+	IssuingJurisdiction string     `json:"issuingJurisdiction"`
+	ValidForStart       time.Time  `json:"validForStart,omitempty"`
+	ValidForEnd         *time.Time `json:"validForEnd,omitempty"`
+	CreatedAt           time.Time  `json:"createdAt"`
+	UpdatedAt           time.Time  `json:"updatedAt"`
+}
+
+func (TaxExemption) TableName() string {
+	return "party_tax_exemptions"
+}
+
+type Attachment struct {
+	ID             string    `gorm:"primaryKey" json:"id"`
+	OwnerID        string    `gorm:"not null;index" json:"ownerId"`
+	Name           string    `json:"name"`
+	MimeType       string    `json:"mimeType"`
+	AttachmentType string    `json:"attachmentType"`
+	RefType        string    `json:"refType"` // "Internal" or "S3"
+	RefID          string    `json:"refId"`   // UUID or URL
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+
+	// Helper field for transport, not persisted in 'party_attachments'
+	ContentData []byte `gorm:"-" json:"-"`
+}
+
+func (Attachment) TableName() string {
+	return "party_attachments"
+}
+
+type AttachmentContent struct {
+	ID        string    `gorm:"primaryKey" json:"id"`
+	Data      []byte    `gorm:"type:bytea" json:"-"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+func (AttachmentContent) TableName() string {
+	return "attachment_contents"
 }
 
 // Individual represents a natural person.

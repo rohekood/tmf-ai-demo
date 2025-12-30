@@ -43,7 +43,7 @@ func (m *ConnectionManager) Connect() error {
 
 	ch, err := conn.Channel()
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return fmt.Errorf("failed to open channel: %w", err)
 	}
 
@@ -106,7 +106,7 @@ func (m *ConnectionManager) Close() error {
 	m.closed = true
 	m.cancel()
 	if m.ch != nil {
-		m.ch.Close()
+		_ = m.ch.Close()
 	}
 	if m.conn != nil {
 		return m.conn.Close()

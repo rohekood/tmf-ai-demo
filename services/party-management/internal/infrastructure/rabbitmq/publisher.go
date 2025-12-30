@@ -36,7 +36,7 @@ func (p *Publisher) Publish(ctx context.Context, exchange, routingKey string, ev
 		headers["user"] = userID
 	}
 	// "authorization" string key matching what we set in handlers.go
-	if auth, ok := ctx.Value("authorization").(string); ok {
+	if auth, ok := ctx.Value(domain.AuthContextKey).(string); ok {
 		headers["Authorization"] = auth
 	}
 

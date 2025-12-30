@@ -140,9 +140,9 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	// Cleanup
-	sharedConn.Close()
-	pgInstance.Terminate(ctx)
-	rabbitInstance.Terminate(ctx)
+	_ = sharedConn.Close()
+	_ = pgInstance.Terminate(ctx)
+	_ = rabbitInstance.Terminate(ctx)
 
 	os.Exit(code)
 }
@@ -155,7 +155,7 @@ func setupTestSuite(t *testing.T) *IntegrationTestSuite {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		ch.Close()
+		_ = ch.Close()
 	})
 
 	// Create a unique event queue for this test
@@ -203,14 +203,12 @@ func (s *IntegrationTestSuite) waitForEvent(t *testing.T, timeout time.Duration)
 func TestIntegration_CreateIndividual(t *testing.T) {
 	suite := setupTestSuite(t)
 
-	payload := CreatePartyPayload{
-		Type: "Individual",
-		Individual: &CreateIndividualPayload{
-			ID:         "int-ind-1",
-			GivenName:  "Integration",
-			FamilyName: "Test",
-			Href:       "http://example.com/int-ind-1",
-		},
+	payload := map[string]interface{}{
+		"@type":      "Individual",
+		"id":         "int-ind-1",
+		"givenName":  "Integration",
+		"familyName": "Test",
+		"href":       "http://example.com/int-ind-1",
 	}
 	body, _ := json.Marshal(payload)
 
@@ -237,14 +235,12 @@ func TestIntegration_CreateIndividual(t *testing.T) {
 func TestIntegration_CreateOrganization(t *testing.T) {
 	suite := setupTestSuite(t)
 
-	payload := CreatePartyPayload{
-		Type: "Organization",
-		Organization: &CreateOrganizationPayload{
-			ID:            "int-org-1",
-			TradingName:   "IntegrationCorp",
-			IsLegalEntity: true,
-			Href:          "http://example.com/int-org-1",
-		},
+	payload := map[string]interface{}{
+		"@type":         "Organization",
+		"id":            "int-org-1",
+		"tradingName":   "IntegrationCorp",
+		"isLegalEntity": true,
+		"href":          "http://example.com/int-org-1",
 	}
 	body, _ := json.Marshal(payload)
 
@@ -281,15 +277,12 @@ func TestIntegration_UpdateIndividual(t *testing.T) {
 	require.NoError(t, suite.Repo.CreateIndividual(context.Background(), ind))
 
 	// Update via handler
-	payload := UpdatePartyPayload{
-		ID:     "int-upd-ind-1",
-		Type:   "Individual",
-		Status: "Active",
-		Individual: &CreateIndividualPayload{
-			ID:         "int-upd-ind-1",
-			GivenName:  "Updated",
-			FamilyName: "Person",
-		},
+	payload := map[string]interface{}{
+		"id":         "int-upd-ind-1",
+		"@type":      "Individual",
+		"status":     "Active",
+		"givenName":  "Updated",
+		"familyName": "Person",
 	}
 	body, _ := json.Marshal(payload)
 
@@ -719,14 +712,13 @@ func TestListener_Routing(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Publish Command to Exchange
-	payload := CreatePartyPayload{
-		Type: "Individual",
-		Individual: &CreateIndividualPayload{
-			ID:         "route-ind-1",
-			GivenName:  "Routed",
-			FamilyName: "User",
-			Href:       "http://example.com/route-ind-1",
-		},
+	// Fix: Use flat map for TMF polymorphism
+	payload := map[string]interface{}{
+		"@type":      "Individual",
+		"id":         "route-ind-1",
+		"givenName":  "Routed",
+		"familyName": "User",
+		"href":       "http://example.com/route-ind-1",
 	}
 	body, _ := json.Marshal(payload)
 
@@ -758,7 +750,7 @@ func TestIntegration_HeaderPropagation(t *testing.T) {
 	// Setup: Mock Exchange/Queue to catch published event
 	ch, err := suite.Conn.Channel()
 	require.NoError(t, err)
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 
 	q, err := ch.QueueDeclare("", false, true, true, false, nil)
 	require.NoError(t, err)
@@ -831,7 +823,7 @@ func TestIntegration_DeleteParty_Idempotency(t *testing.T) {
 	// Setup: Reply Queue
 	ch, err := suite.Conn.Channel()
 	require.NoError(t, err)
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 
 	replyQ, err := ch.QueueDeclare("", false, true, true, false, nil)
 	require.NoError(t, err)
@@ -855,7 +847,7 @@ func TestIntegration_DeleteParty_Idempotency(t *testing.T) {
 	case msg := <-msgs:
 		assert.Equal(t, "corr-idemp-1", msg.CorrelationId)
 		var resp map[string]string
-		json.Unmarshal(msg.Body, &resp)
+		_ = json.Unmarshal(msg.Body, &resp)
 		assert.Equal(t, "deletion_initiated", resp["status"])
 	case <-time.After(2 * time.Second):
 		t.Fatal("Timeout waiting for reply")

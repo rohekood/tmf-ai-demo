@@ -45,7 +45,7 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 	if err != nil {
 		return fmt.Errorf("failed to open channel: %w", err)
 	}
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 
 	// Declare DLX and DLQ
 	err = ch.ExchangeDeclare(DeadLetterExchange, "fanout", true, false, false, false, nil)
@@ -60,7 +60,7 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 
 	err = ch.QueueBind(DeadLetterQueue, "", DeadLetterExchange, false, nil)
 	if err != nil {
-		// Ignore bind error
+		slog.Warn("failed to bind DLQ to DLX (ignoring)", "error", err)
 	}
 
 	// Declare exchange
@@ -175,9 +175,13 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 
 				if err != nil {
 					slog.Error("failed to handle event", "routingKey", d.RoutingKey, "error", err)
-					d.Nack(false, false)
+					if ackErr := d.Nack(false, false); ackErr != nil {
+						slog.Error("failed to nack message", "error", ackErr)
+					}
 				} else {
-					d.Ack(false)
+					if ackErr := d.Ack(false); ackErr != nil {
+						slog.Error("failed to ack message", "error", ackErr)
+					}
 				}
 			}(d)
 		case d := <-msgs:
@@ -186,7 +190,9 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 				targetHandler, valid := l.GetHandler(d.RoutingKey, h)
 				if !valid {
 					slog.Warn("unknown routing key", "routing_key", d.RoutingKey)
-					d.Nack(false, false)
+					if ackErr := d.Nack(false, false); ackErr != nil {
+						slog.Error("failed to nack message", "error", ackErr)
+					}
 					return
 				}
 
@@ -219,12 +225,18 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 							slog.Error("failed to publish error response", "error", pubErr)
 						}
 
-						d.Ack(false) // Ack because we handled it by reporting error
+						if ackErr := d.Ack(false); ackErr != nil {
+							slog.Error("failed to ack message (error reported)", "error", ackErr)
+						}
 					} else {
-						d.Nack(false, false) // Don't requeue, send to DLX
+						if ackErr := d.Nack(false, false); ackErr != nil {
+							slog.Error("failed to nack message (dlx)", "error", ackErr)
+						}
 					}
 				} else {
-					d.Ack(false)
+					if ackErr := d.Ack(false); ackErr != nil {
+						slog.Error("failed to ack message", "error", ackErr)
+					}
 				}
 			}(d)
 		}

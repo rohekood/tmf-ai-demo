@@ -34,7 +34,13 @@ func (r *CustomerRepository) GetCustomer(ctx context.Context, id string) (*domai
 		Preload("ContactMediums").
 		Preload("Characteristics").
 		Preload("TaxExemptions").
+		Preload("TaxExemptions").
 		Preload("PrivacyConsents").
+		Preload("RelatedParties").
+		Preload("PaymentMethods").
+		Preload("MarketSegments").
+		Preload("CustomerInteractions").
+		Preload("AppliedBillingRates").
 		First(&customer, "id = ?", id).Error
 
 	if err != nil {
@@ -105,6 +111,42 @@ func (r *CustomerRepository) PatchCustomer(ctx context.Context, id string, updat
 			}
 			delete(updates, "credit_profiles")
 		}
+		if related, ok := updates["related_parties"]; ok {
+			if err := tx.Delete(&domain.RelatedParty{}, "customer_id = ?", id).Error; err != nil {
+				return fmt.Errorf("failed to delete old related parties: %w", err)
+			}
+			if err := tx.Model(&domain.Customer{ID: id}).Association("RelatedParties").Replace(related); err != nil {
+				return fmt.Errorf("failed to replace related parties: %w", err)
+			}
+			delete(updates, "related_parties")
+		}
+		if payments, ok := updates["payment_methods"]; ok {
+			if err := tx.Delete(&domain.PaymentMethod{}, "customer_id = ?", id).Error; err != nil {
+				return fmt.Errorf("failed to delete old payment methods: %w", err)
+			}
+			if err := tx.Model(&domain.Customer{ID: id}).Association("PaymentMethods").Replace(payments); err != nil {
+				return fmt.Errorf("failed to replace payment methods: %w", err)
+			}
+			delete(updates, "payment_methods")
+		}
+		if segments, ok := updates["market_segments"]; ok {
+			if err := tx.Delete(&domain.MarketSegment{}, "customer_id = ?", id).Error; err != nil {
+				return fmt.Errorf("failed to delete old market segments: %w", err)
+			}
+			if err := tx.Model(&domain.Customer{ID: id}).Association("MarketSegments").Replace(segments); err != nil {
+				return fmt.Errorf("failed to replace market segments: %w", err)
+			}
+			delete(updates, "market_segments")
+		}
+		if rates, ok := updates["applied_billing_rates"]; ok {
+			if err := tx.Delete(&domain.AppliedBillingRate{}, "customer_id = ?", id).Error; err != nil {
+				return fmt.Errorf("failed to delete old billing rates: %w", err)
+			}
+			if err := tx.Model(&domain.Customer{ID: id}).Association("AppliedBillingRates").Replace(rates); err != nil {
+				return fmt.Errorf("failed to replace billing rates: %w", err)
+			}
+			delete(updates, "applied_billing_rates")
+		}
 
 		// Update scalar fields if any remain
 		if len(updates) > 0 {
@@ -159,6 +201,15 @@ func (r *CustomerRepository) SearchCustomers(ctx context.Context, criteria map[s
 
 	err := query.Find(&customers).Error
 	return customers, err
+}
+
+func (r *CustomerRepository) AddInteraction(ctx context.Context, interaction *domain.CustomerInteraction) error {
+	return r.withUser(ctx, func(tx *gorm.DB) error {
+		if err := tx.Create(interaction).Error; err != nil {
+			return fmt.Errorf("failed to add interaction: %w", err)
+		}
+		return nil
+	})
 }
 
 // Helpers
@@ -253,6 +304,58 @@ func (r *CustomerRepository) updateSubResources(tx *gorm.DB, customerID string, 
 			c.PrivacyConsents[i].CustomerID = customerID
 		}
 		if err := tx.Create(&c.PrivacyConsents).Error; err != nil {
+			return err
+		}
+	}
+
+	// 7. RelatedParties
+	if err := tx.Delete(&domain.RelatedParty{}, "customer_id = ?", customerID).Error; err != nil {
+		return err
+	}
+	if len(c.RelatedParties) > 0 {
+		for i := range c.RelatedParties {
+			c.RelatedParties[i].CustomerID = customerID
+		}
+		if err := tx.Create(&c.RelatedParties).Error; err != nil {
+			return err
+		}
+	}
+
+	// 8. PaymentMethods
+	if err := tx.Delete(&domain.PaymentMethod{}, "customer_id = ?", customerID).Error; err != nil {
+		return err
+	}
+	if len(c.PaymentMethods) > 0 {
+		for i := range c.PaymentMethods {
+			c.PaymentMethods[i].CustomerID = customerID
+		}
+		if err := tx.Create(&c.PaymentMethods).Error; err != nil {
+			return err
+		}
+	}
+
+	// 9. MarketSegments
+	if err := tx.Delete(&domain.MarketSegment{}, "customer_id = ?", customerID).Error; err != nil {
+		return err
+	}
+	if len(c.MarketSegments) > 0 {
+		for i := range c.MarketSegments {
+			c.MarketSegments[i].CustomerID = customerID
+		}
+		if err := tx.Create(&c.MarketSegments).Error; err != nil {
+			return err
+		}
+	}
+
+	// 10. AppliedBillingRates
+	if err := tx.Delete(&domain.AppliedBillingRate{}, "customer_id = ?", customerID).Error; err != nil {
+		return err
+	}
+	if len(c.AppliedBillingRates) > 0 {
+		for i := range c.AppliedBillingRates {
+			c.AppliedBillingRates[i].CustomerID = customerID
+		}
+		if err := tx.Create(&c.AppliedBillingRates).Error; err != nil {
 			return err
 		}
 	}

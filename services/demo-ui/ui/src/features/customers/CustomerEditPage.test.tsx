@@ -48,7 +48,7 @@ describe('CustomerEditPage', () => {
         vi.mocked(partyApi.useParties).mockReturnValue({
             data: [],
             isLoading: false
-        } as any);
+        } as unknown as ReturnType<typeof partyApi.useParties>);
     });
 
     it('updates customer party without sending redundant fields', async () => {
@@ -60,7 +60,7 @@ describe('CustomerEditPage', () => {
                 { id: 'p2', '@type': 'Individual', givenName: 'New', familyName: 'Party', status: 'active', identifications: [] }
             ],
             isLoading: false
-        } as any);
+        } as unknown as ReturnType<typeof partyApi.useParties>);
 
         render(
             <MemoryRouter initialEntries={['/customers/123/edit']}>

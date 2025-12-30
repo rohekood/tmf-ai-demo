@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect } from 'vitest';
-import { NotificationProvider, useNotification } from './Toast';
+import { useNotification } from './Toast';
+import { NotificationProvider } from './ToastProvider';
 
 const TestComponent = () => {
     const { showToast } = useNotification();
