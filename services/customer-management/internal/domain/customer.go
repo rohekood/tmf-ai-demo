@@ -44,7 +44,6 @@ type Customer struct {
 	PaymentMethods       []PaymentMethod          `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"paymentMethods,omitempty"`
 	MarketSegments       []MarketSegment          `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"marketSegments,omitempty"`
 	CustomerInteractions []CustomerInteraction    `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"customerInteractions,omitempty"`
-	AppliedBillingRates  []AppliedBillingRate     `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"appliedBillingRates,omitempty"`
 }
 
 func (Customer) TableName() string {
@@ -292,27 +291,6 @@ func (CustomerInteraction) TableName() string {
 func (c *CustomerInteraction) BeforeCreate(tx *gorm.DB) error {
 	if c.ID == "" {
 		c.ID = uuid.New().String()
-	}
-	return nil
-}
-
-type AppliedBillingRate struct {
-	ID            string     `gorm:"primaryKey" json:"id"`
-	CustomerID    string     `gorm:"not null;index" json:"customerId"`
-	ProductRef    string     `json:"productRef"`
-	RateType      string     `json:"rateType"`
-	Value         float64    `json:"value"`
-	ValidForStart time.Time  `json:"validForStart"`
-	ValidForEnd   *time.Time `json:"validForEnd,omitempty"`
-}
-
-func (AppliedBillingRate) TableName() string {
-	return "applied_billing_rates"
-}
-
-func (a *AppliedBillingRate) BeforeCreate(tx *gorm.DB) error {
-	if a.ID == "" {
-		a.ID = uuid.New().String()
 	}
 	return nil
 }

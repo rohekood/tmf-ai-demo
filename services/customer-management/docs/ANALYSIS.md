@@ -62,6 +62,9 @@ This section details the technical specifications required to close the gaps bet
 **Use Case**:
 Support for B2B hierarchies (Parent/Child companies) and delegated authority (e.g., "Authorized User" on an account). This allows a single "Parent" customer to view and manage billing for multiple "Child" customers.
 
+**Status**: ✅ Backend Implemented | ⚠️ UI Partial (Onboarding Only)
+
+
 **Technical Specification**:
 
 #### 1. Database Schema
@@ -114,6 +117,9 @@ RelatedParties []RelatedPartyDTO `json:"relatedParties"`
 **Use Case**:
 Enable customers to store and manage payment instruments (Credit Cards, Direct Debit) for recurring billing. **Crucial**: We do NOT store sensitive PAN data. We store tokens returned by a Payment Gateway.
 
+**Status**: ✅ Backend Implemented | ⚠️ UI Partial (Onboarding Only)
+
+
 **Technical Specification**:
 
 #### 1. Database Schema
@@ -162,6 +168,9 @@ type AddPaymentMethodPayload struct {
 **Use Case**:
 Allow granular control over how a customer is billed. This includes the format of the bill (PDF/Email) and the cycle (e.g., 1st of month vs 15th).
 
+**Status**: ✅ Backend Implemented | ✅ UI Implemented (Onboarding & Edit via Accounts)
+
+
 **Technical Specification**:
 
 #### 1. Database Schema
@@ -191,6 +200,9 @@ Ensure these fields are validated against a strict Enum list in `handlers.go` be
 
 **Use Case**:
 Categorize customers for marketing and reporting (e.g., "SME", "Enterprise", "Residential"). This is often a derived field or manually assigned by Sales.
+
+**Status**: ✅ Backend Implemented | ⚠️ UI Partial (Onboarding Only)
+
 
 **Technical Specification**:
 
@@ -223,6 +235,9 @@ Add `MarketSegments` array to `OnboardCustomerPayload`.
 
 **Use Case**:
 Log every interaction (Call, Email, Ticket) to provide a history.
+
+**Status**: ❌ Pending Implementation
+
 
 **Technical Specification**:
 
@@ -259,27 +274,4 @@ type CustomerInteraction struct {
 New Command: `cmd.customer.interaction.log`
 Routing Key: `customer.interaction.log`
 
-### 6.6 Applied Billing Rates (Custom Pricing)
 
-**Use Case**:
-Apply specific price overrides for a customer/product combination (e.g., "50% off SMS for Customer X").
-
-**Technical Specification**:
-
-#### 1. Database Schema
-```sql
-CREATE TABLE applied_billing_rates (
-    id UUID PRIMARY KEY,
-    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-    product_ref VARCHAR(100) NOT NULL, -- SKU or Product ID this applies to
-    rate_type VARCHAR(50) NOT NULL,    -- "DiscountAbsolute", "DiscountPercentage", "Override"
-    value DECIMAL(10, 2) NOT NULL,     -- The numeric value (e.g., 50.00 for 50%, or 0.05 for 5 cents)
-    valid_for_start TIMESTAMP NOT NULL,
-    valid_for_end TIMESTAMP
-);
-```
-
-#### 2. Integration
-This table must be queried by the **Rating/Billing Service**.
-*   **Approach A**: Billing Service calls `query.customer.get` and sees this list.
-*   **Approach B (Recommended)**: When a rate is created here, publish `evt.customer.billingRate.created`. The Billing Service subscribes and caches this override locally to avoid runtime dependency.
