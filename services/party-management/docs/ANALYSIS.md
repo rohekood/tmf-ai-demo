@@ -93,7 +93,7 @@ This section details the gaps between the current implementation and the TMF632 
 
 #### 8.1.1 External References
 *   **Context**: Use Case 7 mentions linking to external systems (Legacy CRM, Identity Providers), but the domain model currently lacks this capability.
-*   **Status**: ✅ Backend Implemented | ❌ UI Not Implemented
+*   **Status**: ✅ Backend Implemented | ⚠️ UI Partial (Display Only)
 
 *   **Use Case**:
     *   **Legacy Data Import**: An acquired ISP has customers with IDs like `LEGACY_001`. Support agents need to search by this old ID to find the new UUID-based record.
@@ -113,7 +113,7 @@ This section details the gaps between the current implementation and the TMF632 
 
 #### 8.1.2 Tax Exemptions (Party Level)
 *   **Context**: Use Case 6 identifies Tax Exemption as a requirement. Currently, this exists only in the **Customer** service, which is structurally incorrect for TMF alignment.
-*   **Status**: ✅ Backend Implemented | ❌ UI Not Implemented
+*   **Status**: ✅ Backend Implemented | ✅ UI Implemented
 
 *   **Use Case**:
     *   **Charitable Organization**: A registered non-profit is VAT-exempt for *all* purchases and services. This is a property of the *Organization*, not just a specific customer account.
@@ -135,7 +135,7 @@ This section details the gaps between the current implementation and the TMF632 
 
 #### 8.2.1 Identification Attachments (Files)
 *   **Context**: TMF632 includes an `Attachment` resource. Currently, we only store metadata (ID numbers).
-*   **Status**: ✅ Backend Implemented | ❌ UI Not Implemented
+*   **Status**: ✅ Backend Implemented | ⚠️ UI Partial (Display Only)
 
 *   **Use Case**:
     *   **KYC Compliance**: Exploring a prepaid SIM requires uploading a scan of a Passport.
@@ -157,7 +157,7 @@ This section details the gaps between the current implementation and the TMF632 
 
 #### 8.2.2 Granular Party Roles
 *   **Context**: The current `RelatedParty` is a simple link. TMF suggests a more robust `PartyRole` pattern.
-*   **Status**: ✅ Backend Implemented | ❌ UI Not Implemented (`permissions` field missing in UI)
+*   **Status**: ✅ Backend Implemented | ⚠️ UI Partial (Display Only)
 
 *   **Use Case**:
     *   **B2B Permissions**: An Employee (Individual) is related to their Company (Organization). We need to know if they are a "Billing Admin" (can pay bills) or a "Technical Contact" (can only open tickets).

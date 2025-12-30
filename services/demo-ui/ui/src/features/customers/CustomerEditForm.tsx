@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useUpdateCustomer } from './api';
-import type { Customer, CustomerStatus, TaxExemption, PrivacyConsent, CreditProfile, CustomerAccount } from './types';
+import type { Customer, CustomerStatus, PrivacyConsent, CreditProfile, CustomerAccount } from './types';
 import type { PartyUnion as Party } from '../parties/types';
 import PartySelector from '../parties/PartySelector';
 import { getPartyDisplayName } from '../parties/types';
@@ -18,7 +18,7 @@ export default function CustomerEditForm({ customer }: CustomerEditFormProps) {
 
     const [status, setStatus] = useState<CustomerStatus>(customer.status);
     const [name, setName] = useState(customer.name);
-    const [taxExemptions, setTaxExemptions] = useState<Partial<TaxExemption>[]>(customer.taxExemptions || []);
+
     const [privacyConsents, setPrivacyConsents] = useState<Partial<PrivacyConsent>[]>(customer.privacyConsents || []);
 
     // Party Selection State
@@ -46,7 +46,7 @@ export default function CustomerEditForm({ customer }: CustomerEditFormProps) {
                 name,
                 partyId: partyId !== customer.partyId ? partyId : undefined,
 
-                taxExemptions: taxExemptions as TaxExemption[],
+
                 privacyConsents: privacyConsents as PrivacyConsent[],
                 accounts: accounts as CustomerAccount[],
                 creditProfiles: creditProfile ? [creditProfile as CreditProfile] : [],
@@ -57,16 +57,7 @@ export default function CustomerEditForm({ customer }: CustomerEditFormProps) {
         }
     };
 
-    const addTaxExemption = () => {
-        setTaxExemptions((prev) => [
-            ...prev,
-            { certificateNumber: '', issuingJurisdiction: '' },
-        ]);
-    };
 
-    const removeTaxExemption = (index: number) => {
-        setTaxExemptions((prev) => prev.filter((_, i) => i !== index));
-    };
 
     const addPrivacyConsent = () => {
         setPrivacyConsents((prev) => [
@@ -328,66 +319,7 @@ export default function CustomerEditForm({ customer }: CustomerEditFormProps) {
                     )}
                 </div>
 
-                {/* Tax Exemptions */}
-                <div className="card form-section">
-                    <div className="section-header">
-                        <h3>Tax Exemptions</h3>
-                        <button type="button" className="btn btn-secondary btn-sm" onClick={addTaxExemption}>
-                            <Plus size={16} />
-                            <span>Add Exemption</span>
-                        </button>
-                    </div>
 
-                    {taxExemptions.length === 0 ? (
-                        <p className="empty-text">No tax exemptions</p>
-                    ) : (
-                        <div className="repeatable-list">
-                            {taxExemptions.map((exemption, index) => (
-                                <div key={index} className="repeatable-item">
-                                    <div className="form-grid">
-                                        <div className="form-group">
-                                            <label htmlFor={`tax-cert-${index}`}>Certificate Number</label>
-                                            <input
-                                                id={`tax-cert-${index}`}
-                                                type="text"
-                                                value={exemption.certificateNumber || ''}
-                                                onChange={(e) => {
-                                                    const updated = [...taxExemptions];
-                                                    updated[index] = { ...updated[index], certificateNumber: e.target.value };
-                                                    setTaxExemptions(updated);
-                                                }}
-                                                placeholder="Certificate #"
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <label htmlFor={`tax-jur-${index}`}>Jurisdiction</label>
-                                            <input
-                                                id={`tax-jur-${index}`}
-                                                type="text"
-                                                value={exemption.issuingJurisdiction || ''}
-                                                onChange={(e) => {
-                                                    const updated = [...taxExemptions];
-                                                    updated[index] = { ...updated[index], issuingJurisdiction: e.target.value };
-                                                    setTaxExemptions(updated);
-                                                }}
-                                                placeholder="e.g., US-CA"
-                                            />
-                                        </div>
-                                        <div className="form-group form-group--action">
-                                            <button
-                                                type="button"
-                                                className="btn-icon btn-icon--danger"
-                                                onClick={() => removeTaxExemption(index)}
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
 
                 {/* Privacy Consents */}
                 <div className="card form-section">

@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useParty, useCreateParty, useUpdateParty } from './api';
-import type { PartyType, CreatePartyPayload, UpdatePartyPayload, ContactMedium, Identification, TaxExemption } from './types';
+import type { PartyType, CreatePartyPayload, UpdatePartyPayload, ContactMedium, Identification, TaxExemption, ExternalReference, Attachment, RelatedParty } from './types';
+import PartySelector from './PartySelector';
 import './PartyFormPage.css';
 
 interface FormState {
@@ -21,6 +22,9 @@ interface FormState {
     contactMediums: Partial<ContactMedium>[];
     identifications: Partial<Identification>[];
     taxExemptions: Partial<TaxExemption>[];
+    externalReferences: Partial<ExternalReference>[];
+    attachments: Partial<Attachment>[];
+    relatedParties: Partial<RelatedParty>[];
 }
 
 const initialState: FormState = {
@@ -36,6 +40,9 @@ const initialState: FormState = {
     contactMediums: [],
     identifications: [],
     taxExemptions: [],
+    externalReferences: [],
+    attachments: [],
+    relatedParties: [],
 };
 
 export default function PartyFormPage() {
@@ -62,6 +69,9 @@ export default function PartyFormPage() {
                 contactMediums: existingParty.contactMediums || [],
                 identifications: existingParty.identifications || [],
                 taxExemptions: existingParty.taxExemptions || [],
+                externalReferences: existingParty.externalReferences || [],
+                attachments: existingParty.attachments || [],
+                relatedParties: existingParty.relatedParties || [],
             };
         }
         return initialState;
@@ -83,6 +93,9 @@ export default function PartyFormPage() {
                 contactMediums: existingParty.contactMediums || [],
                 identifications: existingParty.identifications || [],
                 taxExemptions: existingParty.taxExemptions || [],
+                externalReferences: existingParty.externalReferences || [],
+                attachments: existingParty.attachments || [],
+                relatedParties: existingParty.relatedParties || [],
             });
         }
     }, [existingParty]);
@@ -104,6 +117,9 @@ export default function PartyFormPage() {
                         contactMediums: form.contactMediums.length > 0 ? form.contactMediums as Omit<ContactMedium, 'id'>[] : undefined,
                         identifications: form.identifications.length > 0 ? form.identifications as Omit<Identification, 'id'>[] : undefined,
                         taxExemptions: form.taxExemptions.length > 0 ? form.taxExemptions as Omit<TaxExemption, 'id'>[] : undefined,
+                        externalReferences: form.externalReferences.length > 0 ? form.externalReferences as Omit<ExternalReference, 'id' | 'partyId'>[] : undefined,
+                        attachments: form.attachments.length > 0 ? form.attachments as Omit<Attachment, 'id' | 'ownerId'>[] : undefined,
+                        relatedParties: form.relatedParties.length > 0 ? form.relatedParties as Omit<RelatedParty, 'id'>[] : undefined,
                     }
                     : {
                         id,
@@ -114,6 +130,9 @@ export default function PartyFormPage() {
                         contactMediums: form.contactMediums.length > 0 ? form.contactMediums as Omit<ContactMedium, 'id'>[] : undefined,
                         identifications: form.identifications.length > 0 ? form.identifications as Omit<Identification, 'id'>[] : undefined,
                         taxExemptions: form.taxExemptions.length > 0 ? form.taxExemptions as Omit<TaxExemption, 'id'>[] : undefined,
+                        externalReferences: form.externalReferences.length > 0 ? form.externalReferences as Omit<ExternalReference, 'id' | 'partyId'>[] : undefined,
+                        attachments: form.attachments.length > 0 ? form.attachments as Omit<Attachment, 'id' | 'ownerId'>[] : undefined,
+                        relatedParties: form.relatedParties.length > 0 ? form.relatedParties as Omit<RelatedParty, 'id'>[] : undefined,
                     };
                 await updateMutation.mutateAsync(payload);
             } else {
@@ -128,6 +147,9 @@ export default function PartyFormPage() {
                         contactMediums: form.contactMediums.length > 0 ? form.contactMediums as Omit<ContactMedium, 'id'>[] : undefined,
                         identifications: form.identifications.length > 0 ? form.identifications as Omit<Identification, 'id'>[] : undefined,
                         taxExemptions: form.taxExemptions.length > 0 ? form.taxExemptions as Omit<TaxExemption, 'id'>[] : undefined,
+                        externalReferences: form.externalReferences.length > 0 ? form.externalReferences as Omit<ExternalReference, 'id' | 'partyId'>[] : undefined,
+                        attachments: form.attachments.length > 0 ? form.attachments as Omit<Attachment, 'id' | 'ownerId'>[] : undefined,
+                        relatedParties: form.relatedParties.length > 0 ? form.relatedParties as Omit<RelatedParty, 'id'>[] : undefined,
                     }
                     : {
                         '@type': 'Organization',
@@ -137,6 +159,9 @@ export default function PartyFormPage() {
                         contactMediums: form.contactMediums.length > 0 ? form.contactMediums as Omit<ContactMedium, 'id'>[] : undefined,
                         identifications: form.identifications.length > 0 ? form.identifications as Omit<Identification, 'id'>[] : undefined,
                         taxExemptions: form.taxExemptions.length > 0 ? form.taxExemptions as Omit<TaxExemption, 'id'>[] : undefined,
+                        externalReferences: form.externalReferences.length > 0 ? form.externalReferences as Omit<ExternalReference, 'id' | 'partyId'>[] : undefined,
+                        attachments: form.attachments.length > 0 ? form.attachments as Omit<Attachment, 'id' | 'ownerId'>[] : undefined,
+                        relatedParties: form.relatedParties.length > 0 ? form.relatedParties as Omit<RelatedParty, 'id'>[] : undefined,
                     };
                 await createMutation.mutateAsync(payload);
             }
@@ -189,6 +214,48 @@ export default function PartyFormPage() {
         setForm((prev) => ({
             ...prev,
             taxExemptions: prev.taxExemptions.filter((_, i) => i !== index),
+        }));
+    };
+
+    const addExternalReference = () => {
+        setForm((prev) => ({
+            ...prev,
+            externalReferences: [...prev.externalReferences, { externalSystemId: '', externalReference: '' }],
+        }));
+    };
+
+    const removeExternalReference = (index: number) => {
+        setForm((prev) => ({
+            ...prev,
+            externalReferences: prev.externalReferences.filter((_, i) => i !== index),
+        }));
+    };
+
+    const addAttachment = () => {
+        setForm((prev) => ({
+            ...prev,
+            attachments: [...prev.attachments, { name: '', mimeType: '', url: '', type: 'Document' }],
+        }));
+    };
+
+    const removeAttachment = (index: number) => {
+        setForm((prev) => ({
+            ...prev,
+            attachments: prev.attachments.filter((_, i) => i !== index),
+        }));
+    };
+
+    const addRelatedParty = () => {
+        setForm((prev) => ({
+            ...prev,
+            relatedParties: [...prev.relatedParties, { role: '', relatedPartyId: '', permissions: [] }],
+        }));
+    };
+
+    const removeRelatedParty = (index: number) => {
+        setForm((prev) => ({
+            ...prev,
+            relatedParties: prev.relatedParties.filter((_, i) => i !== index),
         }));
     };
 
@@ -541,6 +608,212 @@ export default function PartyFormPage() {
                                                 type="button"
                                                 className="btn-icon btn-icon--danger"
                                                 onClick={() => removeTaxExemption(index)}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* External References */}
+                <div className="card form-section">
+                    <div className="section-header">
+                        <h3>External References</h3>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={addExternalReference}>
+                            <Plus size={16} />
+                            <span>Add Reference</span>
+                        </button>
+                    </div>
+
+                    {form.externalReferences.length === 0 ? (
+                        <p className="empty-text">No external references added</p>
+                    ) : (
+                        <div className="repeatable-list">
+                            {form.externalReferences.map((ref, index) => (
+                                <div key={index} className="repeatable-item">
+                                    <div className="form-grid">
+                                        <div className="form-group">
+                                            <label>System ID</label>
+                                            <input
+                                                type="text"
+                                                value={ref.externalSystemId || ''}
+                                                onChange={(e) => {
+                                                    const newRefs = [...form.externalReferences];
+                                                    newRefs[index] = { ...newRefs[index], externalSystemId: e.target.value };
+                                                    setForm((prev) => ({ ...prev, externalReferences: newRefs }));
+                                                }}
+                                                placeholder="e.g. LegacyCRM"
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Reference ID</label>
+                                            <input
+                                                type="text"
+                                                value={ref.externalReference || ''}
+                                                onChange={(e) => {
+                                                    const newRefs = [...form.externalReferences];
+                                                    newRefs[index] = { ...newRefs[index], externalReference: e.target.value };
+                                                    setForm((prev) => ({ ...prev, externalReferences: newRefs }));
+                                                }}
+                                                placeholder="e.g. CUST-123"
+                                            />
+                                        </div>
+                                        <div className="form-group form-group--action">
+                                            <button
+                                                type="button"
+                                                className="btn-icon btn-icon--danger"
+                                                onClick={() => removeExternalReference(index)}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Attachments */}
+                <div className="card form-section">
+                    <div className="section-header">
+                        <h3>Attachments</h3>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={addAttachment}>
+                            <Plus size={16} />
+                            <span>Add Attachment</span>
+                        </button>
+                    </div>
+
+                    {form.attachments.length === 0 ? (
+                        <p className="empty-text">No attachments added</p>
+                    ) : (
+                        <div className="repeatable-list">
+                            {form.attachments.map((att, index) => (
+                                <div key={index} className="repeatable-item">
+                                    <div className="form-grid">
+                                        <div className="form-group">
+                                            <label>Name</label>
+                                            <input
+                                                type="text"
+                                                value={att.name || ''}
+                                                onChange={(e) => {
+                                                    const newAtts = [...form.attachments];
+                                                    newAtts[index] = { ...newAtts[index], name: e.target.value };
+                                                    setForm((prev) => ({ ...prev, attachments: newAtts }));
+                                                }}
+                                                placeholder="Document Name"
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>URL</label>
+                                            <input
+                                                type="text"
+                                                value={att.url || ''}
+                                                onChange={(e) => {
+                                                    const newAtts = [...form.attachments];
+                                                    newAtts[index] = { ...newAtts[index], url: e.target.value };
+                                                    setForm((prev) => ({ ...prev, attachments: newAtts }));
+                                                }}
+                                                placeholder="https://..."
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Mime Type</label>
+                                            <input
+                                                type="text"
+                                                value={att.mimeType || ''}
+                                                onChange={(e) => {
+                                                    const newAtts = [...form.attachments];
+                                                    newAtts[index] = { ...newAtts[index], mimeType: e.target.value };
+                                                    setForm((prev) => ({ ...prev, attachments: newAtts }));
+                                                }}
+                                                placeholder="application/pdf"
+                                            />
+                                        </div>
+                                        <div className="form-group form-group--action">
+                                            <button
+                                                type="button"
+                                                className="btn-icon btn-icon--danger"
+                                                onClick={() => removeAttachment(index)}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Related Parties */}
+                <div className="card form-section">
+                    <div className="section-header">
+                        <h3>Related Parties</h3>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={addRelatedParty}>
+                            <Plus size={16} />
+                            <span>Add Relationship</span>
+                        </button>
+                    </div>
+
+                    {form.relatedParties.length === 0 ? (
+                        <p className="empty-text">No related parties added</p>
+                    ) : (
+                        <div className="repeatable-list">
+                            {form.relatedParties.map((rel, index) => (
+                                <div key={index} className="repeatable-item">
+                                    <div className="form-grid">
+                                        <div className="form-group">
+                                            <label>Party</label>
+                                            <PartySelector
+                                                onSelect={(party) => {
+                                                    const newRels = [...form.relatedParties];
+                                                    newRels[index] = {
+                                                        ...newRels[index],
+                                                        relatedPartyId: party.id,
+                                                        // Optionally set name here if backend preserved it, but ID is critical
+                                                    };
+                                                    setForm((prev) => ({ ...prev, relatedParties: newRels }));
+                                                }}
+                                            />
+                                            {rel.relatedPartyId && <div className="selected-value">Selected ID: {rel.relatedPartyId}</div>}
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Role</label>
+                                            <input
+                                                type="text"
+                                                value={rel.role || ''}
+                                                onChange={(e) => {
+                                                    const newRels = [...form.relatedParties];
+                                                    newRels[index] = { ...newRels[index], role: e.target.value };
+                                                    setForm((prev) => ({ ...prev, relatedParties: newRels }));
+                                                }}
+                                                placeholder="e.g. Employee, Next of Kin"
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Permissions (comma separated)</label>
+                                            <input
+                                                type="text"
+                                                value={rel.permissions?.join(', ') || ''}
+                                                onChange={(e) => {
+                                                    const newRels = [...form.relatedParties];
+                                                    const perms = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                                                    newRels[index] = { ...newRels[index], permissions: perms };
+                                                    setForm((prev) => ({ ...prev, relatedParties: newRels }));
+                                                }}
+                                                placeholder="read, write"
+                                            />
+                                        </div>
+                                        <div className="form-group form-group--action">
+                                            <button
+                                                type="button"
+                                                className="btn-icon btn-icon--danger"
+                                                onClick={() => removeRelatedParty(index)}
                                             >
                                                 <Trash2 size={16} />
                                             </button>

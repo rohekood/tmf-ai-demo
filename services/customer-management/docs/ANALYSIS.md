@@ -236,7 +236,7 @@ Add `MarketSegments` array to `OnboardCustomerPayload`.
 **Use Case**:
 Log every interaction (Call, Email, Ticket) to provide a history.
 
-**Status**: ❌ Pending Implementation
+**Status**: ✅ Backend Implemented | ❌ UI Not Implemented
 
 
 **Technical Specification**:
