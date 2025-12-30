@@ -38,7 +38,6 @@ type Customer struct {
 	CreditProfiles       []CreditProfile          `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"creditProfiles,omitempty"`
 	ContactMediums       []ContactMedium          `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"contactMediums,omitempty"`
 	Characteristics      []CustomerCharacteristic `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"characteristics,omitempty"`
-	TaxExemptions        []TaxExemption           `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"taxExemptions,omitempty"`
 	PrivacyConsents      []PrivacyConsent         `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"privacyConsents,omitempty"`
 	RelatedParties       []RelatedParty           `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"relatedParties,omitempty"`
 	PaymentMethods       []PaymentMethod          `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"paymentMethods,omitempty"`
@@ -160,28 +159,6 @@ func (CustomerCharacteristic) TableName() string {
 func (c *CustomerCharacteristic) BeforeCreate(tx *gorm.DB) error {
 	if c.ID == "" {
 		c.ID = uuid.New().String()
-	}
-	return nil
-}
-
-type TaxExemption struct {
-	ID                  string     `gorm:"primaryKey" json:"id"`
-	CustomerID          string     `gorm:"not null;index" json:"customerId"`
-	CertificateNumber   string     `json:"certificateNumber"`
-	IssuingJurisdiction string     `json:"issuingJurisdiction"`
-	ValidForStart       time.Time  `json:"validForStart,omitempty"`
-	ValidForEnd         *time.Time `json:"validForEnd,omitempty"`
-	CreatedAt           time.Time  `json:"createdAt"`
-	UpdatedAt           time.Time  `json:"updatedAt"`
-}
-
-func (TaxExemption) TableName() string {
-	return "tax_exemptions"
-}
-
-func (t *TaxExemption) BeforeCreate(tx *gorm.DB) error {
-	if t.ID == "" {
-		t.ID = uuid.New().String()
 	}
 	return nil
 }

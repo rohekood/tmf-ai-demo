@@ -158,9 +158,7 @@ func TestUseCase_OnboardNewCustomer(t *testing.T) {
 		Characteristics: []CharacteristicDTO{
 			{ID: "char-1", Name: "Segment", Value: "VIP"},
 		},
-		TaxExemptions: []TaxExemptionDTO{
-			{ID: "tax-1", CertificateNumber: "TAX-CERT-1", IssuingJurisdiction: "US", ValidForStart: time.Now().Format(time.RFC3339)},
-		},
+
 		PrivacyConsents: []PrivacyConsentDTO{
 			{ID: "pc-1", ConsentType: "Marketing", Status: "given", ValidForStart: time.Now().Format(time.RFC3339)},
 		},
@@ -192,9 +190,6 @@ func TestUseCase_OnboardNewCustomer(t *testing.T) {
 	require.Len(t, saved.Characteristics, 1)
 	assert.Equal(t, "VIP", saved.Characteristics[0].Value)
 
-	require.Len(t, saved.TaxExemptions, 1)
-	assert.Equal(t, "TAX-CERT-1", saved.TaxExemptions[0].CertificateNumber)
-
 	require.Len(t, saved.PrivacyConsents, 1)
 	assert.Equal(t, "given", saved.PrivacyConsents[0].Status)
 }
@@ -218,9 +213,6 @@ func TestUseCase_Onboard_AutoGenerateIDs(t *testing.T) {
 		Accounts: []CustomerAccountDTO{
 			{Name: "No ID Account", AccountStatus: "Active"},
 		},
-		TaxExemptions: []TaxExemptionDTO{
-			{CertificateNumber: "NO-ID-CERT"},
-		},
 	}
 	body, _ := json.Marshal(payload)
 
@@ -236,8 +228,6 @@ func TestUseCase_Onboard_AutoGenerateIDs(t *testing.T) {
 	require.Len(t, saved.Accounts, 1)
 	assert.NotEmpty(t, saved.Accounts[0].ID)
 
-	require.Len(t, saved.TaxExemptions, 1)
-	assert.NotEmpty(t, saved.TaxExemptions[0].ID)
 }
 
 func TestUseCase_Onboard_NewTMFFeatures(t *testing.T) {
@@ -327,9 +317,7 @@ func TestUseCase_UpdateCustomerProfile(t *testing.T) {
 			{ID: "cp-new", CreditScore: 800, CreditRiskScore: 5},
 		},
 		// Update Tax Exemption (New list)
-		TaxExemptions: []TaxExemptionDTO{
-			{CertificateNumber: "NEW-TAX", ValidForStart: time.Now().Format(time.RFC3339)},
-		},
+
 		// Update Privacy Consent (New list)
 		PrivacyConsents: []PrivacyConsentDTO{
 			{ConsentType: "Marketing", Status: "withdrawn", ValidForStart: time.Now().Format(time.RFC3339)},
@@ -359,8 +347,6 @@ func TestUseCase_UpdateCustomerProfile(t *testing.T) {
 	assert.Equal(t, "cp-new", updated.CreditProfiles[0].ID)
 
 	// Tax Exemptions
-	require.Len(t, updated.TaxExemptions, 1)
-	assert.Equal(t, "NEW-TAX", updated.TaxExemptions[0].CertificateNumber)
 
 	// Privacy Consents
 	require.Len(t, updated.PrivacyConsents, 1)
@@ -375,13 +361,13 @@ func TestUseCase_RetrieveCustomer(t *testing.T) {
 	// Setup: Complete customer
 	custID := "cust-get-1"
 	fullCust := &domain.Customer{
-		ID:              custID,
-		Name:            "Get Test",
-		Status:          domain.CustomerStatusActive,
-		PartyID:         "p-get-1",
-		Accounts:        []domain.CustomerAccount{{ID: "a1", Name: "A1", CustomerID: custID}},
-		CreditProfiles:  []domain.CreditProfile{{ID: "cp1", CreditScore: 700, CustomerID: custID}},
-		TaxExemptions:   []domain.TaxExemption{{ID: "t1", CertificateNumber: "T1", CustomerID: custID}},
+		ID:             custID,
+		Name:           "Get Test",
+		Status:         domain.CustomerStatusActive,
+		PartyID:        "p-get-1",
+		Accounts:       []domain.CustomerAccount{{ID: "a1", Name: "A1", CustomerID: custID}},
+		CreditProfiles: []domain.CreditProfile{{ID: "cp1", CreditScore: 700, CustomerID: custID}},
+
 		PrivacyConsents: []domain.PrivacyConsent{{ID: "pc1", ConsentType: "All", CustomerID: custID}},
 	}
 	require.NoError(t, sharedRepo.CreateCustomer(ctx, fullCust))
@@ -419,9 +405,6 @@ func TestUseCase_RetrieveCustomer(t *testing.T) {
 
 		require.Len(t, resp.CreditProfiles, 1)
 		assert.Equal(t, 700, resp.CreditProfiles[0].CreditScore)
-
-		require.Len(t, resp.TaxExemptions, 1)
-		assert.Equal(t, "T1", resp.TaxExemptions[0].CertificateNumber)
 
 		require.Len(t, resp.PrivacyConsents, 1)
 		assert.Equal(t, "All", resp.PrivacyConsents[0].ConsentType)

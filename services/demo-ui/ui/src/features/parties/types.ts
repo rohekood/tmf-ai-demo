@@ -31,6 +31,7 @@ export interface RelatedParty {
     relatedPartyId: string;
     relatedPartyName?: string;
     role: string;
+    permissions?: string[];
 }
 
 export interface Characteristic {
@@ -38,6 +39,33 @@ export interface Characteristic {
     name: string;
     value: string;
     valueType?: string;
+}
+
+export interface ExternalReference {
+    id: string;
+    partyId: string;
+    externalSystemId: string;
+    externalReference: string;
+}
+
+export interface TaxExemption {
+    id: string;
+    partyId: string;
+    certificateNumber: string;
+    issuingJurisdiction: string;
+    validFor: {
+        startDateTime: string;
+        endDateTime?: string;
+    };
+}
+
+export interface Attachment {
+    id: string;
+    ownerId: string;
+    mimeType: string;
+    name: string;
+    url: string;
+    type: string;
 }
 
 // Base Party interface
@@ -51,6 +79,9 @@ export interface Party {
     identifications?: Identification[];
     relatedParties?: RelatedParty[];
     characteristics?: Characteristic[];
+    externalReferences?: ExternalReference[];
+    taxExemptions?: TaxExemption[];
+    attachments?: Attachment[];
 }
 
 // Individual extends Party
@@ -86,6 +117,9 @@ export interface CreateIndividualPayload {
     identifications?: Omit<Identification, 'id'>[];
     relatedParties?: Omit<RelatedParty, 'id'>[];
     characteristics?: Omit<Characteristic, 'id'>[];
+    externalReferences?: Omit<ExternalReference, 'id' | 'partyId'>[];
+    taxExemptions?: Omit<TaxExemption, 'id' | 'partyId'>[];
+    attachments?: Omit<Attachment, 'id' | 'ownerId'>[];
 }
 
 export interface CreateOrganizationPayload {
@@ -97,6 +131,9 @@ export interface CreateOrganizationPayload {
     identifications?: Omit<Identification, 'id'>[];
     relatedParties?: Omit<RelatedParty, 'id'>[];
     characteristics?: Omit<Characteristic, 'id'>[];
+    externalReferences?: Omit<ExternalReference, 'id' | 'partyId'>[];
+    taxExemptions?: Omit<TaxExemption, 'id' | 'partyId'>[];
+    attachments?: Omit<Attachment, 'id' | 'ownerId'>[];
 }
 
 export type CreatePartyPayload = CreateIndividualPayload | CreateOrganizationPayload;
@@ -113,6 +150,10 @@ export type UpdatePartyPayload = {
     gender?: string;
     contactMediums?: (Omit<ContactMedium, 'id'> | ContactMedium)[];
     identifications?: (Omit<Identification, 'id'> | Identification)[];
+    relatedParties?: (Omit<RelatedParty, 'id'> | RelatedParty)[];
+    externalReferences?: (Omit<ExternalReference, 'id' | 'partyId'> | ExternalReference)[];
+    taxExemptions?: (Omit<TaxExemption, 'id' | 'partyId'> | TaxExemption)[];
+    attachments?: (Omit<Attachment, 'id' | 'ownerId'> | Attachment)[];
 } | {
     id: string;
     '@type': 'Organization';
@@ -122,6 +163,10 @@ export type UpdatePartyPayload = {
     organizationType?: string;
     contactMediums?: (Omit<ContactMedium, 'id'> | ContactMedium)[];
     identifications?: (Omit<Identification, 'id'> | Identification)[];
+    relatedParties?: (Omit<RelatedParty, 'id'> | RelatedParty)[];
+    externalReferences?: (Omit<ExternalReference, 'id' | 'partyId'> | ExternalReference)[];
+    taxExemptions?: (Omit<TaxExemption, 'id' | 'partyId'> | TaxExemption)[];
+    attachments?: (Omit<Attachment, 'id' | 'ownerId'> | Attachment)[];
 };
 
 export interface SearchPartyParams {

@@ -33,8 +33,6 @@ func (r *CustomerRepository) GetCustomer(ctx context.Context, id string) (*domai
 		Preload("CreditProfiles").
 		Preload("ContactMediums").
 		Preload("Characteristics").
-		Preload("TaxExemptions").
-		Preload("TaxExemptions").
 		Preload("PrivacyConsents").
 		Preload("RelatedParties").
 		Preload("PaymentMethods").
@@ -70,19 +68,7 @@ func (r *CustomerRepository) PatchCustomer(ctx context.Context, id string, updat
 	return r.withUser(ctx, func(tx *gorm.DB) error {
 
 		// Handle associations separately
-		if taxes, ok := updates["tax_exemptions"]; ok {
-			// Explicitly delete old ones first to avoid "nullify FK" error
-			if err := tx.Delete(&domain.TaxExemption{}, "customer_id = ?", id).Error; err != nil {
-				return fmt.Errorf("failed to delete old tax exemptions: %w", err)
-			}
-			// Create new ones (if any)
-			// We need to cast back to the slice to ensure GORM handles it right, or just use Create
-			// The incoming 'taxes' is likely []domain.TaxExemption or []interface{} from handlers
-			if err := tx.Model(&domain.Customer{ID: id}).Association("TaxExemptions").Replace(taxes); err != nil {
-				return fmt.Errorf("failed to replace tax exemptions: %w", err)
-			}
-			delete(updates, "tax_exemptions")
-		}
+
 		if privacy, ok := updates["privacy_consents"]; ok {
 			if err := tx.Delete(&domain.PrivacyConsent{}, "customer_id = ?", id).Error; err != nil {
 				return fmt.Errorf("failed to delete old privacy consents: %w", err)
@@ -268,19 +254,6 @@ func (r *CustomerRepository) updateSubResources(tx *gorm.DB, customerID string, 
 			c.Characteristics[i].CustomerID = customerID
 		}
 		if err := tx.Create(&c.Characteristics).Error; err != nil {
-			return err
-		}
-	}
-
-	// 5. TaxExemptions
-	if err := tx.Delete(&domain.TaxExemption{}, "customer_id = ?", customerID).Error; err != nil {
-		return err
-	}
-	if len(c.TaxExemptions) > 0 {
-		for i := range c.TaxExemptions {
-			c.TaxExemptions[i].CustomerID = customerID
-		}
-		if err := tx.Create(&c.TaxExemptions).Error; err != nil {
 			return err
 		}
 	}

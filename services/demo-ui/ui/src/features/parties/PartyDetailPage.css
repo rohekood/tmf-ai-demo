@@ -366,3 +366,51 @@
     color: #ef4444;
     margin: 0;
 }
+
+/* Shared List Styles for New Sections */
+.detail-item-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+}
+
+.text-muted {
+    color: #64748b;
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+}
+
+.detail-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.detail-label {
+    color: #f8fafc;
+    font-size: 0.9375rem;
+}
+
+.detail-subtext {
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+.btn-icon {
+    display: inline-flex;
+    background: transparent;
+    color: #94a3b8;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.btn-icon:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--color-primary);
+}

@@ -40,13 +40,7 @@ export interface Characteristic {
     valueType?: string;
 }
 
-export interface TaxExemption {
-    id: string;
-    certificateNumber: string;
-    issuingJurisdiction: string;
-    validForStart?: string;
-    validForEnd?: string;
-}
+
 
 export interface PrivacyConsent {
     id: string;
@@ -105,7 +99,7 @@ export interface Customer {
     creditProfiles?: CreditProfile[];
     contactMediums?: ContactMedium[];
     characteristics?: Characteristic[];
-    taxExemptions?: TaxExemption[];
+
     privacyConsents?: PrivacyConsent[];
     relatedParties?: RelatedParty[];
     paymentMethods?: PaymentMethod[];
@@ -123,7 +117,7 @@ export interface OnboardCustomerPayload {
     creditProfiles?: Omit<CreditProfile, 'id'>[];
     contactMediums?: Omit<ContactMedium, 'id'>[];
     characteristics?: Omit<Characteristic, 'id'>[];
-    taxExemptions?: Omit<TaxExemption, 'id'>[];
+
     privacyConsents?: Omit<PrivacyConsent, 'id'>[];
     relatedParties?: Omit<RelatedParty, 'id'>[];
     paymentMethods?: Omit<PaymentMethod, 'id'>[];
@@ -135,7 +129,6 @@ export interface UpdateCustomerPayload {
     id: string;
     status?: CustomerStatus;
     name?: string;
-    taxExemptions?: TaxExemption[];
     privacyConsents?: PrivacyConsent[];
     accounts?: CustomerAccount[];
     creditProfiles?: CreditProfile[];
