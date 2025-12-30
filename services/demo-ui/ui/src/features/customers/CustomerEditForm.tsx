@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useUpdateCustomer } from './api';
-import type { Customer, CustomerStatus, PrivacyConsent, CreditProfile, CustomerAccount } from './types';
-import type { PartyUnion as Party } from '../parties/types';
-import PartySelector from '../parties/PartySelector';
+import type { Customer, CustomerStatus, PrivacyConsent, CreditProfile, CustomerAccount, RelatedParty } from './types';
+import PartyPicker from '../parties/components/PartyPicker';
+import RelatedPartiesForm from './components/RelatedPartiesForm';
 import { getPartyDisplayName } from '../parties/types';
 import '../parties/PartyFormPage.css';
 
@@ -25,7 +25,8 @@ export default function CustomerEditForm({ customer }: CustomerEditFormProps) {
     const [partyId, setPartyId] = useState(customer.partyId);
     const [partyType, setPartyType] = useState<string | undefined>(customer.partyType);
     const [partyName, setPartyName] = useState<string | undefined>(customer.partyName);
-    const [isEditingParty, setIsEditingParty] = useState(false);
+
+    const [relatedParties, setRelatedParties] = useState<Partial<RelatedParty>[]>(customer.relatedParties || []);
 
     // Removed local useParties logic in favor of PartySelector component
 
@@ -50,6 +51,7 @@ export default function CustomerEditForm({ customer }: CustomerEditFormProps) {
                 privacyConsents: privacyConsents as PrivacyConsent[],
                 accounts: accounts as CustomerAccount[],
                 creditProfiles: creditProfile ? [creditProfile as CreditProfile] : [],
+                relatedParties: relatedParties as RelatedParty[],
             });
             navigate(`/customers/${customer.id}`);
         } catch (err) {
@@ -90,9 +92,9 @@ export default function CustomerEditForm({ customer }: CustomerEditFormProps) {
     return (
         <>
             <div className="page-header">
-                <div className="page-header-content">
+                <div className="page-header-content mb-3">
                     <h2>Edit Customer</h2>
-                    <p className="page-description">Editing {customer.name}</p>
+                    <p className="lead text-muted mb-0">Editing {customer.name}</p>
                 </div>
                 <button
                     type="submit"
@@ -107,67 +109,46 @@ export default function CustomerEditForm({ customer }: CustomerEditFormProps) {
 
             <form id="edit-form" className="form-container" onSubmit={handleSubmit}>
                 {/* Linked Party */}
-                <div className="card form-section">
+                <div className="card form-section mt-4">
                     <h3>Linked Party</h3>
                     <p className="section-description">
                         The Individual or Organization linked to this customer account.
                     </p>
 
-                    {isEditingParty ? (
-                        <div className="party-edit-mode">
-                            <PartySelector
-                                selectedPartyId={partyId}
-                                onSelect={(party: Party) => {
-                                    setPartyId(party.id);
-                                    setPartyType(party['@type']);
-                                    setPartyName(getPartyDisplayName(party));
-                                    setIsEditingParty(false);
+                    <PartyPicker
+                        value={partyId ? {
+                            id: partyId,
+                            name: partyName,
+                            '@type': partyType
+                        } : null}
+                        onChange={(party) => {
+                            if (party) {
+                                setPartyId(party.id);
+                                setPartyType(party['@type']);
+                                setPartyName(getPartyDisplayName(party));
+                            }
+                        }}
+                        customActions={partyId !== customer.partyId ? (
+                            <button
+                                type="button"
+                                className="btn btn-outline-danger btn-sm"
+                                onClick={() => {
+                                    setPartyId(customer.partyId);
+                                    setPartyType(customer.partyType);
+                                    setPartyName(customer.partyName);
                                 }}
-                            />
-                            <div className="mt-4">
-                                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setIsEditingParty(false)}>
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="selected-party">
-                            <div className="selected-party-info">
-                                <span className="selected-party-name">
-                                    {partyName || 'Unknown Party'}
-                                </span>
-                                {partyType && (
-                                    <span className={`party-type-badge ${partyType.toLowerCase()}`}>
-                                        {partyType}
-                                    </span>
-                                )}
-                            </div>
-                            <div className="party-actions">
-                                <button
-                                    type="button"
-                                    className="btn btn-secondary btn-sm"
-                                    onClick={() => setIsEditingParty(true)}
-                                >
-                                    Change Party
-                                </button>
-                                {partyId !== customer.partyId && (
-                                    <button
-                                        type="button"
-                                        className="btn btn-link btn-sm text-danger"
-                                        onClick={() => {
-                                            setPartyId(customer.partyId);
-                                            setPartyType(customer.partyType);
-                                            setPartyName(customer.partyName);
-                                            setIsEditingParty(false);
-                                        }}
-                                    >
-                                        Revert to Original
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                            >
+                                Revert
+                            </button>
+                        ) : undefined}
+                    />
                 </div>
+
+                {/* Related Parties */}
+                <RelatedPartiesForm
+                    items={relatedParties}
+                    onChange={setRelatedParties}
+                />
 
                 {/* Basic Info */}
                 <div className="card form-section">
@@ -262,7 +243,7 @@ export default function CustomerEditForm({ customer }: CustomerEditFormProps) {
                         <div className="repeatable-list">
                             {accounts.map((account, index) => (
                                 <div key={index} className="repeatable-item">
-                                    <div className="form-grid">
+                                    <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr) auto', gap: '1rem' }}>
                                         <div className="form-group">
                                             <label htmlFor={`acc-name-${index}`}>Account Name</label>
                                             <input
@@ -337,7 +318,7 @@ export default function CustomerEditForm({ customer }: CustomerEditFormProps) {
                         <div className="repeatable-list">
                             {privacyConsents.map((consent, index) => (
                                 <div key={index} className="repeatable-item">
-                                    <div className="form-grid">
+                                    <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr) auto', gap: '1rem' }}>
                                         <div className="form-group">
                                             <label>Consent Type</label>
                                             <input

@@ -64,7 +64,7 @@ export default function CustomerDetailPage() {
                         <span className={`status - badge ${customer.status} `}>
                             {customer.status}
                         </span>
-                        <Link to={`/ parties / ${customer.partyId} `} className="party-ref">
+                        <Link to={`/parties/${customer.partyId}`} className="party-ref">
                             Party: {customer.partyName || customer.partyId.slice(0, 8)}
                             <ExternalLink size={14} />
                         </Link>
@@ -78,7 +78,7 @@ export default function CustomerDetailPage() {
                         <MessageSquarePlus size={18} />
                         <span>Log Interaction</span>
                     </button>
-                    <Link to={`/ customers / ${id}/edit`} className="btn btn-secondary" >
+                    <Link to={`/customers/${id}/edit`} className="btn btn-secondary" >
                         <Edit size={18} />
                         <span>Edit</span>
                     </Link >

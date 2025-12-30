@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, UserPlus, Loader2 } from 'lucide-react';
 import { useOnboardCustomer } from './api';
-import PartySelector from '../parties/PartySelector';
+import PartyPicker from '../parties/components/PartyPicker';
 import { getPartyDisplayName } from '../parties/types';
 import type { PartyUnion } from '../parties/types';
 import type {
@@ -28,7 +28,7 @@ export default function CustomerOnboardPage() {
     const [creditProfile, setCreditProfile] = useState<Omit<CreditProfile, 'id'> | null>(null);
     const [accounts, setAccounts] = useState<Omit<CustomerAccount, 'id'>[]>([]);
     // New state for TMF629 features
-    const [relatedParties, setRelatedParties] = useState<Omit<RelatedParty, 'id'>[]>([]);
+    const [relatedParties, setRelatedParties] = useState<Partial<RelatedParty>[]>([]);
     const [paymentMethods, setPaymentMethods] = useState<Omit<PaymentMethod, 'id'>[]>([]);
     const [marketSegments, setMarketSegments] = useState<Omit<MarketSegment, 'id'>[]>([]);
 
@@ -53,7 +53,7 @@ export default function CustomerOnboardPage() {
                 validForStart: creditProfile.validForStart
             }] : [],
             accounts: accounts,
-            relatedParties: relatedParties,
+            relatedParties: relatedParties as Omit<RelatedParty, 'id'>[],
             paymentMethods: paymentMethods,
             marketSegments: marketSegments,
 
@@ -127,33 +127,17 @@ export default function CustomerOnboardPage() {
                         Search and select an existing Individual or Organization to link to this customer.
                     </p>
 
-                    {selectedParty ? (
-                        <div className="selected-party">
-                            <div className="selected-party-info">
-                                <span className={`party-type-badge ${selectedParty['@type'].toLowerCase()}`}>
-                                    {selectedParty['@type']}
-                                </span>
-                                <span className="selected-party-name">{getPartyDisplayName(selectedParty)}</span>
-                            </div>
-                            <button
-                                type="button"
-                                className="btn btn-secondary btn-sm"
-                                onClick={() => setSelectedParty(null)}
-                            >
-                                Change
-                            </button>
-                        </div>
-                    ) : (
-                        <PartySelector
-                            onSelect={(party) => {
-                                setSelectedParty(party);
-                                // Prefill name if empty or if needed (here we force prefill on selection)
-                                if (!customerName) {
-                                    setCustomerName(getPartyDisplayName(party));
-                                }
-                            }}
-                        />
-                    )}
+                    <PartyPicker
+                        value={selectedParty}
+                        onChange={(party) => {
+                            setSelectedParty(party);
+                            // Prefill name if empty or if needed (here we force prefill on selection)
+                            if (party && !customerName) {
+                                setCustomerName(getPartyDisplayName(party));
+                            }
+                        }}
+                        placeholder="Search for a party to link..."
+                    />
                 </div>
 
                 {/* Customer Details */}

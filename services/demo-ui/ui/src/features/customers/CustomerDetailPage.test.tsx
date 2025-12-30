@@ -79,6 +79,15 @@ describe('CustomerDetailPage', () => {
 
         // Assert Accounts present
         expect(screen.getByText('Main Account')).toBeInTheDocument();
+
+        // Regression Test: Check Edit Link URL
+        const editLink = screen.getByRole('link', { name: /edit/i });
+        expect(editLink).toHaveAttribute('href', '/customers/c1/edit');
+
+        // Regression Test: Check Party Link URL (Top META)
+        // We look for the link that contains "Party:" text or verify strictly by href if identifiable
+        const partyLink = screen.getByRole('link', { name: /Party:/i });
+        expect(partyLink).toHaveAttribute('href', '/parties/p1');
     });
 
     it('renders error state', () => {
