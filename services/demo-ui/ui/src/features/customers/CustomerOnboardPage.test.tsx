@@ -77,6 +77,7 @@ describe('CustomerOnboardPage', () => {
             </MemoryRouter>
         );
 
+        // Party auto-selects
         const searchInput = screen.getByPlaceholderText('Search by name...');
         await user.type(searchInput, 'John');
 
@@ -87,7 +88,7 @@ describe('CustomerOnboardPage', () => {
         // Select logic
         await user.click(partyOption);
 
-        expect(await screen.findByRole('button', { name: 'Change' })).toBeInTheDocument();
+        expect(await screen.findByRole('button', { name: /Change/i })).toBeInTheDocument();
     });
 
     it('prefills customer name from party', async () => {
@@ -104,6 +105,7 @@ describe('CustomerOnboardPage', () => {
         );
 
         // Search for party
+        // Party auto-selects
         const searchInput = screen.getByPlaceholderText('Search by name...');
         await user.type(searchInput, 'John');
 
@@ -129,6 +131,8 @@ describe('CustomerOnboardPage', () => {
         );
 
         // Select party
+        // Party auto-selects
+
         const searchInput = screen.getByPlaceholderText('Search by name...');
         await user.type(searchInput, 'John');
         await user.click(await screen.findByText('John Doe'));

@@ -1,9 +1,11 @@
 import { Plus, Trash2 } from 'lucide-react';
 import type { RelatedParty } from '../types';
+import PartyPicker from '../../parties/components/PartyPicker';
+import { getPartyDisplayName } from '../../parties/types';
 
 interface RelatedPartiesFormProps {
-    items: Omit<RelatedParty, 'id'>[];
-    onChange: (items: Omit<RelatedParty, 'id'>[]) => void;
+    items: Partial<RelatedParty>[];
+    onChange: (items: Partial<RelatedParty>[]) => void;
 }
 
 export default function RelatedPartiesForm({ items, onChange }: RelatedPartiesFormProps) {
@@ -15,7 +17,7 @@ export default function RelatedPartiesForm({ items, onChange }: RelatedPartiesFo
         onChange(items.filter((_, i) => i !== index));
     };
 
-    const update = (index: number, field: keyof Omit<RelatedParty, 'id'>, value: string) => {
+    const update = (index: number, field: keyof RelatedParty, value: string) => {
         const updated = [...items];
         updated[index] = { ...updated[index], [field]: value };
         onChange(updated);
@@ -38,17 +40,30 @@ export default function RelatedPartiesForm({ items, onChange }: RelatedPartiesFo
                     {items.map((item, index) => (
                         <div key={index} className="repeatable-item">
                             <div className="form-grid">
-                                <div className="form-group">
-                                    <label htmlFor={`rp-name-${index}`}>Party Name</label>
-                                    <input
-                                        id={`rp-name-${index}`}
-                                        type="text"
-                                        value={item.name}
-                                        onChange={(e) => update(index, 'name', e.target.value)}
-                                        placeholder="e.g. Parent Company Inc."
-                                        required
+                                <div className="form-group form-group--full">
+                                    <label>Party</label>
+                                    <PartyPicker
+                                        value={item.relatedPartyId ? {
+                                            id: item.relatedPartyId,
+                                            name: item.name
+                                        } : null}
+                                        onChange={(party) => {
+                                            const updated = [...items];
+                                            if (party) {
+                                                updated[index] = {
+                                                    ...updated[index],
+                                                    relatedPartyId: party.id,
+                                                    name: getPartyDisplayName(party)
+                                                };
+                                            } else {
+                                                updated[index] = { ...updated[index], relatedPartyId: '', name: '' };
+                                            }
+                                            onChange(updated);
+                                        }}
+                                        placeholder="Select related party..."
                                     />
                                 </div>
+
                                 <div className="form-group">
                                     <label htmlFor={`rp-role-${index}`}>Role</label>
                                     <input
@@ -60,17 +75,7 @@ export default function RelatedPartiesForm({ items, onChange }: RelatedPartiesFo
                                         required
                                     />
                                 </div>
-                                <div className="form-group">
-                                    <label htmlFor={`rp-id-${index}`}>Party ID</label>
-                                    <input
-                                        id={`rp-id-${index}`}
-                                        type="text"
-                                        value={item.relatedPartyId}
-                                        onChange={(e) => update(index, 'relatedPartyId', e.target.value)}
-                                        placeholder="Target Party UUID"
-                                        required
-                                    />
-                                </div>
+
                                 <div className="form-group form-group--action">
                                     <button
                                         type="button"

@@ -3,8 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useParty, useCreateParty, useUpdateParty } from './api';
 import type { PartyType, CreatePartyPayload, UpdatePartyPayload, ContactMedium, Identification, TaxExemption, ExternalReference, Attachment, RelatedParty } from './types';
-import PartySelector from './PartySelector';
-import './PartyFormPage.css';
+import PartyPicker from './components/PartyPicker';
+import { getPartyDisplayName } from './types';
 
 interface FormState {
     type: PartyType;
@@ -767,20 +767,32 @@ export default function PartyFormPage() {
                             {form.relatedParties.map((rel, index) => (
                                 <div key={index} className="repeatable-item">
                                     <div className="form-grid">
-                                        <div className="form-group">
+                                        <div className="form-group form-group--full">
                                             <label>Party</label>
-                                            <PartySelector
-                                                onSelect={(party) => {
+                                            <PartyPicker
+                                                value={rel.relatedPartyId ? {
+                                                    id: rel.relatedPartyId,
+                                                    name: rel.relatedPartyName
+                                                } : null}
+                                                onChange={(party) => {
                                                     const newRels = [...form.relatedParties];
-                                                    newRels[index] = {
-                                                        ...newRels[index],
-                                                        relatedPartyId: party.id,
-                                                        // Optionally set name here if backend preserved it, but ID is critical
-                                                    };
+                                                    if (party) {
+                                                        newRels[index] = {
+                                                            ...newRels[index],
+                                                            relatedPartyId: party.id,
+                                                            relatedPartyName: getPartyDisplayName(party)
+                                                        };
+                                                    } else {
+                                                        newRels[index] = {
+                                                            ...newRels[index],
+                                                            relatedPartyId: '',
+                                                            relatedPartyName: ''
+                                                        };
+                                                    }
                                                     setForm((prev) => ({ ...prev, relatedParties: newRels }));
                                                 }}
+                                                placeholder="Select related party..."
                                             />
-                                            {rel.relatedPartyId && <div className="selected-value">Selected ID: {rel.relatedPartyId}</div>}
                                         </div>
                                         <div className="form-group">
                                             <label>Role</label>
