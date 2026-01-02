@@ -2,3 +2,12 @@
 .idea/
 *.log
 docker-compose.override.yml
+
+# Large binaries to ignore
+services/customer-management/main
+services/customer-management/server
+services/party-management/main
+services/party-management/server
+services/party-management/postgres.test
+services/demo-ui/bff/server
+services/demo-ui/.yarn/cache/@esbuild-darwin-x64-npm-0.27.2-ae63bf405f-68af1bd60c.zip
