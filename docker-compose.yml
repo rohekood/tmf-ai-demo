@@ -39,10 +39,10 @@ services:
       context: ./services/demo-ui/ui
       dockerfile: Dockerfile
       args:
-        VITE_AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN:-rohekood.eu.auth0.com}
-        VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID:-fZ3FUKv67tYfK5BT9Pd85LtoMy1nCe2e}
-        VITE_AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE:-http://localhost/api}
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+        VITE_AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN}
+        VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID}
+        VITE_AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
+        VITE_API_URL: ${VITE_API_URL}
     container_name: tmf-demo-ui
     ports:
       - "80:80"
@@ -58,8 +58,8 @@ services:
       - "8080:8080"
     environment:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
-      - AUTH0_DOMAIN=${AUTH0_DOMAIN:-rohekood.eu.auth0.com}
-      - AUTH0_AUDIENCE=${AUTH0_AUDIENCE:-http://localhost/api}
+      - AUTH0_DOMAIN=${AUTH0_DOMAIN}
+      - AUTH0_AUDIENCE=${AUTH0_AUDIENCE}
     depends_on:
       rabbitmq:
         condition: service_healthy
