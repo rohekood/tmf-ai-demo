@@ -22,8 +22,14 @@ export const TaxExemptionsSection: React.FC<TaxExemptionsSectionProps> = ({ exem
                                 <span className="detail-label">{exemption.issuingJurisdiction}</span>
                                 <span className="detail-value">{exemption.certificateNumber}</span>
                                 <span className="detail-subtext">
-                                    Valid: {new Date(exemption.validFor.startDateTime).toLocaleDateString()}
-                                    {exemption.validFor.endDateTime ? ` - ${new Date(exemption.validFor.endDateTime).toLocaleDateString()}` : ' (Indefinite)'}
+                                    {exemption.validFor ? (
+                                        <>
+                                            Valid: {new Date(exemption.validFor.startDateTime).toLocaleDateString()}
+                                            {exemption.validFor.endDateTime ? ` - ${new Date(exemption.validFor.endDateTime).toLocaleDateString()}` : ' (Indefinite)'}
+                                        </>
+                                    ) : (
+                                        <span className="text-muted">No validity period</span>
+                                    )}
                                 </span>
                             </div>
                         </li>
