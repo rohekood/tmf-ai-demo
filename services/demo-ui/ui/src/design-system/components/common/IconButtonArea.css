@@ -1,0 +1,21 @@
+.icon-button-area {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.icon-button-area--start {
+    justify-content: flex-start;
+}
+
+.icon-button-area--center {
+    justify-content: center;
+}
+
+.icon-button-area--end {
+    justify-content: flex-end;
+}
+
+.icon-button-area--between {
+    justify-content: space-between;
+}

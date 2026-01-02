@@ -15,7 +15,7 @@ const CustomerEditPage = lazy(() => import('./features/customers/CustomerEditPag
 const DebugConsolePage = lazy(() => import('./features/debug/DebugConsolePage'));
 
 // Loading fallback component
-import { PageLoader } from './components/common/PageLoader';
+import { PageLoader } from './design-system/components/common/PageLoader';
 
 export const router = createBrowserRouter([
     {

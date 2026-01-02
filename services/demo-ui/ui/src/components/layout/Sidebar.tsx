@@ -3,7 +3,7 @@ import { Users, Building2, Bug, ChevronRight, ChevronsLeft, ChevronsRight } from
 import { useAuth0 } from "@auth0/auth0-react";
 import { LoginButton } from '../auth/LoginButton';
 import { LogoutButton } from '../auth/LogoutButton';
-import './Sidebar.css';
+import '../../design-system/components/layout/Sidebar.css';
 
 interface NavItemProps {
     to: string;

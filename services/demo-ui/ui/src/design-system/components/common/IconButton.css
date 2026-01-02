@@ -1,0 +1,78 @@
+.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    /* slate-400 */
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+    text-decoration: none;
+    line-height: 0;
+}
+
+/* Sizes */
+.icon-btn--sm {
+    min-width: 24px;
+    min-height: 24px;
+    padding: 4px;
+}
+
+.icon-btn--md {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 6px;
+}
+
+.icon-btn--lg {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 8px;
+}
+
+/* Variants */
+.icon-btn--default:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #f8fafc;
+    /* slate-50 */
+}
+
+.icon-btn--ghost:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #cbd5e1;
+    /* slate-300 */
+}
+
+.icon-btn--danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    /* red-500 */
+}
+
+.icon-btn--primary {
+    background: rgba(99, 102, 241, 0.1);
+    color: #818cf8;
+    /* indigo-400 */
+}
+
+.icon-btn--primary:hover {
+    background: rgba(99, 102, 241, 0.2);
+    color: #a5b4fc;
+    /* indigo-300 */
+}
+
+/* States */
+.icon-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: transparent !important;
+    color: #64748b !important;
+}
+
+.icon-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}

@@ -12,7 +12,9 @@ import { useReactTable } from '../../hooks/useReactTable';
 import { Plus, Search, User, Building2, ChevronUp, ChevronDown, Eye, Edit, Trash2, Loader2 } from 'lucide-react';
 import { useParties, useDeleteParty } from './api';
 import { type PartyUnion, getPartyDisplayName, isIndividual } from './types';
-import { useNotification } from '../../components/common/Toast';
+import { useNotification } from '../../design-system/components/common/Toast';
+import { IconButton } from '../../design-system/components/common/IconButton';
+import { IconButtonArea } from '../../design-system/components/common/IconButtonArea';
 import { useQueryClient } from '@tanstack/react-query';
 import './PartyListPage.css';
 
@@ -157,22 +159,25 @@ export default function PartyListPage() {
                 id: 'actions',
                 header: '',
                 cell: (info) => (
-                    <div className="action-buttons">
-                        <Link to={`/parties/${info.row.original.id}`} className="action-btn" title="View">
-                            <Eye size={16} />
-                        </Link>
-                        <Link to={`/parties/${info.row.original.id}/edit`} className="action-btn" title="Edit">
-                            <Edit size={16} />
-                        </Link>
-                        <button
-                            className="action-btn action-btn--danger"
+                    <IconButtonArea alignment="end">
+                        <IconButton
+                            to={`/parties/${info.row.original.id}`}
+                            icon={<Eye size={16} />}
+                            title="View"
+                        />
+                        <IconButton
+                            to={`/parties/${info.row.original.id}/edit`}
+                            icon={<Edit size={16} />}
+                            title="Edit"
+                        />
+                        <IconButton
+                            variant="danger"
                             title="Delete"
                             onClick={() => handleDelete(info.row.original.id, getPartyDisplayName(info.row.original))}
                             disabled={deleteMutation.isPending || deletingId === info.row.original.id}
-                        >
-                            {deletingId === info.row.original.id ? <Loader2 size={16} className="spin" /> : <Trash2 size={16} />}
-                        </button>
-                    </div>
+                            icon={deletingId === info.row.original.id ? <Loader2 size={16} className="spin" /> : <Trash2 size={16} />}
+                        />
+                    </IconButtonArea>
                 ),
                 size: 120,
             }),

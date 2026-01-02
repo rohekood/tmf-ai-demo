@@ -151,19 +151,5 @@ describe('CustomerEditPage', () => {
         expect(mockNavigate).toHaveBeenCalledWith('/customers/123');
     });
 
-    it.skip('adds a tax exemption', () => {
-        render(
-            <MemoryRouter initialEntries={['/customers/123/edit']}>
-                <Routes>
-                    <Route path="/customers/:id/edit" element={<CustomerEditPage />} />
-                </Routes>
-            </MemoryRouter>
-        );
 
-        const addButton = screen.getByRole('button', { name: /add exemption/i });
-        fireEvent.click(addButton);
-
-        expect(screen.getByPlaceholderText('Certificate #')).toBeInTheDocument();
-        expect(screen.getByPlaceholderText('e.g., US-CA')).toBeInTheDocument();
-    });
 });

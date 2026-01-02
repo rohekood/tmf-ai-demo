@@ -1,0 +1,22 @@
+.button-area {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+}
+
+.button-area--start {
+    justify-content: flex-start;
+}
+
+.button-area--center {
+    justify-content: center;
+}
+
+.button-area--end {
+    justify-content: flex-end;
+}
+
+.button-area--between {
+    justify-content: space-between;
+}
