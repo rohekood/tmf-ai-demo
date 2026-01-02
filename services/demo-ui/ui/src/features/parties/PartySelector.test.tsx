@@ -6,7 +6,10 @@ import * as api from './api';
 import { type Individual, type Organization } from './types';
 
 // Mock the API hook
-vi.mock('./api');
+vi.mock('./api', () => ({
+    useParties: vi.fn(),
+    // Add other exports if needed or rely on auto-mocking if mixed
+}));
 
 const mockParties: (Individual | Organization)[] = [
     {
@@ -33,11 +36,13 @@ describe('PartySelector', () => {
     beforeEach(() => {
         vi.resetAllMocks();
         // Default mock implementation
-        vi.mocked(api.useParties).mockReturnValue({
+        (api.useParties as import('vitest').Mock).mockReturnValue({
             data: mockParties,
             isLoading: false,
-            error: null
-        } as unknown as ReturnType<typeof api.useParties>);
+            error: null,
+            refetch: vi.fn(),
+            isFetching: false
+        });
     });
 
     it('renders the search input and table headers', () => {
@@ -102,11 +107,13 @@ describe('PartySelector', () => {
 
 
     it('shows empty state when no parties found', () => {
-        vi.mocked(api.useParties).mockReturnValue({
+        (api.useParties as import('vitest').Mock).mockReturnValue({
             data: [],
             isLoading: false,
-            error: null
-        } as unknown as ReturnType<typeof api.useParties>);
+            error: null,
+            refetch: vi.fn(),
+            isFetching: false
+        });
 
         render(<PartySelector onSelect={mockOnSelect} />);
         expect(screen.getByText(/no parties found/i)).toBeInTheDocument();

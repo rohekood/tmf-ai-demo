@@ -1,8 +1,39 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import RelatedPartiesForm from './RelatedPartiesForm';
-import { vi, describe, it, expect } from 'vitest';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+
+// Mock hooks
+vi.mock('../../parties/api');
+vi.mock('@tanstack/react-query', async () => {
+    const actual = await vi.importActual('@tanstack/react-query');
+    return {
+        ...actual,
+        useQueryClient: vi.fn(() => ({
+            invalidateQueries: vi.fn()
+        })),
+        useQuery: vi.fn(() => ({
+            data: [],
+            isLoading: false,
+            error: null
+        })),
+    };
+});
+
+import * as api from '../../parties/api';
 
 describe('RelatedPartiesForm', () => {
+    beforeEach(() => {
+        vi.resetAllMocks();
+        // Mock default api response
+        (api.useParties as import('vitest').Mock).mockReturnValue({
+            data: [],
+            isLoading: false,
+            error: null,
+            refetch: vi.fn(),
+            isFetching: false
+        });
+    });
+
     it('renders empty state correctly', () => {
         render(<RelatedPartiesForm items={[]} onChange={vi.fn()} />);
         expect(screen.getByText('No related parties added')).toBeInTheDocument();
@@ -37,13 +68,13 @@ describe('RelatedPartiesForm', () => {
         const items = [{ relatedPartyId: '', name: '', role: '' }];
         render(<RelatedPartiesForm items={items} onChange={onChange} />);
 
-        const nameInput = screen.getByLabelText('Party Name');
-        fireEvent.change(nameInput, { target: { value: 'New Name' } });
+        const roleInput = screen.getByLabelText('Role');
+        fireEvent.change(roleInput, { target: { value: 'New Role' } });
 
         expect(onChange).toHaveBeenCalledWith([{
             relatedPartyId: '',
-            name: 'New Name',
-            role: ''
+            name: '',
+            role: 'New Role'
         }]);
     });
 });

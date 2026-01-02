@@ -1,8 +1,8 @@
 import { useState, useCallback, type ReactNode } from 'react';
-import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import './Toast.css';
 import { NotificationContext } from './Toast';
 import type { Toast, ToastType } from './Toast';
+import { ToastItem } from './ToastItem';
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
     const [toasts, setToasts] = useState<Toast[]>([]);
@@ -25,17 +25,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             {children}
             <div className="toast-container">
                 {toasts.map((toast) => (
-                    <div key={toast.id} className={`toast toast--${toast.type}`} role="alert">
-                        <div className="toast-icon">
-                            {toast.type === 'success' && <CheckCircle size={20} />}
-                            {toast.type === 'error' && <AlertCircle size={20} />}
-                            {toast.type === 'info' && <Info size={20} />}
-                        </div>
-                        <p className="toast-message">{toast.message}</p>
-                        <button className="toast-close" onClick={() => removeToast(toast.id)}>
-                            <X size={16} />
-                        </button>
-                    </div>
+                    <ToastItem key={toast.id} toast={toast} onClose={removeToast} />
                 ))}
             </div>
         </NotificationContext.Provider>

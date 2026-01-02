@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, Trash2, Mail, Phone, MapPin, CreditCard, Users, Loader2 } from 'lucide-react';
 import { useParty, useDeleteParty } from './api';
 import { getPartyDisplayName, isIndividual } from './types';
-import { useNotification } from '../../components/common/Toast';
+import { useNotification } from '../../design-system/components/common/Toast';
 import { ExternalReferencesSection } from './components/ExternalReferencesSection';
 import { TaxExemptionsSection } from './components/TaxExemptionsSection';
 import { AttachmentsSection } from './components/AttachmentsSection';

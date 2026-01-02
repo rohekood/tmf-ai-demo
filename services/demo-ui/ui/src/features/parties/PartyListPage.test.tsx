@@ -5,7 +5,7 @@ import PartyListPage from './PartyListPage';
 import { MemoryRouter } from 'react-router-dom';
 import * as api from './api';
 import { type Individual, type Organization } from './types';
-import { NotificationProvider } from '../../components/common/ToastProvider';
+import { NotificationProvider } from '../../design-system/components/common/ToastProvider';
 
 // Mock hooks
 vi.mock('./api');

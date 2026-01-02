@@ -13,6 +13,8 @@ import { useCustomers, useDeleteCustomer } from './api';
 import type { Customer } from './types';
 import '../parties/PartyListPage.css'; // Reuse party list styles
 import './CustomerListPage.css';
+import { IconButton } from '../../design-system/components/common/IconButton';
+import { IconButtonArea } from '../../design-system/components/common/IconButtonArea';
 
 const columnHelper = createColumnHelper<Customer>();
 
@@ -81,22 +83,25 @@ export default function CustomerListPage() {
                 id: 'actions',
                 header: '',
                 cell: (info) => (
-                    <div className="action-buttons">
-                        <Link to={`/customers/${info.row.original.id}`} className="action-btn" title="View">
-                            <Eye size={16} />
-                        </Link>
-                        <Link to={`/customers/${info.row.original.id}/edit`} className="action-btn" title="Edit">
-                            <Edit size={16} />
-                        </Link>
-                        <button
-                            className="action-btn action-btn--danger"
+                    <IconButtonArea alignment="end">
+                        <IconButton
+                            to={`/customers/${info.row.original.id}`}
+                            icon={<Eye size={16} />}
+                            title="View"
+                        />
+                        <IconButton
+                            to={`/customers/${info.row.original.id}/edit`}
+                            icon={<Edit size={16} />}
+                            title="Edit"
+                        />
+                        <IconButton
+                            variant="danger"
                             title="Delete"
                             onClick={() => handleDelete(info.row.original.id, info.row.original.name)}
                             disabled={deleteMutation.isPending}
-                        >
-                            <Trash2 size={16} />
-                        </button>
-                    </div>
+                            icon={<Trash2 size={16} />}
+                        />
+                    </IconButtonArea>
                 ),
                 size: 120,
             }),
