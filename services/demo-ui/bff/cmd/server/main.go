@@ -7,10 +7,6 @@ import (
 	"tmf/services/demo-ui/bff/internal/config"
 	httpTransport "tmf/services/demo-ui/bff/internal/transport/http"
 	"tmf/services/demo-ui/bff/internal/transport/rabbitmq"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
 )
 
 func main() {
@@ -24,33 +20,21 @@ func main() {
 	}
 	defer rpcClient.Close()
 
-	// 2. Initialize Router
-	r := chi.NewRouter()
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	// 2. Initialize Mux
+	mux := http.NewServeMux()
 
-	// 3. CORS Configuration
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:80", "http://localhost"}, // Allow UI
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300,
-	}))
-
-	// 4. Initialize Auth Validator (used by both WebSocket and API routes)
+	// 3. Initialize Auth Validator (used by both WebSocket and API routes)
 	authValidator, err := auth.NewAuth0Validator(cfg.Auth0Domain, cfg.Auth0Audience)
 	if err != nil {
 		log.Fatalf("Failed to initialize auth validator: %v", err)
 	}
 
-	// 5. Initialize WebSocket Hub with token validator for authentication
+	// 4. Initialize WebSocket Hub with token validator for authentication
 	hub := httpTransport.NewHub()
 	hub.SetTokenValidator(authValidator)
 	go hub.Run()
 
-	// 5a. Set broadcaster on RPC client for debug reply forwarding
+	// 5. Set broadcaster on RPC client for debug reply forwarding
 	rpcClient.SetBroadcaster(hub)
 
 	// 6. Initialize Debug Consumer
@@ -61,24 +45,41 @@ func main() {
 		}
 	}()
 
-	// 7. Register WebSocket route BEFORE auth group (handles its own auth via Sec-WebSocket-Protocol)
-	r.Get("/ws/debug", func(w http.ResponseWriter, req *http.Request) {
+	// 7. Register WebSocket route
+	mux.HandleFunc("/ws/debug", func(w http.ResponseWriter, req *http.Request) {
 		hub.ServeWs(w, req)
 	})
 
-	// 8. Auth-protected routes group
-	r.Group(func(r chi.Router) {
-		// Apply auth middleware only to this group
-		r.Use(auth.EnsureValidToken(authValidator, cfg.Auth0Domain, cfg.Auth0Audience))
+	// 8. Register API Routes
+	handler := httpTransport.NewHandler(rpcClient, hub)
+	handler.RegisterRoutes(mux)
 
-		// Register API Routes
-		handler := httpTransport.NewHandler(rpcClient, hub)
-		handler.RegisterRoutes(r)
+	// 9. Construct Middleware Chain
+	// Conditional Auth Middleware: Only applies to routes starting with /api/
+	authMiddleware := auth.EnsureValidToken(authValidator, cfg.Auth0Domain, cfg.Auth0Audience)
+
+	// Wrap mux with Auth middleware selectively
+	var authenticatedHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Simple prefix check: if path starts with /api, require auth
+		if len(r.URL.Path) >= 4 && r.URL.Path[:4] == "/api" {
+			authMiddleware(mux).ServeHTTP(w, r)
+		} else {
+			mux.ServeHTTP(w, r)
+		}
 	})
 
-	// 6. Start Server
+	// Apply Global Middlewares (executed in reverse order of chaining)
+	// Recoverer -> Logger -> CORS -> AuthenticatedHandler -> Mux
+	finalHandler := httpTransport.Chain(
+		authenticatedHandler,
+		httpTransport.CORSMiddleware,
+		httpTransport.LoggerMiddleware,
+		httpTransport.RecovererMiddleware,
+	)
+
+	// 10. Start Server
 	log.Printf("BFF Server listening on port %s", cfg.Port)
-	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
+	if err := http.ListenAndServe(":"+cfg.Port, finalHandler); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }

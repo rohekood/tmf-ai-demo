@@ -7,8 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
-
-	"github.com/go-chi/chi/v5"
 )
 
 const (
@@ -41,21 +39,17 @@ func NewHandler(client RPCClient, hub *Hub) *Handler {
 }
 
 // RegisterRoutes registers all API routes
-func (h *Handler) RegisterRoutes(r chi.Router) {
-	r.Route("/api", func(r chi.Router) {
-		// Customer routes
-		r.Route("/customers", func(r chi.Router) {
-			r.Get("/", h.SearchCustomers)
-			r.Post("/", h.CreateCustomer)
-			r.Get("/{id}", h.GetCustomer)
-			r.Put("/{id}", h.UpdateCustomer)
-			r.Delete("/{id}", h.DeleteCustomer)
-			r.Post("/{id}/interactions", h.LogInteraction)
-		})
+func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
+	// Customer routes
+	mux.HandleFunc("GET /api/customers", h.SearchCustomers)
+	mux.HandleFunc("POST /api/customers", h.CreateCustomer)
+	mux.HandleFunc("GET /api/customers/{id}", h.GetCustomer)
+	mux.HandleFunc("PUT /api/customers/{id}", h.UpdateCustomer)
+	mux.HandleFunc("DELETE /api/customers/{id}", h.DeleteCustomer)
+	mux.HandleFunc("POST /api/customers/{id}/interactions", h.LogInteraction)
 
-		// Party routes (delegated to PartyHandler)
-		h.partyHandler.RegisterRoutes(r)
-	})
+	// Party routes
+	h.partyHandler.RegisterRoutes(mux)
 }
 
 func getHeaders(r *http.Request) map[string]interface{} {
@@ -99,12 +93,12 @@ func (h *Handler) SearchCustomers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(responseBytes)
+	_, _ = w.Write(responseBytes)
 }
 
 // GetCustomer handles GET /api/customers/:id
 func (h *Handler) GetCustomer(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	id := r.PathValue("id")
 	if id == "" {
 		http.Error(w, "Customer ID is required", http.StatusBadRequest)
 		return
@@ -135,11 +129,12 @@ func (h *Handler) GetCustomer(w http.ResponseWriter, r *http.Request) {
 					customer["partyType"] = pType
 
 					derivedName := ""
-					if pType == "Individual" {
+					switch pType {
+					case "Individual":
 						givenName, _ := party["givenName"].(string)
 						familyName, _ := party["familyName"].(string)
 						derivedName = givenName + " " + familyName
-					} else if pType == "Organization" {
+					case "Organization":
 						derivedName, _ = party["tradingName"].(string)
 					}
 					customer["partyName"] = derivedName
@@ -156,7 +151,7 @@ func (h *Handler) GetCustomer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(responseBytes)
+	_, _ = w.Write(responseBytes)
 }
 
 // CreateCustomer handles POST /api/customers
@@ -166,7 +161,9 @@ func (h *Handler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	defer func() {
+		_ = r.Body.Close()
+	}()
 
 	var payload map[string]interface{}
 	if err := json.Unmarshal(body, &payload); err != nil {
@@ -196,11 +193,12 @@ func (h *Handler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
 			if err := json.Unmarshal(partyBytes, &party); err == nil {
 				derivedName := ""
 				pType, _ := party["@type"].(string)
-				if pType == "Individual" {
+				switch pType {
+				case "Individual":
 					givenName, _ := party["givenName"].(string)
 					familyName, _ := party["familyName"].(string)
 					derivedName = givenName + " " + familyName
-				} else if pType == "Organization" {
+				case "Organization":
 					derivedName, _ = party["tradingName"].(string)
 				}
 
@@ -221,12 +219,12 @@ func (h *Handler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	w.Write(responseBytes)
+	_, _ = w.Write(responseBytes)
 }
 
 // UpdateCustomer handles PUT /api/customers/:id
 func (h *Handler) UpdateCustomer(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	id := r.PathValue("id")
 	if id == "" {
 		http.Error(w, "Customer ID is required", http.StatusBadRequest)
 		return
@@ -237,7 +235,9 @@ func (h *Handler) UpdateCustomer(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	defer func() {
+		_ = r.Body.Close()
+	}()
 
 	var payload map[string]interface{}
 	if err := json.Unmarshal(body, &payload); err != nil {
@@ -259,12 +259,12 @@ func (h *Handler) UpdateCustomer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(responseBytes)
+	_, _ = w.Write(responseBytes)
 }
 
 // DeleteCustomer handles DELETE /api/customers/:id
 func (h *Handler) DeleteCustomer(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	id := r.PathValue("id")
 	if id == "" {
 		http.Error(w, "Customer ID is required", http.StatusBadRequest)
 		return
@@ -287,7 +287,7 @@ func (h *Handler) DeleteCustomer(w http.ResponseWriter, r *http.Request) {
 
 // LogInteraction handles POST /api/customers/:id/interactions
 func (h *Handler) LogInteraction(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	id := r.PathValue("id")
 	if id == "" {
 		http.Error(w, "Customer ID is required", http.StatusBadRequest)
 		return
@@ -298,7 +298,9 @@ func (h *Handler) LogInteraction(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	defer func() {
+		_ = r.Body.Close()
+	}()
 
 	var payload map[string]interface{}
 	if err := json.Unmarshal(body, &payload); err != nil {
@@ -323,5 +325,5 @@ func (h *Handler) LogInteraction(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	w.Write(responseBytes)
+	_, _ = w.Write(responseBytes)
 }

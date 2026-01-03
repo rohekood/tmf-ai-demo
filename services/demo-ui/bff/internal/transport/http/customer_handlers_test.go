@@ -8,8 +8,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/go-chi/chi/v5"
 )
 
 func TestHandler_SearchCustomers(t *testing.T) {
@@ -57,8 +55,8 @@ func TestHandler_GetCustomer(t *testing.T) {
 	mockClient := &MockRPCClient{}
 	handler := NewHandler(mockClient, nil)
 
-	r := chi.NewRouter()
-	r.Get("/api/customers/{id}", handler.GetCustomer)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/customers/{id}", handler.GetCustomer)
 
 	t.Run("Success", func(t *testing.T) {
 		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
@@ -68,7 +66,7 @@ func TestHandler_GetCustomer(t *testing.T) {
 		req := httptest.NewRequest("GET", "/api/customers/123", nil)
 		w := httptest.NewRecorder()
 
-		r.ServeHTTP(w, req)
+		mux.ServeHTTP(w, req)
 
 		if w.Code != http.StatusOK {
 			t.Errorf("Expected status OK, got %v", w.Code)
@@ -146,18 +144,20 @@ func TestHandler_GetCustomer_EnrichesPartyDetails(t *testing.T) {
 	}
 
 	req := httptest.NewRequest("GET", "/api/customers/c1", nil)
-	r := chi.NewRouter()
-	r.Get("/api/customers/{id}", handler.GetCustomer)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/customers/{id}", handler.GetCustomer)
 
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	mux.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status OK, got %v", w.Code)
 	}
 
 	var response map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &response)
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 
 	if response["partyName"] != "John Doe" {
 		t.Errorf("Expected partyName 'John Doe', got %v", response["partyName"])
@@ -166,8 +166,3 @@ func TestHandler_GetCustomer_EnrichesPartyDetails(t *testing.T) {
 		t.Errorf("Expected partyType 'Individual', got %v", response["partyType"])
 	}
 }
-
-// Helper needed because Handler uses chi.URLParam which requires chi context
-// I'll import chi in test or just mock context?
-// Installing go-chi/chi is required for tests too if I use it.
-// I will add the import above.
