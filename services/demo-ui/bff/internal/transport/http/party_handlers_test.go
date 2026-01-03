@@ -7,8 +7,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/go-chi/chi/v5"
 )
 
 func TestPartyHandler_SearchParties(t *testing.T) {
@@ -79,8 +77,8 @@ func TestPartyHandler_CreateParty(t *testing.T) {
 func TestPartyHandler_GetParty(t *testing.T) {
 	mockClient := &MockRPCClient{}
 	handler := NewPartyHandler(mockClient)
-	r := chi.NewRouter()
-	r.Get("/parties/{id}", handler.GetParty)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /parties/{id}", handler.GetParty)
 
 	t.Run("Success", func(t *testing.T) {
 		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
@@ -89,7 +87,7 @@ func TestPartyHandler_GetParty(t *testing.T) {
 
 		req := httptest.NewRequest("GET", "/parties/123", nil)
 		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
+		mux.ServeHTTP(w, req)
 
 		if w.Code != http.StatusOK {
 			t.Errorf("Expected status OK, got %v", w.Code)

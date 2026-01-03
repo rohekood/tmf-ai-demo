@@ -7,8 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
-
-	"github.com/go-chi/chi/v5"
 )
 
 const (
@@ -35,15 +33,13 @@ func NewPartyHandler(client RPCClient) *PartyHandler {
 }
 
 // RegisterRoutes registers all party routes
-func (h *PartyHandler) RegisterRoutes(r chi.Router) {
-	r.Route("/parties", func(r chi.Router) {
-		r.Get("/", h.SearchParties)
-		r.Post("/", h.CreateParty)
-		r.Get("/{id}", h.GetParty)
-		r.Put("/{id}", h.UpdateParty)
-		r.Patch("/{id}", h.PatchParty)
-		r.Delete("/{id}", h.DeleteParty)
-	})
+func (h *PartyHandler) RegisterRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /api/parties", h.SearchParties)
+	mux.HandleFunc("POST /api/parties", h.CreateParty)
+	mux.HandleFunc("GET /api/parties/{id}", h.GetParty)
+	mux.HandleFunc("PUT /api/parties/{id}", h.UpdateParty)
+	mux.HandleFunc("PATCH /api/parties/{id}", h.PatchParty)
+	mux.HandleFunc("DELETE /api/parties/{id}", h.DeleteParty)
 }
 
 // SearchParties handles GET /api/parties
@@ -81,12 +77,12 @@ func (h *PartyHandler) SearchParties(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(responseBytes)
+	_, _ = w.Write(responseBytes)
 }
 
 // GetParty handles GET /api/parties/:id
 func (h *PartyHandler) GetParty(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	id := r.PathValue("id")
 	if id == "" {
 		http.Error(w, "Party ID is required", http.StatusBadRequest)
 		return
@@ -105,7 +101,7 @@ func (h *PartyHandler) GetParty(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(responseBytes)
+	_, _ = w.Write(responseBytes)
 }
 
 // CreateParty handles POST /api/parties
@@ -116,7 +112,9 @@ func (h *PartyHandler) CreateParty(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	defer func() {
+		_ = r.Body.Close()
+	}()
 
 	var payload interface{}
 	if err := json.Unmarshal(body, &payload); err != nil {
@@ -136,13 +134,13 @@ func (h *PartyHandler) CreateParty(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	w.Write(responseBytes)
+	_, _ = w.Write(responseBytes)
 }
 
 // UpdateParty handles PUT /api/parties/:id
 // Full replacement of party data
 func (h *PartyHandler) UpdateParty(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	id := r.PathValue("id")
 	if id == "" {
 		http.Error(w, "Party ID is required", http.StatusBadRequest)
 		return
@@ -153,7 +151,9 @@ func (h *PartyHandler) UpdateParty(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	defer func() {
+		_ = r.Body.Close()
+	}()
 
 	var payload map[string]interface{}
 	if err := json.Unmarshal(body, &payload); err != nil {
@@ -175,13 +175,13 @@ func (h *PartyHandler) UpdateParty(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(responseBytes)
+	_, _ = w.Write(responseBytes)
 }
 
 // PatchParty handles PATCH /api/parties/:id
 // Partial update of party data
 func (h *PartyHandler) PatchParty(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	id := r.PathValue("id")
 	if id == "" {
 		http.Error(w, "Party ID is required", http.StatusBadRequest)
 		return
@@ -192,7 +192,9 @@ func (h *PartyHandler) PatchParty(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	defer func() {
+		_ = r.Body.Close()
+	}()
 
 	var payload map[string]interface{}
 	if err := json.Unmarshal(body, &payload); err != nil {
@@ -214,12 +216,12 @@ func (h *PartyHandler) PatchParty(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(responseBytes)
+	_, _ = w.Write(responseBytes)
 }
 
 // DeleteParty handles DELETE /api/parties/:id
 func (h *PartyHandler) DeleteParty(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	id := r.PathValue("id")
 	if id == "" {
 		http.Error(w, "Party ID is required", http.StatusBadRequest)
 		return
