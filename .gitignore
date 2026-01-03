@@ -1,6 +1,7 @@
 .env
 .idea/
 *.log
+!test_*.log
 docker-compose.override.yml
 
 # Large binaries to ignore

@@ -4,4 +4,5 @@ use (
 	./services/customer-management
 	./services/demo-ui/bff
 	./services/party-management
+	./services/product-catalog-management
 )
