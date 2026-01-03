@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"tmf/services/party-management/internal/config"
 	infraPostgres "tmf/services/party-management/internal/infrastructure/postgres"
@@ -86,45 +88,57 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 6. Start Health Check Server
-	healthHandler := transportHttp.NewHealthHandler(db, connMgr)
-	metricsHandler := transportHttp.MetricsHandler()
-
-	go func() {
-		mux := http.NewServeMux()
-		mux.Handle("/health", healthHandler)
-		mux.Handle("/metrics", metricsHandler)
-
-		slog.Info("starting health check server", "addr", ":8080")
-		if err := http.ListenAndServe(":8080", mux); err != nil && err != http.ErrServerClosed {
-			slog.Error("health check server failed", "error", err)
-		}
-	}()
-
 	// 7. Subscribe to Queues
 	// Start listener in a goroutine
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// Create a context that listens for the interrupt signal from the OS.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	go func() {
 		if err := listener.Start(ctx, handlers); err != nil {
 			slog.Error("listener stopped", "error", err)
-			cancel()
+			stop()
 		}
 	}()
 
-	// Wait for termination signal
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	// 8. Start Health Check Server
+	healthHandler := transportHttp.NewHealthHandler(db, connMgr)
+	metricsHandler := transportHttp.MetricsHandler()
+
+	mux := http.NewServeMux()
+	mux.Handle("/health", healthHandler)
+	mux.Handle("/metrics", metricsHandler)
+
+	srv := &http.Server{
+		Addr:    ":" + cfg.HTTPPort,
+		Handler: mux,
+	}
+
+	go func() {
+		slog.Info("starting health check server", "addr", ":"+cfg.HTTPPort)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("health check server failed", "error", err)
+			stop()
+		}
+	}()
 
 	slog.Info("party management service is running")
 
-	<-stop
+	// Wait for termination signal
+	<-ctx.Done()
 	slog.Info("shutting down gracefully...")
+	stop()
 
-	// 8. Graceful Shutdown
-	// Listener stops when context is cancelled or main exits
-	_ = connMgr.Close()
+	// 9. Graceful Shutdown
+	// Shutdown HTTP Server
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelShutdown()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("Health check server forced to shutdown", "error", err)
+	}
+
+	// Wait for listener to cleanup if needed
+	time.Sleep(1 * time.Second)
 
 	slog.Info("service stopped")
 }

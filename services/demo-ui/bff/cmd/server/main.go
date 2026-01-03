@@ -1,8 +1,14 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 	"tmf/services/demo-ui/bff/internal/auth"
 	"tmf/services/demo-ui/bff/internal/config"
 	httpTransport "tmf/services/demo-ui/bff/internal/transport/http"
@@ -77,9 +83,39 @@ func main() {
 		httpTransport.RecovererMiddleware,
 	)
 
-	// 10. Start Server
-	log.Printf("BFF Server listening on port %s", cfg.Port)
-	if err := http.ListenAndServe(":"+cfg.Port, finalHandler); err != nil {
-		log.Fatalf("Server failed: %v", err)
+	// 10. Start Server with Graceful Shutdown
+	// Create a context that listens for the interrupt signal from the OS.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	srv := &http.Server{
+		Addr:    ":" + cfg.Port,
+		Handler: finalHandler,
 	}
+
+	// Initializing the server in a goroutine so that
+	// it won't block the graceful shutdown handling below
+	go func() {
+		log.Printf("BFF Server listening on port %s", cfg.Port)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}()
+
+	// Listen for the interrupt signal.
+	<-ctx.Done()
+
+	// Restore default behavior on the interrupt signal and notify user of shutdown.
+	stop()
+	log.Println("shutting down gracefully, press Ctrl+C again to force")
+
+	// The context is used to inform the server it has 5 seconds to finish
+	// the request it is currently handling
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatal("Server forced to shutdown: ", err)
+	}
+
+	log.Println("Server exiting")
 }
