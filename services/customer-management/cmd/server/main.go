@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
@@ -90,13 +91,14 @@ func main() {
 	}
 
 	// 5. Start Service
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// Create a context that listens for the interrupt signal from the OS.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	go func() {
 		if err := listener.Start(ctx, handlers); err != nil {
 			slog.Error("listener stopped", "error", err)
-			cancel()
+			stop()
 		}
 	}()
 
@@ -104,25 +106,41 @@ func main() {
 	healthHandler := transportHttp.NewHealthHandler(db, conn)
 	metricsHandler := transportHttp.MetricsHandler()
 
-	go func() {
-		mux := http.NewServeMux()
-		mux.Handle("/health", healthHandler)
-		mux.Handle("/metrics", metricsHandler)
+	mux := http.NewServeMux()
+	mux.Handle("/health", healthHandler)
+	mux.Handle("/metrics", metricsHandler)
 
-		slog.Info("starting health check server", "addr", ":8081")
-		if err := http.ListenAndServe(":8081", mux); err != nil && err != http.ErrServerClosed {
+	port := getEnv("HTTP_PORT", "8081")
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: mux,
+	}
+
+	go func() {
+		slog.Info("starting health check server", "addr", ":"+port)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("health check server failed", "error", err)
+			stop()
 		}
 	}()
 
 	// Wait for termination signal
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigChan
+	<-ctx.Done()
 
 	slog.Info("Shutting down Customer Management service...")
-	cancel()
-	time.Sleep(1 * time.Second) // Give some time for cleanup
+	stop()
+
+	// Shutdown HTTP Server
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelShutdown()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("Health check server forced to shutdown", "error", err)
+	}
+
+	// Give some time for other cleanup if needed, essentially waiting for listener to stop
+	// The listener should stop when ctx is cancelled.
+	// We could wait for it if we had a WaitGroup, but for now we follow the pattern.
+	time.Sleep(1 * time.Second)
 }
 
 func runMigrations(dbURL string) {
