@@ -30,10 +30,10 @@ func TestRabbitMQHandler_CreateProductSpecification(t *testing.T) {
 	pub, err := publisher.NewRabbitMQPublisher(rabbitConn)
 	require.NoError(t, err)
 
-	createUC := catalog.NewCreateCatalog(repo, pub)
+	createUC := catalog.NewCreateCatalog(repo, pub, &repository.NoOpTransactionManager{})
 	listUC := catalog.NewListCatalogs(repo)
-	createCatUC := category.NewCreateCategory(catRepo, pub)
-	createSpecUC := specification.NewCreateProductSpecification(specRepo, pub)
+	createCatUC := category.NewCreateCategory(catRepo, pub, &repository.NoOpTransactionManager{})
+	createSpecUC := specification.NewCreateProductSpecification(specRepo, pub, &repository.NoOpTransactionManager{})
 	createOfferingUC := offering.NewCreateProductOffering(repository.NewProductOfferingRepo(sharedDB), pub, &repository.NoOpTransactionManager{})
 
 	// Init Handler
@@ -104,13 +104,9 @@ func TestRabbitMQHandler_CreateProductSpecification(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// Wait for processing
-	time.Sleep(3 * time.Second)
-
-	// Verify in DB
-	list, err := specRepo.List(context.Background(), map[string]interface{}{"name": "Async Spec"})
-	assert.NoError(t, err)
-	assert.Len(t, list, 1)
-	assert.Equal(t, "Async Spec", list[0].Name)
-	assert.Equal(t, "ASYNC-001", list[0].ProductNumber)
+	// Wait for processing using Eventually
+	assert.Eventually(t, func() bool {
+		list, err := specRepo.List(context.Background(), map[string]interface{}{"name": "Async Spec"})
+		return err == nil && len(list) == 1 && list[0].Name == "Async Spec" && list[0].ProductNumber == "ASYNC-001"
+	}, 10*time.Second, 100*time.Millisecond, "Specification should be created via RabbitMQ")
 }

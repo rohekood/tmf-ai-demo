@@ -21,6 +21,7 @@ This document defines the architecture for the Customer Management service. Foll
 ### 1.3 Resilience & Consistency
 - **RabbitMQ**: Use `ConnectionManager` for automatic reconnection logic.
 - **Graceful Shutdown**: Implement `Close()` methods and use `sync.WaitGroup` to ensure all active processing completes before exit.
+- **Transactional Outbox**: To ensure data consistency between the database and the message broker, we implement the Transactional Outbox Pattern. Database changes and the corresponding events are persisted in the same transaction. A background worker then reliably publishes these events to RabbitMQ.
 - **Eventual Consistency**: Since this service depends on the Party Management service, it must handle scenarios where party data is not yet available or is being updated asynchronously.
 
 ### 1.4 Logging
@@ -39,6 +40,14 @@ We categorize topics/subjects into three types:
 *   `cmd.customer.<action>`: For requesting an action (e.g., Create, Update, Suspend).
 *   `evt.customer.<state>`: For broadcasting state changes (e.g., Created, StatusChanged).
 *   `query.customer.<lookup>`: For retrieving data (e.g., GetById, Search).
+
+### 2.3 Transactional Outbox Pattern
+To solve the "dual-write" problem (writing to DB and publishing to Broker atomically), we use an Outbox table:
+1.  **Transaction Start**: Begin a database transaction.
+2.  **Business Operation**: Create/Update/Delete the domain entity.
+3.  **Outbox Record**: Insert an event record into the `outbox_events` table within the **same** transaction.
+4.  **Commit**: Commit the transaction. If this fails, neither the entity nor the event is persisted.
+5.  **Async Publication**: A background `OutboxWorker` polls the `outbox_events` table for "PENDING" events, publishes them to RabbitMQ, and marks them as "PUBLISHED".
 
 ## 3. Interface Definition (AsyncAPI)
 
@@ -81,7 +90,8 @@ The service will consist of:
 1.  **RabbitMQ Adapter**: Manages connection and channels.
 2.  **Party Client**: An internal RabbitMQ RPC client to fetch identity data from the Party service.
 3.  **Service Layer**: Business logic (Integration rules, validation).
-4.  **Repository Layer**: PostgreSQL access.
+4.  **Repository Layer**: PostgreSQL access with Transaction Management support.
+5.  **Outbox Worker**: Background worker for publishing events.
 
 ## 6. Deployment Diagram
 ```mermaid

@@ -26,6 +26,7 @@ This document defines the architecture for the Party Management service, adherin
 ### 1.3 Resilience
 - **RabbitMQ**: Use `ConnectionManager` for automatic reconnection logic.
 - **Graceful Shutdown**: Implement `Close()` methods and use `sync.WaitGroup` to ensure all active tasks finish before the process exits.
+- **Transactional Outbox**: To ensure data consistency between the database and the message broker, we implement the Transactional Outbox Pattern. Database changes and the corresponding events are persisted in the same transaction. A background worker then reliably publishes these events to RabbitMQ.
 
 ### 1.4 Logging
 - Use structured logging (`log/slog`) with relevant attributes (e.g., `party_id`) for better observability.
@@ -43,6 +44,14 @@ We categorize topics/subjects into three types:
 *   `cmd.party.<action>`: For requesting an action (e.g., Create, Update).
 *   `evt.party.<entity>.<state>`: For broadcasting state changes (e.g., Created, Updated).
 *   `query.party.<lookup>`: For retrieving data (e.g., GetById).
+
+### 2.3 Transactional Outbox Pattern
+To solve the "dual-write" problem (writing to DB and publishing to Broker atomically), we use an Outbox table:
+1.  **Transaction Start**: Begin a database transaction.
+2.  **Business Operation**: Create/Update/Delete the domain entity.
+3.  **Outbox Record**: Insert an event record into the `outbox_events` table within the **same** transaction.
+4.  **Commit**: Commit the transaction. If this fails, neither the entity nor the event is persisted.
+5.  **Async Publication**: A background `OutboxWorker` polls the `outbox_events` table for "PENDING" events, publishes them to RabbitMQ, and marks them as "PUBLISHED".
 
 ## 3. Interface Definition (AsyncAPI)
 
@@ -83,7 +92,8 @@ The service will consist of:
 1.  **RabbitMQ Adapter**: Manages connection, channels, and exchanges.
 2.  **Router/Dispatcher**: Route messages from queues to specific handlers.
 3.  **Service Layer**: Business logic (validation, TMF rules).
-4.  **Repository Layer**: PostgreSQL access (using `pgx` or `gorm`).
+4.  **Repository Layer**: PostgreSQL access (using `pgx` or `gorm`) with Transaction management.
+5.  **Outbox Worker**: Background worker for publishing events.
 
 ## 6. Deployment Diagram
 ```mermaid

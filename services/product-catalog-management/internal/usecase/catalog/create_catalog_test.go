@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"testing"
+	"tmf/services/product-catalog-management/internal/adapter/repository"
 
 	"tmf/services/product-catalog-management/internal/core/domain"
 	"tmf/services/product-catalog-management/internal/core/ports"
@@ -14,7 +15,7 @@ import (
 func TestCreateCatalog_Execute(t *testing.T) {
 	mockRepo := new(MockCatalogRepo)
 	mockPub := new(MockEventPublisher)
-	useCase := NewCreateCatalog(mockRepo, mockPub)
+	useCase := NewCreateCatalog(mockRepo, mockPub, &repository.NoOpTransactionManager{})
 
 	input := ports.CreateCatalogInput{
 		Name:        "Test Catalog",

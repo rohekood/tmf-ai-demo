@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 	"time"
+	"tmf/services/product-catalog-management/internal/adapter/repository"
 
 	"tmf/services/product-catalog-management/internal/core/domain"
 	"tmf/services/product-catalog-management/internal/core/ports"
@@ -16,7 +17,7 @@ func TestCreateSpecification_Execute(t *testing.T) {
 	mockRepo := new(MockSpecificationRepo)
 	mockPub := new(MockEventPublisher)
 
-	useCase := NewCreateProductSpecification(mockRepo, mockPub)
+	useCase := NewCreateProductSpecification(mockRepo, mockPub, &repository.NoOpTransactionManager{})
 
 	input := ports.CreateProductSpecificationInput{
 		Name:            "iPhone 13 Spec",

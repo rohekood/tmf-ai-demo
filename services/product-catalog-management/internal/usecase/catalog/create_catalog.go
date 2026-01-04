@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"time"
+	"tmf/services/product-catalog-management/internal/adapter/repository"
 	"tmf/services/product-catalog-management/internal/core/domain"
 	"tmf/services/product-catalog-management/internal/core/ports"
 
@@ -12,12 +13,14 @@ import (
 type CreateCatalog struct {
 	repo      ports.CatalogRepository
 	publisher ports.EventPublisher
+	tm        repository.TransactionManager
 }
 
-func NewCreateCatalog(repo ports.CatalogRepository, publisher ports.EventPublisher) *CreateCatalog {
+func NewCreateCatalog(repo ports.CatalogRepository, publisher ports.EventPublisher, tm repository.TransactionManager) *CreateCatalog { // Added TM
 	return &CreateCatalog{
 		repo:      repo,
 		publisher: publisher,
+		tm:        tm, // Inject TM
 	}
 }
 
@@ -38,23 +41,18 @@ func (uc *CreateCatalog) Execute(ctx context.Context, input ports.CreateCatalogI
 	}
 
 	// 3. Persist
-	if err := uc.repo.Create(ctx, catalog); err != nil {
+	// 3. Persist & Publish in Transaction
+	if err := uc.tm.Run(ctx, func(ctx context.Context) error {
+		if err := uc.repo.Create(ctx, catalog); err != nil {
+			return err
+		}
+		if err := uc.publisher.PublishCatalogCreated(ctx, domain.CatalogCreatedEvent{Catalog: catalog}); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-
-	// Publish Event
-	// We ignore error here to not fail the request if publishing fails (or we could log it)?
-	// Ideally we want transactional outbox, but for now just log error if strictly needed,
-	// or return error if we want strong consistency (but that risks partial state if DB committed).
-	// Let's just try to publish and log if error (standard MVP approach).
-	// Re-reading: The Execute returns (*Catalog, error).
-	// I'll return the error if publish fails? No, the catalog is created.
-	// I will just return nil error, but maybe log it.
-	// Actually, let's keep it simple: publish and if fail, return error?
-	// The problem is the DB transaction is already committed (implicit in repo.Create).
-	// So returning error would be confusing "Created but failed".
-	// I will just return nil, but try to publish.
-	_ = uc.publisher.PublishCatalogCreated(ctx, domain.CatalogCreatedEvent{Catalog: catalog})
 
 	// 4. Return
 	return catalog, nil

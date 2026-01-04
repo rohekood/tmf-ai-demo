@@ -3,6 +3,7 @@ package category
 import (
 	"context"
 	"time"
+	"tmf/services/product-catalog-management/internal/adapter/repository"
 	"tmf/services/product-catalog-management/internal/core/domain"
 	"tmf/services/product-catalog-management/internal/core/ports"
 
@@ -12,12 +13,14 @@ import (
 type CreateCategory struct {
 	repo      ports.CategoryRepository
 	publisher ports.EventPublisher
+	tm        repository.TransactionManager
 }
 
-func NewCreateCategory(repo ports.CategoryRepository, publisher ports.EventPublisher) *CreateCategory {
+func NewCreateCategory(repo ports.CategoryRepository, publisher ports.EventPublisher, tm repository.TransactionManager) *CreateCategory {
 	return &CreateCategory{
 		repo:      repo,
 		publisher: publisher,
+		tm:        tm,
 	}
 }
 
@@ -38,11 +41,18 @@ func (uc *CreateCategory) Execute(ctx context.Context, input ports.CreateCategor
 		return nil, err
 	}
 
-	if err := uc.repo.Create(ctx, category); err != nil {
+	// Persist & Publish in Transaction
+	if err := uc.tm.Run(ctx, func(ctx context.Context) error {
+		if err := uc.repo.Create(ctx, category); err != nil {
+			return err
+		}
+		if err := uc.publisher.PublishCategoryCreated(ctx, domain.CategoryCreatedEvent{Category: category}); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-
-	_ = uc.publisher.PublishCategoryCreated(ctx, domain.CategoryCreatedEvent{Category: category})
 
 	return category, nil
 }
