@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"time"
+	"tmf/services/product-catalog-management/internal/adapter/repository"
 	"tmf/services/product-catalog-management/internal/core/domain"
 	"tmf/services/product-catalog-management/internal/core/ports"
 )
@@ -10,12 +11,14 @@ import (
 type UpdateCatalogUseCase struct {
 	repo      ports.CatalogRepository
 	publisher ports.EventPublisher
+	tm        repository.TransactionManager
 }
 
-func NewUpdateCatalogUseCase(repo ports.CatalogRepository, publisher ports.EventPublisher) ports.UpdateCatalogUseCase {
+func NewUpdateCatalogUseCase(repo ports.CatalogRepository, publisher ports.EventPublisher, tm repository.TransactionManager) ports.UpdateCatalogUseCase {
 	return &UpdateCatalogUseCase{
 		repo:      repo,
 		publisher: publisher,
+		tm:        tm, // Inject TM
 	}
 }
 
@@ -47,13 +50,16 @@ func (uc *UpdateCatalogUseCase) Execute(ctx context.Context, input ports.UpdateC
 		return nil, err
 	}
 
-	// 4. Persist
-	if err := uc.repo.Update(ctx, catalog); err != nil {
-		return nil, err
-	}
-
-	// 5. Publish Event
-	if err := uc.publisher.PublishCatalogUpdated(ctx, domain.CatalogUpdatedEvent{Catalog: catalog}); err != nil {
+	// 4. Persist & Publish in Transaction
+	if err := uc.tm.Run(ctx, func(ctx context.Context) error {
+		if err := uc.repo.Update(ctx, catalog); err != nil {
+			return err
+		}
+		if err := uc.publisher.PublishCatalogUpdated(ctx, domain.CatalogUpdatedEvent{Catalog: catalog}); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
 		return catalog, err
 	}
 

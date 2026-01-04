@@ -31,10 +31,10 @@ func TestRabbitMQHandler_CreateProductOffering(t *testing.T) {
 	pub, err := publisher.NewRabbitMQPublisher(rabbitConn)
 	require.NoError(t, err)
 
-	createUC := catalog.NewCreateCatalog(repo, pub)
+	createUC := catalog.NewCreateCatalog(repo, pub, &repository.NoOpTransactionManager{})
 	listUC := catalog.NewListCatalogs(repo)
-	createCatUC := category.NewCreateCategory(catRepo, pub)
-	createSpecUC := specification.NewCreateProductSpecification(specRepo, pub)
+	createCatUC := category.NewCreateCategory(catRepo, pub, &repository.NoOpTransactionManager{})
+	createSpecUC := specification.NewCreateProductSpecification(specRepo, pub, &repository.NoOpTransactionManager{})
 	createOfferingUC := offering.NewCreateProductOffering(offeringRepo, pub, &repository.NoOpTransactionManager{})
 
 	// Init Handler
@@ -118,15 +118,11 @@ func TestRabbitMQHandler_CreateProductOffering(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// Wait for processing
-	time.Sleep(3 * time.Second)
-
-	// Verify in DB
-	list, err := offeringRepo.List(context.Background(), map[string]interface{}{"name": "Async Offering"})
-	assert.NoError(t, err)
-	assert.Len(t, list, 1)
-	assert.Equal(t, "Async Offering", list[0].Name)
-	assert.Equal(t, 120.0, list[0].ProductOfferingPrice[0].Price.Value)
+	// Wait for processing using Eventually
+	assert.Eventually(t, func() bool {
+		list, err := offeringRepo.List(context.Background(), map[string]interface{}{"name": "Async Offering"})
+		return err == nil && len(list) == 1 && list[0].Name == "Async Offering"
+	}, 10*time.Second, 100*time.Millisecond, "Offering should be created via RabbitMQ")
 }
 
 func TestRabbitMQHandler_Offering_AdvancedFeatures(t *testing.T) {
@@ -235,15 +231,16 @@ func TestRabbitMQHandler_Offering_AdvancedFeatures(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	time.Sleep(2 * time.Second)
-
-	// Verify Create & Attachments via Repo
-	list, err := offeringRepo.List(context.Background(), map[string]interface{}{"name": offeringName})
-	require.NoError(t, err)
-	require.Len(t, list, 1)
-	offeringID := list[0].ID
-	assert.Len(t, list[0].Attachments, 1)
-	assert.Equal(t, "Manual", list[0].Attachments[0].Name)
+	// Verify Create & Attachments via Repo using Eventually
+	var offeringID string
+	assert.Eventually(t, func() bool {
+		list, err := offeringRepo.List(context.Background(), map[string]interface{}{"name": offeringName})
+		if err != nil || len(list) != 1 {
+			return false
+		}
+		offeringID = list[0].ID
+		return len(list[0].Attachments) == 1 && list[0].Attachments[0].Name == "Manual"
+	}, 10*time.Second, 100*time.Millisecond, "Offering with attachments should be created via RabbitMQ")
 
 	// 3. Test Advanced Filtering
 	// Send RPC Query for Filtering

@@ -88,28 +88,28 @@ func main() {
 	outboxWorker := worker.NewOutboxWorker(db, rabbitPublisher)
 
 	// 6. Init UseCases (Injecting tm and outboxPublisher)
-	createCatalogUC := catalog.NewCreateCatalog(catalogRepo, outboxPublisher) // TODO: Inject tm
-	updateCatalogUC := catalog.NewUpdateCatalogUseCase(catalogRepo, outboxPublisher)
-	deleteCatalogUC := catalog.NewDeleteCatalogUseCase(catalogRepo, outboxPublisher)
+	createCatalogUC := catalog.NewCreateCatalog(catalogRepo, outboxPublisher, tm)
+	updateCatalogUC := catalog.NewUpdateCatalogUseCase(catalogRepo, outboxPublisher, tm)
+	deleteCatalogUC := catalog.NewDeleteCatalogUseCase(catalogRepo, outboxPublisher, tm)
 	listCatalogsUC := catalog.NewListCatalogs(catalogRepo)
 	getCatalogUC := catalog.NewGetCatalog(catalogRepo)
 
-	createCategoryUC := category.NewCreateCategory(categoryRepo, outboxPublisher)
-	updateCategoryUC := category.NewUpdateCategoryUseCase(categoryRepo, outboxPublisher)
-	deleteCategoryUC := category.NewDeleteCategoryUseCase(categoryRepo, outboxPublisher)
+	createCategoryUC := category.NewCreateCategory(categoryRepo, outboxPublisher, tm)
+	updateCategoryUC := category.NewUpdateCategoryUseCase(categoryRepo, outboxPublisher, tm)
+	deleteCategoryUC := category.NewDeleteCategoryUseCase(categoryRepo, outboxPublisher, tm)
 	getCategoryUC := category.NewGetCategory(categoryRepo)
 	listCategoriesUC := category.NewListCategories(categoryRepo)
 
-	createProductSpecificationUC := specification.NewCreateProductSpecification(specRepo, outboxPublisher)
-	updateProductSpecificationUC := specification.NewUpdateProductSpecificationUseCase(specRepo, outboxPublisher)
-	deleteProductSpecificationUC := specification.NewDeleteProductSpecificationUseCase(specRepo, outboxPublisher)
+	createProductSpecificationUC := specification.NewCreateProductSpecification(specRepo, outboxPublisher, tm)
+	updateProductSpecificationUC := specification.NewUpdateProductSpecificationUseCase(specRepo, outboxPublisher, tm)
+	deleteProductSpecificationUC := specification.NewDeleteProductSpecificationUseCase(specRepo, outboxPublisher, tm)
 	getProductSpecificationUC := specification.NewGetProductSpecification(specRepo)
 	listProductSpecificationsUC := specification.NewListProductSpecifications(specRepo)
 
 	// Inject TM into CreateProductOffering
 	createProductOfferingUC := offering.NewCreateProductOffering(offeringRepo, outboxPublisher, tm)
-	updateProductOfferingUC := offering.NewUpdateProductOfferingUseCase(offeringRepo, outboxPublisher, tm) // Assuming updated
-	deleteProductOfferingUC := offering.NewDeleteProductOfferingUseCase(offeringRepo, outboxPublisher)
+	updateProductOfferingUC := offering.NewUpdateProductOfferingUseCase(offeringRepo, outboxPublisher, tm)
+	deleteProductOfferingUC := offering.NewDeleteProductOfferingUseCase(offeringRepo, outboxPublisher, tm)
 	getProductOfferingUC := offering.NewGetProductOffering(offeringRepo, specRepo, categoryRepo)
 	listProductOfferingsUC := offering.NewListProductOfferings(offeringRepo)
 

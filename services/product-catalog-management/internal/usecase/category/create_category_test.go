@@ -3,6 +3,7 @@ package category
 import (
 	"context"
 	"testing"
+	"tmf/services/product-catalog-management/internal/adapter/repository"
 
 	"tmf/services/product-catalog-management/internal/core/domain"
 	"tmf/services/product-catalog-management/internal/core/ports"
@@ -14,7 +15,7 @@ import (
 func TestCreateCategory_Execute(t *testing.T) {
 	mockRepo := new(MockCategoryRepo)
 	mockPub := new(MockEventPublisher)
-	useCase := NewCreateCategory(mockRepo, mockPub)
+	useCase := NewCreateCategory(mockRepo, mockPub, &repository.NoOpTransactionManager{})
 
 	input := ports.CreateCategoryInput{
 		Name:        "Smartphones",

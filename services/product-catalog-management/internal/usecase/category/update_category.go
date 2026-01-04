@@ -3,6 +3,7 @@ package category
 import (
 	"context"
 	"time"
+	"tmf/services/product-catalog-management/internal/adapter/repository"
 	"tmf/services/product-catalog-management/internal/core/domain"
 	"tmf/services/product-catalog-management/internal/core/ports"
 )
@@ -10,12 +11,14 @@ import (
 type UpdateCategoryUseCase struct {
 	repo      ports.CategoryRepository
 	publisher ports.EventPublisher
+	tm        repository.TransactionManager
 }
 
-func NewUpdateCategoryUseCase(repo ports.CategoryRepository, publisher ports.EventPublisher) ports.UpdateCategoryUseCase {
+func NewUpdateCategoryUseCase(repo ports.CategoryRepository, publisher ports.EventPublisher, tm repository.TransactionManager) ports.UpdateCategoryUseCase {
 	return &UpdateCategoryUseCase{
 		repo:      repo,
 		publisher: publisher,
+		tm:        tm,
 	}
 }
 
@@ -53,11 +56,16 @@ func (uc *UpdateCategoryUseCase) Execute(ctx context.Context, input ports.Update
 		return nil, err
 	}
 
-	if err := uc.repo.Update(ctx, category); err != nil {
-		return nil, err
-	}
-
-	if err := uc.publisher.PublishCategoryUpdated(ctx, domain.CategoryUpdatedEvent{Category: category}); err != nil {
+	// Persist & Publish in Transaction
+	if err := uc.tm.Run(ctx, func(ctx context.Context) error {
+		if err := uc.repo.Update(ctx, category); err != nil {
+			return err
+		}
+		if err := uc.publisher.PublishCategoryUpdated(ctx, domain.CategoryUpdatedEvent{Category: category}); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
 		return category, err
 	}
 

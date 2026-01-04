@@ -3,6 +3,7 @@ package specification
 import (
 	"context"
 	"time"
+	"tmf/services/product-catalog-management/internal/adapter/repository"
 	"tmf/services/product-catalog-management/internal/core/domain"
 	"tmf/services/product-catalog-management/internal/core/ports"
 )
@@ -10,12 +11,14 @@ import (
 type UpdateProductSpecificationUseCase struct {
 	repo      ports.ProductSpecificationRepository
 	publisher ports.EventPublisher
+	tm        repository.TransactionManager
 }
 
-func NewUpdateProductSpecificationUseCase(repo ports.ProductSpecificationRepository, publisher ports.EventPublisher) ports.UpdateProductSpecificationUseCase {
+func NewUpdateProductSpecificationUseCase(repo ports.ProductSpecificationRepository, publisher ports.EventPublisher, tm repository.TransactionManager) ports.UpdateProductSpecificationUseCase {
 	return &UpdateProductSpecificationUseCase{
 		repo:      repo,
 		publisher: publisher,
+		tm:        tm,
 	}
 }
 
@@ -53,11 +56,16 @@ func (uc *UpdateProductSpecificationUseCase) Execute(ctx context.Context, input 
 		return nil, err
 	}
 
-	if err := uc.repo.Update(ctx, spec); err != nil {
-		return nil, err
-	}
-
-	if err := uc.publisher.PublishProductSpecificationUpdated(ctx, domain.ProductSpecificationUpdatedEvent{ProductSpecification: spec}); err != nil {
+	// Persist & Publish in Transaction
+	if err := uc.tm.Run(ctx, func(ctx context.Context) error {
+		if err := uc.repo.Update(ctx, spec); err != nil {
+			return err
+		}
+		if err := uc.publisher.PublishProductSpecificationUpdated(ctx, domain.ProductSpecificationUpdatedEvent{ProductSpecification: spec}); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
 		return spec, err
 	}
 
