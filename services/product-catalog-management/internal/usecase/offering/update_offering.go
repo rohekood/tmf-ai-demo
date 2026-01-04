@@ -3,6 +3,7 @@ package offering
 import (
 	"context"
 	"time"
+	"tmf/services/product-catalog-management/internal/adapter/repository"
 	"tmf/services/product-catalog-management/internal/core/domain"
 	"tmf/services/product-catalog-management/internal/core/ports"
 
@@ -12,12 +13,14 @@ import (
 type UpdateProductOfferingUseCase struct {
 	repo      ports.ProductOfferingRepository
 	publisher ports.EventPublisher
+	tm        repository.TransactionManager
 }
 
-func NewUpdateProductOfferingUseCase(repo ports.ProductOfferingRepository, publisher ports.EventPublisher) ports.UpdateProductOfferingUseCase {
+func NewUpdateProductOfferingUseCase(repo ports.ProductOfferingRepository, publisher ports.EventPublisher, tm repository.TransactionManager) ports.UpdateProductOfferingUseCase {
 	return &UpdateProductOfferingUseCase{
 		repo:      repo,
 		publisher: publisher,
+		tm:        tm,
 	}
 }
 
@@ -66,12 +69,17 @@ func (uc *UpdateProductOfferingUseCase) Execute(ctx context.Context, input ports
 		return nil, err
 	}
 
-	if err := uc.repo.Update(ctx, offering); err != nil {
-		return nil, err
-	}
+	if err := uc.tm.Run(ctx, func(ctx context.Context) error {
+		if err := uc.repo.Update(ctx, offering); err != nil {
+			return err
+		}
 
-	if err := uc.publisher.PublishProductOfferingUpdated(ctx, domain.ProductOfferingUpdatedEvent{ProductOffering: offering}); err != nil {
-		return offering, err
+		if err := uc.publisher.PublishProductOfferingUpdated(ctx, domain.ProductOfferingUpdatedEvent{ProductOffering: offering}); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 
 	return offering, nil

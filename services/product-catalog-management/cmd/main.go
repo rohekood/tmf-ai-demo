@@ -15,6 +15,7 @@ import (
 	"tmf/services/product-catalog-management/internal/adapter/handler"
 	"tmf/services/product-catalog-management/internal/adapter/publisher"
 	"tmf/services/product-catalog-management/internal/adapter/repository"
+	"tmf/services/product-catalog-management/internal/adapter/worker"
 	"tmf/services/product-catalog-management/internal/usecase/catalog"
 	"tmf/services/product-catalog-management/internal/usecase/category"
 	"tmf/services/product-catalog-management/internal/usecase/offering"
@@ -45,6 +46,7 @@ func main() {
 		&repository.CategoryModel{},
 		&repository.ProductSpecificationModel{},
 		&repository.ProductOfferingModel{},
+		&repository.OutboxEventModel{},
 	)
 	if err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
@@ -75,34 +77,39 @@ func main() {
 	specRepo := repository.NewProductSpecificationRepo(db)
 	offeringRepo := repository.NewProductOfferingRepo(db)
 
-	// 5. Init Publisher
+	// 5. Init Publisher & Transaction Manager
 	rabbitPublisher, err := publisher.NewRabbitMQPublisher(conn)
 	if err != nil {
 		log.Fatalf("Failed to initialize RabbitMQ publisher: %v", err)
 	}
 
-	// 6. Init UseCases
-	createCatalogUC := catalog.NewCreateCatalog(catalogRepo, rabbitPublisher)
-	updateCatalogUC := catalog.NewUpdateCatalogUseCase(catalogRepo, rabbitPublisher)
-	deleteCatalogUC := catalog.NewDeleteCatalogUseCase(catalogRepo, rabbitPublisher)
+	tm := repository.NewTransactionManager(db)
+	outboxPublisher := publisher.NewOutboxPublisher(db)
+	outboxWorker := worker.NewOutboxWorker(db, rabbitPublisher)
+
+	// 6. Init UseCases (Injecting tm and outboxPublisher)
+	createCatalogUC := catalog.NewCreateCatalog(catalogRepo, outboxPublisher) // TODO: Inject tm
+	updateCatalogUC := catalog.NewUpdateCatalogUseCase(catalogRepo, outboxPublisher)
+	deleteCatalogUC := catalog.NewDeleteCatalogUseCase(catalogRepo, outboxPublisher)
 	listCatalogsUC := catalog.NewListCatalogs(catalogRepo)
 	getCatalogUC := catalog.NewGetCatalog(catalogRepo)
 
-	createCategoryUC := category.NewCreateCategory(categoryRepo, rabbitPublisher)
-	updateCategoryUC := category.NewUpdateCategoryUseCase(categoryRepo, rabbitPublisher)
-	deleteCategoryUC := category.NewDeleteCategoryUseCase(categoryRepo, rabbitPublisher)
+	createCategoryUC := category.NewCreateCategory(categoryRepo, outboxPublisher)
+	updateCategoryUC := category.NewUpdateCategoryUseCase(categoryRepo, outboxPublisher)
+	deleteCategoryUC := category.NewDeleteCategoryUseCase(categoryRepo, outboxPublisher)
 	getCategoryUC := category.NewGetCategory(categoryRepo)
 	listCategoriesUC := category.NewListCategories(categoryRepo)
 
-	createProductSpecificationUC := specification.NewCreateProductSpecification(specRepo, rabbitPublisher)
-	updateProductSpecificationUC := specification.NewUpdateProductSpecificationUseCase(specRepo, rabbitPublisher)
-	deleteProductSpecificationUC := specification.NewDeleteProductSpecificationUseCase(specRepo, rabbitPublisher)
+	createProductSpecificationUC := specification.NewCreateProductSpecification(specRepo, outboxPublisher)
+	updateProductSpecificationUC := specification.NewUpdateProductSpecificationUseCase(specRepo, outboxPublisher)
+	deleteProductSpecificationUC := specification.NewDeleteProductSpecificationUseCase(specRepo, outboxPublisher)
 	getProductSpecificationUC := specification.NewGetProductSpecification(specRepo)
 	listProductSpecificationsUC := specification.NewListProductSpecifications(specRepo)
 
-	createProductOfferingUC := offering.NewCreateProductOffering(offeringRepo, rabbitPublisher)
-	updateProductOfferingUC := offering.NewUpdateProductOfferingUseCase(offeringRepo, rabbitPublisher)
-	deleteProductOfferingUC := offering.NewDeleteProductOfferingUseCase(offeringRepo, rabbitPublisher)
+	// Inject TM into CreateProductOffering
+	createProductOfferingUC := offering.NewCreateProductOffering(offeringRepo, outboxPublisher, tm)
+	updateProductOfferingUC := offering.NewUpdateProductOfferingUseCase(offeringRepo, outboxPublisher, tm) // Assuming updated
+	deleteProductOfferingUC := offering.NewDeleteProductOfferingUseCase(offeringRepo, outboxPublisher)
 	getProductOfferingUC := offering.NewGetProductOffering(offeringRepo, specRepo, categoryRepo)
 	listProductOfferingsUC := offering.NewListProductOfferings(offeringRepo)
 
@@ -144,6 +151,8 @@ func main() {
 			cancel() // Shutdown on error
 		}
 	}()
+
+	go outboxWorker.Start(ctx)
 
 	log.Println("Product Catalog Management Service Started")
 
