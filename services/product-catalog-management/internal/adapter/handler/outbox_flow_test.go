@@ -24,7 +24,7 @@ func TestOutboxFlow_CreateOffering(t *testing.T) {
 	require.NoError(t, err)
 
 	sharedDB.Exec("TRUNCATE TABLE product_offerings CASCADE")
-	sharedDB.Exec("DELETE FROM outbox_events")
+	sharedDB.Exec("DELETE FROM outbox_event_models")
 
 	offeringRepo := repository.NewProductOfferingRepo(sharedDB)
 	tm := repository.NewTransactionManager(sharedDB)
