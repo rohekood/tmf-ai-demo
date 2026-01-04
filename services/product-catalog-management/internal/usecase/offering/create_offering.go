@@ -3,6 +3,7 @@ package offering
 import (
 	"context"
 	"time"
+	"tmf/services/product-catalog-management/internal/adapter/repository"
 	"tmf/services/product-catalog-management/internal/core/domain"
 	"tmf/services/product-catalog-management/internal/core/ports"
 
@@ -12,12 +13,14 @@ import (
 type CreateProductOffering struct {
 	repo      ports.ProductOfferingRepository
 	publisher ports.EventPublisher
+	tm        repository.TransactionManager
 }
 
-func NewCreateProductOffering(repo ports.ProductOfferingRepository, publisher ports.EventPublisher) *CreateProductOffering {
+func NewCreateProductOffering(repo ports.ProductOfferingRepository, publisher ports.EventPublisher, tm repository.TransactionManager) *CreateProductOffering {
 	return &CreateProductOffering{
 		repo:      repo,
 		publisher: publisher,
+		tm:        tm,
 	}
 }
 
@@ -52,11 +55,18 @@ func (uc *CreateProductOffering) Execute(ctx context.Context, input ports.Create
 		return nil, domain.ErrInvalidInput
 	}
 
-	if err := uc.repo.Create(ctx, offering); err != nil {
+	if err := uc.tm.Run(ctx, func(ctx context.Context) error {
+		if err := uc.repo.Create(ctx, offering); err != nil {
+			return err
+		}
+
+		if err := uc.publisher.PublishProductOfferingCreated(ctx, domain.ProductOfferingCreatedEvent{ProductOffering: offering}); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-
-	_ = uc.publisher.PublishProductOfferingCreated(ctx, domain.ProductOfferingCreatedEvent{ProductOffering: offering})
 
 	return offering, nil
 }

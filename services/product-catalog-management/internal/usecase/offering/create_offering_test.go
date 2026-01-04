@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 	"time"
-
+	"tmf/services/product-catalog-management/internal/adapter/repository"
 	"tmf/services/product-catalog-management/internal/core/domain"
 	"tmf/services/product-catalog-management/internal/core/ports"
 
@@ -16,7 +16,7 @@ func TestCreateOffering_Execute(t *testing.T) {
 	mockRepo := new(MockOfferingRepo)
 	mockPub := new(MockEventPublisher)
 
-	useCase := NewCreateProductOffering(mockRepo, mockPub)
+	useCase := NewCreateProductOffering(mockRepo, mockPub, &repository.NoOpTransactionManager{})
 
 	specID := "spec-123"
 	input := ports.CreateProductOfferingInput{

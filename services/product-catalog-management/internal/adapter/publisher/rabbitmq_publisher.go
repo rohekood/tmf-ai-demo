@@ -88,8 +88,11 @@ func (p *RabbitMQPublisher) publish(ctx context.Context, routingKey string, even
 	if err != nil {
 		return err
 	}
+	return p.PublishRaw(ctx, routingKey, body)
+}
 
-	err = p.channel.PublishWithContext(ctx,
+func (p *RabbitMQPublisher) PublishRaw(ctx context.Context, routingKey string, body []byte) error {
+	err := p.channel.PublishWithContext(ctx,
 		"catalog_events", // exchange
 		routingKey,       // routing key
 		false,            // mandatory

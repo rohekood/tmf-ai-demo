@@ -35,7 +35,7 @@ func TestRabbitMQHandler_CreateProductOffering(t *testing.T) {
 	listUC := catalog.NewListCatalogs(repo)
 	createCatUC := category.NewCreateCategory(catRepo, pub)
 	createSpecUC := specification.NewCreateProductSpecification(specRepo, pub)
-	createOfferingUC := offering.NewCreateProductOffering(offeringRepo, pub)
+	createOfferingUC := offering.NewCreateProductOffering(offeringRepo, pub, &repository.NoOpTransactionManager{})
 
 	// Init Handler
 	h, err := handler.NewRabbitMQHandler(
@@ -137,7 +137,7 @@ func TestRabbitMQHandler_Offering_AdvancedFeatures(t *testing.T) {
 	pub, err := publisher.NewRabbitMQPublisher(rabbitConn)
 	require.NoError(t, err)
 
-	createOfferingUC := offering.NewCreateProductOffering(offeringRepo, pub)
+	createOfferingUC := offering.NewCreateProductOffering(offeringRepo, pub, &repository.NoOpTransactionManager{})
 	getOfferingUC := offering.NewGetProductOffering(offeringRepo, specRepo, catRepo)
 	listOfferingUC := offering.NewListProductOfferings(offeringRepo)
 
