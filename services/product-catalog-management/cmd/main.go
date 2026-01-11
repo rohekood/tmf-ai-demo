@@ -8,6 +8,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -24,7 +28,7 @@ import (
 
 func main() {
 	// 1. Config
-	dbDSN := os.Getenv("DB_DSN")
+	dbDSN := os.Getenv("POSTGRES_URL")
 	if dbDSN == "" {
 		dbDSN = "host=localhost user=postgres password=postgres dbname=tmf port=5432 sslmode=disable"
 	}
@@ -39,18 +43,20 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// AutoMigrate
-	log.Println("Running AutoMigrate...")
-	err = db.AutoMigrate(
-		&repository.CatalogModel{},
-		&repository.CategoryModel{},
-		&repository.ProductSpecificationModel{},
-		&repository.ProductOfferingModel{},
-		&repository.OutboxEventModel{},
+	// Database Migrations
+	log.Println("Running database migrations...")
+	m, err := migrate.New(
+		"file://internal/adapter/repository/migrations",
+		dbDSN,
 	)
 	if err != nil {
-		log.Fatalf("Failed to migrate database: %v", err)
+		log.Fatalf("Failed to initialize migrations: %v", err)
 	}
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+	log.Println("Database migrations applied successfully")
 
 	// 3. RabbitMQ
 	var conn *amqp.Connection

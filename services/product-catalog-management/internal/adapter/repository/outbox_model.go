@@ -19,6 +19,7 @@ type OutboxEventModel struct {
 	ID          string            `gorm:"primaryKey;type:uuid"`
 	RoutingKey  string            `gorm:"not null"`
 	Payload     []byte            `gorm:"type:jsonb;not null"`
+	Headers     []byte            `gorm:"type:jsonb"`
 	Status      OutboxEventStatus `gorm:"not null;index"`
 	CreatedAt   time.Time         `gorm:"autoCreateTime"`
 	ProcessedAt *time.Time

@@ -1,0 +1,13 @@
+ALTER TABLE outbox_events
+  DROP COLUMN routing_key,
+  DROP COLUMN headers;
+
+ALTER TABLE outbox_events
+  ADD COLUMN aggregate_type VARCHAR(255) NOT NULL DEFAULT '',
+  ADD COLUMN aggregate_id VARCHAR(255) NOT NULL DEFAULT '',
+  ADD COLUMN type VARCHAR(255) NOT NULL DEFAULT '';
+
+ALTER TABLE outbox_events
+  ALTER COLUMN aggregate_type DROP DEFAULT,
+  ALTER COLUMN aggregate_id DROP DEFAULT,
+  ALTER COLUMN type DROP DEFAULT;

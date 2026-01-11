@@ -45,7 +45,7 @@ func main() {
 	}
 
 	// Configuration (using defaults or env vars)
-	dbURL := getEnv("DB_URL", "postgres://postgres:password@localhost:5432/tmf_customer_db?sslmode=disable")
+	dbURL := getEnv("POSTGRES_URL", "postgres://postgres:password@localhost:5432/tmf_customer_db?sslmode=disable")
 	rabbitURL := getEnv("RABBIT_URL", "amqp://guest:guest@localhost:5672/")
 
 	// 1. Database Migrations
@@ -58,6 +58,9 @@ func main() {
 		os.Exit(1)
 	}
 	repo := postgres.NewCustomerRepository(db)
+	tm := postgres.NewTransactionManager(db)
+	outboxRepo := postgres.NewOutboxRepository(db)
+	eventPublisher := postgres.NewOutboxPublisher(outboxRepo)
 
 	// 3. RabbitMQ Connection
 	conn, err := amqp.Dial(rabbitURL)
@@ -82,8 +85,10 @@ func main() {
 		}
 	}()
 
+	outboxWorker := postgres.NewOutboxWorker(outboxRepo, publisher, slog.Default())
+
 	// 4. Handlers & Listener
-	handlers := rabbitmq.NewHandlers(repo, publisher)
+	handlers := rabbitmq.NewHandlers(repo, publisher, tm, eventPublisher)
 	listener, err := rabbitmq.NewListener(conn)
 	if err != nil {
 		slog.Error("failed to create listener", "error", err)
@@ -94,6 +99,9 @@ func main() {
 	// Create a context that listens for the interrupt signal from the OS.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	go outboxWorker.Start(ctx)
+	defer outboxWorker.Stop()
 
 	go func() {
 		if err := listener.Start(ctx, handlers); err != nil {

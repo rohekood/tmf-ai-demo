@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -29,12 +30,14 @@ import (
 )
 
 var (
-	sharedDB        *gorm.DB
-	sharedRepo      *postgres.CustomerRepository
-	sharedConn      *amqp.Connection
-	sharedPublisher *infraRabbit.Publisher
-	pgInstance      testcontainers.Container
-	rabbitInstance  testcontainers.Container
+	sharedDB             *gorm.DB
+	sharedRepo           *postgres.CustomerRepository
+	sharedConn           *amqp.Connection
+	sharedPublisher      *infraRabbit.Publisher
+	sharedTM             *postgres.TransactionManager
+	sharedEventPublisher *postgres.OutboxPublisher
+	pgInstance           testcontainers.Container
+	rabbitInstance       testcontainers.Container
 )
 
 func TestMain(m *testing.M) {
@@ -125,6 +128,13 @@ func TestMain(m *testing.M) {
 		log.Fatalf("failed to create publisher: %v", err)
 	}
 
+	sharedTM = postgres.NewTransactionManager(sharedDB)
+	outboxRepo := postgres.NewOutboxRepository(sharedDB)
+	sharedEventPublisher = postgres.NewOutboxPublisher(outboxRepo)
+	worker := postgres.NewOutboxWorker(outboxRepo, sharedPublisher, slog.Default())
+	go worker.Start(ctx)
+	defer worker.Stop()
+
 	// Run tests
 	code := m.Run()
 
@@ -139,7 +149,7 @@ func TestMain(m *testing.M) {
 // 1. Onboard Customer Use Case
 func TestUseCase_OnboardNewCustomer(t *testing.T) {
 	ctx := context.Background()
-	handlers := NewHandlers(sharedRepo, sharedPublisher)
+	handlers := NewHandlers(sharedRepo, sharedPublisher, sharedTM, sharedEventPublisher)
 
 	payload := OnboardCustomerPayload{
 		ID:        "cust-onboard-1",
@@ -196,7 +206,7 @@ func TestUseCase_OnboardNewCustomer(t *testing.T) {
 
 func TestUseCase_Onboard_AutoGenerateIDs(t *testing.T) {
 	ctx := context.Background()
-	handlers := NewHandlers(sharedRepo, sharedPublisher)
+	handlers := NewHandlers(sharedRepo, sharedPublisher, sharedTM, sharedEventPublisher)
 
 	// Payload with NO IDs for sub-resources or main customer
 	// Note: We provide main ID in payload struct usually, so we'll leave it empty to test auto-gen if handler supports it,
@@ -232,7 +242,7 @@ func TestUseCase_Onboard_AutoGenerateIDs(t *testing.T) {
 
 func TestUseCase_Onboard_NewTMFFeatures(t *testing.T) {
 	ctx := context.Background()
-	handlers := NewHandlers(sharedRepo, sharedPublisher)
+	handlers := NewHandlers(sharedRepo, sharedPublisher, sharedTM, sharedEventPublisher)
 
 	payload := OnboardCustomerPayload{
 		ID:        "cust-tmf-1",
@@ -288,7 +298,7 @@ func TestUseCase_Onboard_NewTMFFeatures(t *testing.T) {
 // 2. Update Customer Use Case
 func TestUseCase_UpdateCustomerProfile(t *testing.T) {
 	ctx := context.Background()
-	handlers := NewHandlers(sharedRepo, sharedPublisher)
+	handlers := NewHandlers(sharedRepo, sharedPublisher, sharedTM, sharedEventPublisher)
 
 	// Setup: Create initial customer
 	custID := "cust-update-1"
@@ -356,7 +366,7 @@ func TestUseCase_UpdateCustomerProfile(t *testing.T) {
 // 3. Get Customer Use Case (RPC)
 func TestUseCase_RetrieveCustomer(t *testing.T) {
 	ctx := context.Background()
-	handlers := NewHandlers(sharedRepo, sharedPublisher)
+	handlers := NewHandlers(sharedRepo, sharedPublisher, sharedTM, sharedEventPublisher)
 
 	// Setup: Complete customer
 	custID := "cust-get-1"
@@ -417,7 +427,7 @@ func TestUseCase_RetrieveCustomer(t *testing.T) {
 // 4. Search Customer Use Case
 func TestUseCase_SearchCustomers(t *testing.T) {
 	ctx := context.Background()
-	handlers := NewHandlers(sharedRepo, sharedPublisher)
+	handlers := NewHandlers(sharedRepo, sharedPublisher, sharedTM, sharedEventPublisher)
 
 	// Setup
 	require.NoError(t, sharedRepo.CreateCustomer(ctx, &domain.Customer{
@@ -457,7 +467,7 @@ func TestUseCase_SearchCustomers(t *testing.T) {
 // 5. Delete Customer Use Case
 func TestUseCase_DeleteCustomer(t *testing.T) {
 	ctx := context.Background()
-	handlers := NewHandlers(sharedRepo, sharedPublisher)
+	handlers := NewHandlers(sharedRepo, sharedPublisher, sharedTM, sharedEventPublisher)
 
 	// Setup
 	custID := "cust-del-1"
@@ -477,7 +487,7 @@ func TestUseCase_DeleteCustomer(t *testing.T) {
 // 6. Party Events Use Cases
 func TestUseCase_PartyEvent_Update(t *testing.T) {
 	ctx := context.Background()
-	handlers := NewHandlers(sharedRepo, sharedPublisher)
+	handlers := NewHandlers(sharedRepo, sharedPublisher, sharedTM, sharedEventPublisher)
 
 	// Setup: Customer linked to a party
 	custID := "cust-pe-upd-1"
@@ -505,7 +515,7 @@ func TestUseCase_PartyEvent_Update(t *testing.T) {
 
 func TestUseCase_PartyEvent_Delete(t *testing.T) {
 	ctx := context.Background()
-	handlers := NewHandlers(sharedRepo, sharedPublisher)
+	handlers := NewHandlers(sharedRepo, sharedPublisher, sharedTM, sharedEventPublisher)
 
 	// Setup
 	custID := "cust-pe-del-1"
@@ -533,7 +543,7 @@ func TestUseCase_PartyEvent_Delete(t *testing.T) {
 // 7. Audit Logging Use Case
 func TestUseCase_AuditLogging(t *testing.T) {
 	ctx := context.Background()
-	handlers := NewHandlers(sharedRepo, sharedPublisher)
+	handlers := NewHandlers(sharedRepo, sharedPublisher, sharedTM, sharedEventPublisher)
 
 	// Test Onboard with User Header
 	userID := "audit-tester"
@@ -567,7 +577,7 @@ func TestUseCase_AuditLogging(t *testing.T) {
 // 8. Party Deletion Saga Use Cases
 func TestUseCase_PartyEvent_DeletionInitiated_ActiveCustomer(t *testing.T) {
 	ctx := context.Background()
-	handlers := NewHandlers(sharedRepo, sharedPublisher)
+	handlers := NewHandlers(sharedRepo, sharedPublisher, sharedTM, sharedEventPublisher)
 
 	// Setup: Active Customer linked to party
 	custID := "cust-saga-active-1"
@@ -618,7 +628,7 @@ func TestUseCase_PartyEvent_DeletionInitiated_ActiveCustomer(t *testing.T) {
 
 func TestUseCase_PartyEvent_DeletionInitiated_NoCustomer(t *testing.T) {
 	ctx := context.Background()
-	handlers := NewHandlers(sharedRepo, sharedPublisher)
+	handlers := NewHandlers(sharedRepo, sharedPublisher, sharedTM, sharedEventPublisher)
 
 	// Setup: No active customers for this party
 	partyID := "party-saga-none-1"

@@ -2,11 +2,13 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"time"
 
 	"tmf/services/product-catalog-management/internal/adapter/publisher"
 	"tmf/services/product-catalog-management/internal/adapter/repository"
+	"tmf/services/product-catalog-management/internal/core/domain"
 
 	"gorm.io/gorm"
 )
@@ -70,7 +72,22 @@ func (w *OutboxWorker) processBatch(ctx context.Context) {
 }
 
 func (w *OutboxWorker) processEvent(ctx context.Context, event *repository.OutboxEventModel) {
-	err := w.rabbitPublisher.PublishRaw(ctx, event.RoutingKey, event.Payload)
+	publishCtx := ctx
+	if len(event.Headers) > 0 {
+		var headers map[string]string
+		if err := json.Unmarshal(event.Headers, &headers); err == nil {
+			if user, ok := headers["user"]; ok {
+				publishCtx = context.WithValue(publishCtx, domain.UserContextKey, user)
+			}
+			if auth, ok := headers["Authorization"]; ok {
+				publishCtx = context.WithValue(publishCtx, domain.AuthContextKey, auth)
+			}
+		} else {
+			log.Printf("Failed to unmarshal headers for event %s: %v", event.ID, err)
+		}
+	}
+
+	err := w.rabbitPublisher.PublishRaw(publishCtx, event.RoutingKey, event.Payload)
 	now := time.Now()
 
 	if err != nil {

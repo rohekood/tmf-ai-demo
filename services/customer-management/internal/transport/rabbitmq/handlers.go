@@ -14,13 +14,21 @@ import (
 )
 
 // Handlers manages command and query handling
+// Handlers manages command and query handling
 type Handlers struct {
-	repo      domain.Repository
-	publisher *infraRabbit.Publisher
+	repo           domain.Repository
+	publisher      *infraRabbit.Publisher
+	tm             domain.TransactionManager
+	eventPublisher domain.EventPublisher
 }
 
-func NewHandlers(repo domain.Repository, publisher *infraRabbit.Publisher) *Handlers {
-	return &Handlers{repo: repo, publisher: publisher}
+func NewHandlers(repo domain.Repository, publisher *infraRabbit.Publisher, tm domain.TransactionManager, eventPublisher domain.EventPublisher) *Handlers {
+	return &Handlers{
+		repo:           repo,
+		publisher:      publisher,
+		tm:             tm,
+		eventPublisher: eventPublisher,
+	}
 }
 
 // Payloads
@@ -228,13 +236,20 @@ func (h *Handlers) HandleOnboardCustomer(ctx context.Context, d amqp.Delivery) e
 		customer.MarketSegments = append(customer.MarketSegments, h.mapMarketSegment(ms, customer.ID))
 	}
 
-	if err := h.repo.CreateCustomer(ctx, customer); err != nil {
-		return fmt.Errorf("failed to create customer: %w", err)
-	}
+	// Transaction
+	err := h.tm.RunInTransaction(ctx, func(ctx context.Context) error {
+		if err := h.repo.CreateCustomer(ctx, customer); err != nil {
+			return fmt.Errorf("failed to create customer: %w", err)
+		}
 
-	// Publish event
-	if err := h.publisher.Publish(ctx, d.Exchange, EvtCustomerCreated, customer); err != nil {
-		slog.Error("failed to publish event", "error", err)
+		// Publish event
+		if err := h.eventPublisher.Publish(ctx, EvtCustomerCreated, customer); err != nil {
+			return fmt.Errorf("failed to publish event: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	return h.replyTo(ctx, d, customer)
@@ -316,8 +331,24 @@ func (h *Handlers) HandleUpdateCustomer(ctx context.Context, d amqp.Delivery) er
 		return fmt.Errorf("no valid fields to update provided")
 	}
 
-	if err := h.repo.PatchCustomer(ctx, payload.ID, updates); err != nil {
-		return fmt.Errorf("failed to update customer: %w", err)
+	err := h.tm.RunInTransaction(ctx, func(ctx context.Context) error {
+		if err := h.repo.PatchCustomer(ctx, payload.ID, updates); err != nil {
+			return fmt.Errorf("failed to update customer: %w", err)
+		}
+
+		// Fetch for event payload
+		updatedCustomer, err := h.repo.GetCustomer(ctx, payload.ID)
+		if err != nil {
+			return fmt.Errorf("failed to fetch updated customer: %w", err)
+		}
+
+		if err := h.eventPublisher.Publish(ctx, EvtCustomerUpdated, updatedCustomer); err != nil {
+			return fmt.Errorf("failed to publish event: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	return h.replyTo(ctx, d, map[string]string{"status": "updated"})
@@ -381,13 +412,19 @@ func (h *Handlers) HandleDeleteCustomer(ctx context.Context, d amqp.Delivery) er
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
 
-	if err := h.repo.DeleteCustomer(ctx, payload.ID); err != nil {
-		return fmt.Errorf("failed to delete customer: %w", err)
-	}
+	err := h.tm.RunInTransaction(ctx, func(ctx context.Context) error {
+		if err := h.repo.DeleteCustomer(ctx, payload.ID); err != nil {
+			return fmt.Errorf("failed to delete customer: %w", err)
+		}
 
-	// Publish event
-	if err := h.publisher.Publish(ctx, d.Exchange, EvtCustomerDeleted, payload); err != nil {
-		slog.Error("failed to publish delete event", "error", err)
+		// Publish event
+		if err := h.eventPublisher.Publish(ctx, EvtCustomerDeleted, payload); err != nil {
+			return fmt.Errorf("failed to publish delete event: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	return h.replyTo(ctx, d, map[string]string{"status": "deleted"})

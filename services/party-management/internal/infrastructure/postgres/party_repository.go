@@ -34,7 +34,7 @@ func (PartyTable) TableName() string {
 
 func (r *PartyRepository) GetParty(ctx context.Context, id string) (*domain.Party, error) {
 	var p domain.Party
-	if err := r.db.WithContext(ctx).
+	if err := GetTx(ctx, r.db).
 		Preload("ContactMediums").
 		Preload("Identifications").
 		Preload("RelatedParties").
@@ -98,7 +98,7 @@ func (r *PartyRepository) CreateIndividual(ctx context.Context, ind *domain.Indi
 func (r *PartyRepository) GetIndividual(ctx context.Context, id string) (*domain.Individual, error) {
 	var ind domain.Individual
 
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := GetTx(ctx, r.db).Transaction(func(tx *gorm.DB) error {
 		// Fetch Party with sub-resources
 		if err := tx.Table("parties").
 			Preload("ContactMediums").
@@ -191,7 +191,7 @@ func (r *PartyRepository) CreateOrganization(ctx context.Context, org *domain.Or
 func (r *PartyRepository) GetOrganization(ctx context.Context, id string) (*domain.Organization, error) {
 	var org domain.Organization
 
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := GetTx(ctx, r.db).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Table("parties").
 			Preload("ContactMediums").
 			Preload("Identifications").
@@ -334,7 +334,7 @@ func (r *PartyRepository) loadAttachmentContents(ctx context.Context, p *domain.
 		att := &p.Attachments[i]
 		if att.RefType == "Internal" && att.RefID != "" {
 			var content domain.AttachmentContent
-			if err := r.db.WithContext(ctx).Table("attachment_contents").Where("id = ?", att.RefID).First(&content).Error; err != nil {
+			if err := GetTx(ctx, r.db).Table("attachment_contents").Where("id = ?", att.RefID).First(&content).Error; err != nil {
 				continue
 			}
 			att.ContentData = content.Data
@@ -373,7 +373,7 @@ func (r *PartyRepository) DeleteParty(ctx context.Context, id string) error {
 
 func (r *PartyRepository) SearchParties(ctx context.Context, criteria map[string]interface{}) ([]domain.Party, error) {
 	var parties []domain.Party
-	query := r.db.WithContext(ctx).Table("parties")
+	query := GetTx(ctx, r.db).Table("parties")
 
 	// Apply filters
 	if val, ok := criteria["id"]; ok {
@@ -584,11 +584,24 @@ func (r *PartyRepository) withUser(ctx context.Context, fn func(tx *gorm.DB) err
 		userID = "unknown"
 	}
 
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	runWithUser := func(tx *gorm.DB) error {
 		// Set local session variable for audit trigger
 		if err := tx.Exec("SELECT set_config('app.current_user', ?, true)", userID).Error; err != nil {
 			return err
 		}
 		return fn(tx)
+	}
+
+	// Check if we are already in a transaction
+	if existingTx, ok := ctx.Value(TxKey).(*gorm.DB); ok {
+		// We are in a transaction, reuse it
+		return runWithUser(existingTx)
+	}
+
+	// No existing transaction, start new one
+	db := GetTx(ctx, r.db)
+
+	return db.Transaction(func(tx *gorm.DB) error {
+		return runWithUser(tx)
 	})
 }

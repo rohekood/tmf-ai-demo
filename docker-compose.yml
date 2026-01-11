@@ -72,7 +72,7 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - DB_URL=postgres://postgres:password@postgres:5432/tmf_customer_db?sslmode=disable
+      - POSTGRES_URL=postgres://postgres:password@postgres:5432/tmf_customer_db?sslmode=disable
       - RABBIT_URL=amqp://guest:guest@rabbitmq:5672/
     depends_on:
       postgres:
@@ -95,6 +95,21 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+
+  product-catalog-management:
+    build:
+      context: ./services/product-catalog-management
+      dockerfile: Dockerfile
+    container_name: tmf-product-catalog-management
+    environment:
+      - POSTGRES_URL=postgres://postgres:password@postgres:5432/tmf_catalog_db?sslmode=disable
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
 
 volumes:
   rabbitmq_data:

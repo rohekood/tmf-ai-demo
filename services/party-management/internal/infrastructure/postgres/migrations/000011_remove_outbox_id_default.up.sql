@@ -1,0 +1,1 @@
+ALTER TABLE outbox_events ALTER COLUMN id DROP DEFAULT;

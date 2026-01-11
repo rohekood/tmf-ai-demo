@@ -5,9 +5,9 @@
 docker-compose.override.yml
 
 # Large binaries to ignore
-**/main
-**/server
+
 **/party_server
 **/customer_server
 **/postgres.test
 **/.yarn/cache/
+**/main

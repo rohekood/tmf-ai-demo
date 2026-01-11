@@ -173,8 +173,20 @@ func setupTestSuite(t *testing.T) *IntegrationTestSuite {
 	listener, err := NewListener(sharedConn)
 	require.NoError(t, err)
 
+	// Transaction Manager & Outbox Setup
+	// Transaction Manager & Outbox Setup
+	tm := postgres.NewTransactionManager(sharedDB)
+	outboxRepo := postgres.NewOutboxRepository(sharedDB)
+	outboxPublisher := postgres.NewOutboxPublisher(outboxRepo)
+	worker := postgres.NewOutboxWorker(outboxRepo, sharedPublisher)
+
+	// Start Outbox Worker to forward events to RabbitMQ
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go worker.Start(ctx)
+
 	// Create Handlers
-	handlers := NewHandlers(sharedRepo, sharedPublisher)
+	handlers := NewHandlers(sharedRepo, outboxPublisher, sharedPublisher, tm)
 
 	return &IntegrationTestSuite{
 		DB:        sharedDB,

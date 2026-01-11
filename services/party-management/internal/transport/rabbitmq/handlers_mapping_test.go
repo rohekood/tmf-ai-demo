@@ -16,7 +16,7 @@ func TestHandleCreateParty_MappingLogic(t *testing.T) {
 	// Setup
 	mockRepo := new(MockRepository)
 
-	h := NewHandlers(mockRepo, nil)
+	h := NewHandlers(mockRepo, nil, nil, &NoOpTransactionManager{})
 
 	// Construct flat JSON payload as expected by handler
 	flatPayload := map[string]interface{}{
