@@ -75,14 +75,17 @@ func (m *MockRepository) SearchParties(ctx context.Context, criteria map[string]
 	return args.Get(0).([]domain.Party), args.Error(1)
 }
 
+type NoOpTransactionManager struct{}
+
+func (m *NoOpTransactionManager) Run(ctx context.Context, fn func(context.Context) error) error {
+	return fn(ctx)
+}
+
 // --- Tests ---
 
 func TestHandleCreateParty_Individual(t *testing.T) {
 	mockRepo := new(MockRepository)
-	h := NewHandlers(mockRepo, nil) // Publisher is NIL here, so publishEvent will slog error but not crash if we don't call it.
-	// Actually we should probably mock the publisher too if we want to verify events.
-	// But Handlers takes *infraRabbit.Publisher which is a concrete type.
-	// For these tests, let's just focus on Repo calls if we can't easily mock the publisher without an interface.
+	h := NewHandlers(mockRepo, nil, nil, &NoOpTransactionManager{})
 
 	ctx := context.Background()
 	mockRepo.On("CreateIndividual", ctx, testifymock.AnythingOfType("*domain.Individual")).Return(nil)
@@ -105,7 +108,7 @@ func TestHandleCreateParty_Individual(t *testing.T) {
 
 func TestHandleCreateParty_Organization(t *testing.T) {
 	mockRepo := new(MockRepository)
-	h := NewHandlers(mockRepo, nil)
+	h := NewHandlers(mockRepo, nil, nil, &NoOpTransactionManager{})
 
 	ctx := context.Background()
 	mockRepo.On("CreateOrganization", ctx, testifymock.AnythingOfType("*domain.Organization")).Return(nil)
@@ -128,7 +131,7 @@ func TestHandleCreateParty_Organization(t *testing.T) {
 
 func TestHandleDeleteParty(t *testing.T) {
 	mockRepo := new(MockRepository)
-	h := NewHandlers(mockRepo, nil)
+	h := NewHandlers(mockRepo, nil, nil, &NoOpTransactionManager{})
 
 	ctx := context.Background()
 
@@ -163,7 +166,7 @@ func TestHandleDeleteParty(t *testing.T) {
 
 func TestHandleSearchParty_ReturnsCompleteIndividualData(t *testing.T) {
 	mockRepo := new(MockRepository)
-	h := NewHandlers(mockRepo, nil)
+	h := NewHandlers(mockRepo, nil, nil, &NoOpTransactionManager{})
 
 	ctx := context.Background()
 
@@ -200,7 +203,7 @@ func TestHandleSearchParty_ReturnsCompleteIndividualData(t *testing.T) {
 
 func TestHandleSearchParty_ReturnsCompleteOrganizationData(t *testing.T) {
 	mockRepo := new(MockRepository)
-	h := NewHandlers(mockRepo, nil)
+	h := NewHandlers(mockRepo, nil, nil, &NoOpTransactionManager{})
 
 	ctx := context.Background()
 
@@ -230,7 +233,7 @@ func TestHandleSearchParty_ReturnsCompleteOrganizationData(t *testing.T) {
 
 func TestHandleSearchParty_MixedTypes(t *testing.T) {
 	mockRepo := new(MockRepository)
-	h := NewHandlers(mockRepo, nil)
+	h := NewHandlers(mockRepo, nil, nil, &NoOpTransactionManager{})
 
 	ctx := context.Background()
 

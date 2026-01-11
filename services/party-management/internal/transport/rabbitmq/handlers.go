@@ -47,15 +47,20 @@ const (
 )
 
 // Handlers manages command and query handling
+// Handlers manages command and query handling
 type Handlers struct {
-	repo      domain.Repository
-	publisher *infraRabbit.Publisher
+	repo           domain.Repository
+	eventPublisher domain.EventPublisher
+	rpcPublisher   *infraRabbit.Publisher
+	tm             domain.TransactionManager
 }
 
-func NewHandlers(repo domain.Repository, publisher *infraRabbit.Publisher) *Handlers {
+func NewHandlers(repo domain.Repository, eventPublisher domain.EventPublisher, rpcPublisher *infraRabbit.Publisher, tm domain.TransactionManager) *Handlers {
 	return &Handlers{
-		repo:      repo,
-		publisher: publisher,
+		repo:           repo,
+		eventPublisher: eventPublisher,
+		rpcPublisher:   rpcPublisher,
+		tm:             tm,
 	}
 }
 
@@ -305,18 +310,27 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 		ind.TaxExemptions = h.mapTaxExemptions(payload.TaxExemptions, ind.ID)
 		ind.Attachments = h.mapAttachments(payload.Attachments, ind.ID)
 
-		if err := h.repo.CreateIndividual(ctx, ind); err != nil {
-			return fmt.Errorf("failed to create individual: %w", err)
+		if err := h.tm.Run(ctx, func(txCtx context.Context) error {
+			if err := h.repo.CreateIndividual(txCtx, ind); err != nil {
+				return fmt.Errorf("failed to create individual: %w", err)
+			}
+
+			// Publish events
+			if err := h.publishEvent(txCtx, EvtPartyCreated, ind); err != nil {
+				return err
+			}
+			if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+				"id":       ind.ID,
+				"newState": ind.Status,
+			}); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			return err
 		}
 
-		// Publish events
-		h.publishEvent(ctx, EvtPartyCreated, ind)
-		h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
-			"id":       ind.ID,
-			"newState": ind.Status,
-		})
 		slog.Info("created individual", "party_id", ind.ID)
-
 		return h.replyTo(ctx, d, ind)
 
 	case "Organization":
@@ -355,17 +369,26 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 		org.TaxExemptions = h.mapTaxExemptions(payload.TaxExemptions, org.ID)
 		org.Attachments = h.mapAttachments(payload.Attachments, org.ID)
 
-		if err := h.repo.CreateOrganization(ctx, org); err != nil {
-			return fmt.Errorf("failed to create organization: %w", err)
+		if err := h.tm.Run(ctx, func(txCtx context.Context) error {
+			if err := h.repo.CreateOrganization(txCtx, org); err != nil {
+				return fmt.Errorf("failed to create organization: %w", err)
+			}
+
+			if err := h.publishEvent(txCtx, EvtPartyCreated, org); err != nil {
+				return err
+			}
+			if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+				"id":       org.ID,
+				"newState": org.Status,
+			}); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			return err
 		}
 
-		h.publishEvent(ctx, EvtPartyCreated, org)
-		h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
-			"id":       org.ID,
-			"newState": org.Status,
-		})
 		slog.Info("created organization", "party_id", org.ID)
-
 		return h.replyTo(ctx, d, org)
 
 	default:
@@ -439,18 +462,28 @@ func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error
 		ind.TaxExemptions = h.mapTaxExemptions(payload.TaxExemptions, ind.ID)
 		ind.Attachments = h.mapAttachments(payload.Attachments, ind.ID)
 
-		if err := h.repo.UpdateIndividual(ctx, ind); err != nil {
-			return fmt.Errorf("failed to update individual: %w", err)
+		if err := h.tm.Run(ctx, func(txCtx context.Context) error {
+			if err := h.repo.UpdateIndividual(txCtx, ind); err != nil {
+				return fmt.Errorf("failed to update individual: %w", err)
+			}
+
+			if err := h.publishEvent(txCtx, EvtPartyUpdated, ind); err != nil {
+				return err
+			}
+			if oldStatus != newStatus {
+				if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+					"id":       ind.ID,
+					"oldState": oldStatus,
+					"newState": newStatus,
+				}); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
 		}
 
-		h.publishEvent(ctx, EvtPartyUpdated, ind)
-		if oldStatus != newStatus {
-			h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
-				"id":       ind.ID,
-				"oldState": oldStatus,
-				"newState": newStatus,
-			})
-		}
 		slog.Info("updated individual", "party_id", ind.ID)
 
 		return h.replyTo(ctx, d, ind)
@@ -504,18 +537,28 @@ func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error
 		org.TaxExemptions = h.mapTaxExemptions(payload.TaxExemptions, org.ID)
 		org.Attachments = h.mapAttachments(payload.Attachments, org.ID)
 
-		if err := h.repo.UpdateOrganization(ctx, org); err != nil {
-			return fmt.Errorf("failed to update organization: %w", err)
+		if err := h.tm.Run(ctx, func(txCtx context.Context) error {
+			if err := h.repo.UpdateOrganization(txCtx, org); err != nil {
+				return fmt.Errorf("failed to update organization: %w", err)
+			}
+
+			if err := h.publishEvent(txCtx, EvtPartyUpdated, org); err != nil {
+				return err
+			}
+			if oldStatus != newStatus {
+				if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+					"id":       org.ID,
+					"oldState": oldStatus,
+					"newState": newStatus,
+				}); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
 		}
 
-		h.publishEvent(ctx, EvtPartyUpdated, org)
-		if oldStatus != newStatus {
-			h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
-				"id":       org.ID,
-				"oldState": oldStatus,
-				"newState": newStatus,
-			})
-		}
 		slog.Info("updated organization", "party_id", org.ID)
 
 		return h.replyTo(ctx, d, org)
@@ -544,64 +587,86 @@ func (h *Handlers) HandlePatchParty(ctx context.Context, d amqp.Delivery) error 
 
 	switch party.Type {
 	case domain.PartyTypeIndividual:
-		existing, err := h.repo.GetIndividual(ctx, payload.ID)
-		if err != nil {
+		var updatedInd *domain.Individual
+		if err := h.tm.Run(ctx, func(txCtx context.Context) error {
+			existing, err := h.repo.GetIndividual(txCtx, payload.ID)
+			if err != nil {
+				return err
+			}
+			oldStatus := existing.Status
+			if payload.GivenName != nil {
+				existing.GivenName = *payload.GivenName
+			}
+			if payload.FamilyName != nil {
+				existing.FamilyName = *payload.FamilyName
+			}
+			if payload.Status != nil {
+				existing.Status = *payload.Status
+			}
+			existing.UpdatedAt = time.Now()
+
+			if err := h.repo.UpdateIndividual(txCtx, existing); err != nil {
+				return fmt.Errorf("failed to patch individual: %w", err)
+			}
+
+			if err := h.publishEvent(txCtx, EvtPartyUpdated, existing); err != nil {
+				return err
+			}
+			if payload.Status != nil && oldStatus != *payload.Status {
+				if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+					"id":       existing.ID,
+					"oldState": oldStatus,
+					"newState": *payload.Status,
+				}); err != nil {
+					return err
+				}
+			}
+			updatedInd = existing
+			return nil
+		}); err != nil {
 			return err
 		}
-		oldStatus := existing.Status
-		if payload.GivenName != nil {
-			existing.GivenName = *payload.GivenName
-		}
-		if payload.FamilyName != nil {
-			existing.FamilyName = *payload.FamilyName
-		}
-		if payload.Status != nil {
-			existing.Status = *payload.Status
-		}
-		existing.UpdatedAt = time.Now()
 
-		if err := h.repo.UpdateIndividual(ctx, existing); err != nil {
-			return fmt.Errorf("failed to patch individual: %w", err)
-		}
-
-		h.publishEvent(ctx, EvtPartyUpdated, existing)
-		if payload.Status != nil && oldStatus != *payload.Status {
-			h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
-				"id":       existing.ID,
-				"oldState": oldStatus,
-				"newState": *payload.Status,
-			})
-		}
-		slog.Info("patched individual", "party_id", existing.ID)
-
-		return h.replyTo(ctx, d, existing)
+		slog.Info("patched individual", "party_id", updatedInd.ID)
+		return h.replyTo(ctx, d, updatedInd)
 
 	case domain.PartyTypeOrganization:
-		existingOrg, err := h.repo.GetOrganization(ctx, payload.ID)
-		if err != nil {
+		var updatedOrg *domain.Organization
+		if err := h.tm.Run(ctx, func(txCtx context.Context) error {
+			existingOrg, err := h.repo.GetOrganization(txCtx, payload.ID)
+			if err != nil {
+				return err
+			}
+			oldStatus := existingOrg.Status
+			if payload.Status != nil {
+				existingOrg.Status = *payload.Status
+			}
+			existingOrg.UpdatedAt = time.Now()
+
+			if err := h.repo.UpdateOrganization(txCtx, existingOrg); err != nil {
+				return fmt.Errorf("failed to patch organization: %w", err)
+			}
+
+			if err := h.publishEvent(txCtx, EvtPartyUpdated, existingOrg); err != nil {
+				return err
+			}
+			if payload.Status != nil && oldStatus != *payload.Status {
+				if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+					"id":       existingOrg.ID,
+					"oldState": oldStatus,
+					"newState": *payload.Status,
+				}); err != nil {
+					return err
+				}
+			}
+			updatedOrg = existingOrg
+			return nil
+		}); err != nil {
 			return err
 		}
-		oldStatus := existingOrg.Status
-		if payload.Status != nil {
-			existingOrg.Status = *payload.Status
-		}
-		existingOrg.UpdatedAt = time.Now()
 
-		if err := h.repo.UpdateOrganization(ctx, existingOrg); err != nil {
-			return fmt.Errorf("failed to patch organization: %w", err)
-		}
-
-		h.publishEvent(ctx, EvtPartyUpdated, existingOrg)
-		if payload.Status != nil && oldStatus != *payload.Status {
-			h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
-				"id":       existingOrg.ID,
-				"oldState": oldStatus,
-				"newState": *payload.Status,
-			})
-		}
-		slog.Info("patched organization", "party_id", existingOrg.ID)
-
-		return h.replyTo(ctx, d, existingOrg)
+		slog.Info("patched organization", "party_id", updatedOrg.ID)
+		return h.replyTo(ctx, d, updatedOrg)
 	}
 
 	return fmt.Errorf("%w: %s", domain.ErrInvalidType, payload.ID)
@@ -619,55 +684,63 @@ func (h *Handlers) HandleDeleteParty(ctx context.Context, d amqp.Delivery) error
 	}
 
 	// 1. Get current party
-	party, err := h.repo.GetParty(ctx, payload.ID)
-	if err != nil {
-		return fmt.Errorf("failed to get party: %w", err)
-	}
-
-	// 2. Initiate Deletion (Saga Start)
-	// Update status to DeletionPending
-	oldStatus := party.Status
-	newStatus := string(domain.PartyStatusDeletionPending)
-
-	if oldStatus == newStatus {
-		slog.Info("party deletion already pending", "party_id", payload.ID)
-		return h.replyTo(ctx, d, map[string]string{"status": "deletion_initiated"})
-	}
-
-	if party.Type == domain.PartyTypeIndividual {
-		ind, err := h.repo.GetIndividual(ctx, payload.ID)
+	if err := h.tm.Run(ctx, func(txCtx context.Context) error {
+		party, err := h.repo.GetParty(txCtx, payload.ID)
 		if err != nil {
+			return fmt.Errorf("failed to get party: %w", err)
+		}
+
+		// 2. Initiate Deletion (Saga Start)
+		oldStatus := party.Status
+		newStatus := string(domain.PartyStatusDeletionPending)
+
+		if oldStatus == newStatus {
+			slog.Info("party deletion already pending", "party_id", payload.ID)
+			return nil // Already pending, just return success
+		}
+
+		if party.Type == domain.PartyTypeIndividual {
+			ind, err := h.repo.GetIndividual(txCtx, payload.ID)
+			if err != nil {
+				return err
+			}
+			ind.Status = newStatus
+			if err := h.repo.UpdateIndividual(txCtx, ind); err != nil {
+				return fmt.Errorf("failed to update status to pending: %w", err)
+			}
+		} else {
+			org, err := h.repo.GetOrganization(txCtx, payload.ID)
+			if err != nil {
+				return err
+			}
+			org.Status = newStatus
+			if err := h.repo.UpdateOrganization(txCtx, org); err != nil {
+				return fmt.Errorf("failed to update status to pending: %w", err)
+			}
+		}
+
+		// 3. Publish Deletion Initiated Event
+		if err := h.publishEvent(txCtx, EvtPartyDeletionInitiated, map[string]interface{}{
+			"id":   payload.ID,
+			"type": party.Type,
+		}); err != nil {
 			return err
 		}
-		ind.Status = newStatus
-		if err := h.repo.UpdateIndividual(ctx, ind); err != nil {
-			return fmt.Errorf("failed to update status to pending: %w", err)
-		}
-	} else {
-		org, err := h.repo.GetOrganization(ctx, payload.ID)
-		if err != nil {
+
+		// Also publish state change
+		if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+			"id":       payload.ID,
+			"oldState": oldStatus,
+			"newState": newStatus,
+		}); err != nil {
 			return err
 		}
-		org.Status = newStatus
-		if err := h.repo.UpdateOrganization(ctx, org); err != nil {
-			return fmt.Errorf("failed to update status to pending: %w", err)
-		}
+
+		slog.Info("party deletion initiated", "party_id", payload.ID)
+		return nil
+	}); err != nil {
+		return err
 	}
-
-	// 3. Publish Deletion Initiated Event
-	h.publishEvent(ctx, EvtPartyDeletionInitiated, map[string]interface{}{
-		"id":   payload.ID,
-		"type": party.Type,
-	})
-
-	// Also publish state change
-	h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
-		"id":       payload.ID,
-		"oldState": oldStatus,
-		"newState": newStatus,
-	})
-
-	slog.Info("party deletion initiated", "party_id", payload.ID)
 
 	return h.replyTo(ctx, d, map[string]string{"status": "deletion_initiated"})
 }
@@ -679,42 +752,48 @@ func (h *Handlers) HandleFinalizeDeletion(ctx context.Context, d amqp.Delivery) 
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
 
-	party, err := h.repo.GetParty(ctx, payload.ID)
-	if err != nil {
-		return err
-	}
+	return h.tm.Run(ctx, func(txCtx context.Context) error {
+		party, err := h.repo.GetParty(txCtx, payload.ID)
+		if err != nil {
+			return err
+		}
 
-	if party.Status != string(domain.PartyStatusDeletionPending) {
-		slog.Warn("skipping finalize deletion: party not in pending state", "id", payload.ID, "status", party.Status)
+		if party.Status != string(domain.PartyStatusDeletionPending) {
+			slog.Warn("skipping finalize deletion: party not in pending state", "id", payload.ID, "status", party.Status)
+			return nil
+		}
+
+		// Soft Delete: Update to "Deleted"
+		newStatus := string(domain.PartyStatusDeleted)
+
+		if party.Type == domain.PartyTypeIndividual {
+			ind, _ := h.repo.GetIndividual(txCtx, payload.ID)
+			ind.Status = newStatus
+			if err := h.repo.UpdateIndividual(txCtx, ind); err != nil {
+				return fmt.Errorf("failed to finalize deletion (ind): %w", err)
+			}
+		} else {
+			org, _ := h.repo.GetOrganization(txCtx, payload.ID)
+			org.Status = newStatus
+			if err := h.repo.UpdateOrganization(txCtx, org); err != nil {
+				return fmt.Errorf("failed to finalize deletion (org): %w", err)
+			}
+		}
+
+		if err := h.publishEvent(txCtx, EvtPartyDeleted, map[string]interface{}{"id": payload.ID}); err != nil {
+			return err
+		}
+		if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+			"id":       payload.ID,
+			"oldState": domain.PartyStatusDeletionPending,
+			"newState": newStatus,
+		}); err != nil {
+			return err
+		}
+
+		slog.Info("party deletion finalized (soft delete)", "id", payload.ID)
 		return nil
-	}
-
-	// Soft Delete: Update to "Deleted"
-	newStatus := string(domain.PartyStatusDeleted)
-
-	if party.Type == domain.PartyTypeIndividual {
-		ind, _ := h.repo.GetIndividual(ctx, payload.ID)
-		ind.Status = newStatus
-		if err := h.repo.UpdateIndividual(ctx, ind); err != nil {
-			return fmt.Errorf("failed to finalize deletion (ind): %w", err)
-		}
-	} else {
-		org, _ := h.repo.GetOrganization(ctx, payload.ID)
-		org.Status = newStatus
-		if err := h.repo.UpdateOrganization(ctx, org); err != nil {
-			return fmt.Errorf("failed to finalize deletion (org): %w", err)
-		}
-	}
-
-	h.publishEvent(ctx, EvtPartyDeleted, map[string]interface{}{"id": payload.ID})
-	h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
-		"id":       payload.ID,
-		"oldState": domain.PartyStatusDeletionPending,
-		"newState": newStatus,
 	})
-
-	slog.Info("party deletion finalized (soft delete)", "id", payload.ID)
-	return nil
 }
 
 func (h *Handlers) HandleCancelDeletion(ctx context.Context, d amqp.Delivery) error {
@@ -724,40 +803,44 @@ func (h *Handlers) HandleCancelDeletion(ctx context.Context, d amqp.Delivery) er
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
 
-	party, err := h.repo.GetParty(ctx, payload.ID)
-	if err != nil {
-		return err
-	}
+	return h.tm.Run(ctx, func(txCtx context.Context) error {
+		party, err := h.repo.GetParty(txCtx, payload.ID)
+		if err != nil {
+			return err
+		}
 
-	if party.Status != string(domain.PartyStatusDeletionPending) {
+		if party.Status != string(domain.PartyStatusDeletionPending) {
+			return nil
+		}
+
+		// Revert to Active
+		newStatus := string(domain.PartyStatusActive)
+
+		if party.Type == domain.PartyTypeIndividual {
+			ind, _ := h.repo.GetIndividual(txCtx, payload.ID)
+			ind.Status = newStatus
+			if err := h.repo.UpdateIndividual(txCtx, ind); err != nil {
+				return fmt.Errorf("failed to cancel deletion (ind): %w", err)
+			}
+		} else {
+			org, _ := h.repo.GetOrganization(txCtx, payload.ID)
+			org.Status = newStatus
+			if err := h.repo.UpdateOrganization(txCtx, org); err != nil {
+				return fmt.Errorf("failed to cancel deletion (org): %w", err)
+			}
+		}
+
+		if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+			"id":       payload.ID,
+			"oldState": domain.PartyStatusDeletionPending,
+			"newState": newStatus,
+		}); err != nil {
+			return err
+		}
+
+		slog.Info("party deletion cancelled", "id", payload.ID)
 		return nil
-	}
-
-	// Revert to Active
-	newStatus := string(domain.PartyStatusActive)
-
-	if party.Type == domain.PartyTypeIndividual {
-		ind, _ := h.repo.GetIndividual(ctx, payload.ID)
-		ind.Status = newStatus
-		if err := h.repo.UpdateIndividual(ctx, ind); err != nil {
-			return fmt.Errorf("failed to cancel deletion (ind): %w", err)
-		}
-	} else {
-		org, _ := h.repo.GetOrganization(ctx, payload.ID)
-		org.Status = newStatus
-		if err := h.repo.UpdateOrganization(ctx, org); err != nil {
-			return fmt.Errorf("failed to cancel deletion (org): %w", err)
-		}
-	}
-
-	h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
-		"id":       payload.ID,
-		"oldState": domain.PartyStatusDeletionPending,
-		"newState": newStatus,
 	})
-
-	slog.Info("party deletion cancelled", "id", payload.ID)
-	return nil
 }
 
 func (h *Handlers) HandleCustomerCreated(ctx context.Context, d amqp.Delivery) error {
@@ -773,42 +856,45 @@ func (h *Handlers) HandleCustomerCreated(ctx context.Context, d amqp.Delivery) e
 		return nil
 	}
 
-	// Check if party is in deletion pending
-	party, err := h.repo.GetParty(ctx, payload.PartyID)
-	if err != nil {
-		// If not found, ignore
-		return nil
-	}
+	return h.tm.Run(ctx, func(txCtx context.Context) error {
+		// Check if party is in deletion pending
+		party, err := h.repo.GetParty(txCtx, payload.PartyID)
+		if err != nil {
+			// If not found, ignore
+			return nil
+		}
 
-	if party.Status == string(domain.PartyStatusDeletionPending) {
-		slog.Info("detecting race condition: customer created for pending deletion party. aborting deletion.", "party_id", payload.PartyID)
+		if party.Status == string(domain.PartyStatusDeletionPending) {
+			slog.Info("detecting race condition: customer created for pending deletion party. aborting deletion.", "party_id", payload.PartyID)
 
-		// Revert to Active
-		newStatus := string(domain.PartyStatusActive)
-		if party.Type == domain.PartyTypeIndividual {
-			ind, _ := h.repo.GetIndividual(ctx, payload.PartyID)
-			ind.Status = newStatus
-			if err := h.repo.UpdateIndividual(ctx, ind); err != nil {
-				slog.Error("failed to revert party status (ind)", "error", err)
-				return err
+			// Revert to Active
+			newStatus := string(domain.PartyStatusActive)
+			if party.Type == domain.PartyTypeIndividual {
+				ind, _ := h.repo.GetIndividual(txCtx, payload.PartyID)
+				ind.Status = newStatus
+				if err := h.repo.UpdateIndividual(txCtx, ind); err != nil {
+					slog.Error("failed to revert party status (ind)", "error", err)
+					return err
+				}
+			} else {
+				org, _ := h.repo.GetOrganization(txCtx, payload.PartyID)
+				org.Status = newStatus
+				if err := h.repo.UpdateOrganization(txCtx, org); err != nil {
+					slog.Error("failed to revert party status (org)", "error", err)
+					return err
+				}
 			}
-		} else {
-			org, _ := h.repo.GetOrganization(ctx, payload.PartyID)
-			org.Status = newStatus
-			if err := h.repo.UpdateOrganization(ctx, org); err != nil {
-				slog.Error("failed to revert party status (org)", "error", err)
+
+			if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+				"id":       payload.PartyID,
+				"oldState": domain.PartyStatusDeletionPending,
+				"newState": newStatus,
+			}); err != nil {
 				return err
 			}
 		}
-
-		h.publishEvent(ctx, EvtPartyStateChange, map[string]interface{}{
-			"id":       payload.PartyID,
-			"oldState": domain.PartyStatusDeletionPending,
-			"newState": newStatus,
-		})
-	}
-
-	return nil
+		return nil
+	})
 }
 
 func (h *Handlers) HandleGetParty(ctx context.Context, d amqp.Delivery) error {
@@ -900,14 +986,16 @@ func (h *Handlers) HandleSearchParty(ctx context.Context, d amqp.Delivery) error
 
 // --- Helpers ---
 
-func (h *Handlers) publishEvent(ctx context.Context, routingKey string, event interface{}) {
-	if h.publisher == nil {
-		slog.Warn("publisher is nil, skipping event publishing", "routingKey", routingKey)
-		return
+func (h *Handlers) publishEvent(ctx context.Context, routingKey string, event interface{}) error {
+	if h.eventPublisher == nil {
+		slog.Warn("eventPublisher is nil, skipping event publishing", "routingKey", routingKey)
+		return nil
 	}
-	if err := h.publisher.Publish(ctx, EventExchange, routingKey, event); err != nil {
+	if err := h.eventPublisher.Publish(ctx, EventExchange, routingKey, event); err != nil {
 		slog.Error("failed to publish event", "routingKey", routingKey, "error", err)
+		return err
 	}
+	return nil
 }
 
 func (h *Handlers) replyTo(ctx context.Context, d amqp.Delivery, response interface{}) error {
@@ -921,7 +1009,12 @@ func (h *Handlers) replyTo(ctx context.Context, d amqp.Delivery, response interf
 		return fmt.Errorf("failed to marshal response: %w", err)
 	}
 
-	ch, err := h.publisher.GetChannel()
+	if h.rpcPublisher == nil {
+		slog.Warn("rpcPublisher is nil, cannot reply")
+		return nil
+	}
+
+	ch, err := h.rpcPublisher.GetChannel()
 	if err != nil {
 		return fmt.Errorf("failed to get channel for reply: %w", err)
 	}
@@ -929,8 +1022,8 @@ func (h *Handlers) replyTo(ctx context.Context, d amqp.Delivery, response interf
 	return ch.PublishWithContext(ctx,
 		"",        // default exchange
 		d.ReplyTo, // routing key = reply queue
-		false,
-		false,
+		false,     // mandatory
+		false,     // immediate
 		amqp.Publishing{
 			ContentType:   "application/json",
 			Headers:       amqp.Table{"user": ctx.Value(domain.UserContextKey)},

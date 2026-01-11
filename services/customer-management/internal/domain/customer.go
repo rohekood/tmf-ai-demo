@@ -11,7 +11,10 @@ import (
 
 type contextKey string
 
-const UserContextKey contextKey = "user_id"
+const (
+	UserContextKey contextKey = "user_id"
+	AuthContextKey contextKey = "authorization"
+)
 
 // CustomerStatus represents the lifecycle state of a customer.
 type CustomerStatus string

@@ -18,17 +18,17 @@ func NewCustomerRepository(db *gorm.DB) *CustomerRepository {
 }
 
 func (r *CustomerRepository) CreateCustomer(ctx context.Context, c *domain.Customer) error {
-	return r.withUser(ctx, func(tx *gorm.DB) error {
-		if err := tx.Create(c).Error; err != nil {
-			return fmt.Errorf("failed to create customer: %w", err)
-		}
-		return nil
-	})
+	tx := GetTx(ctx, r.db)
+	if err := tx.Create(c).Error; err != nil {
+		return fmt.Errorf("failed to create customer: %w", err)
+	}
+	return nil
 }
 
 func (r *CustomerRepository) GetCustomer(ctx context.Context, id string) (*domain.Customer, error) {
 	var customer domain.Customer
-	err := r.db.WithContext(ctx).
+	// GetTx isn't strictly necessary for reads but good for consistency if reading your own writes within tx
+	err := GetTx(ctx, r.db).
 		Preload("Accounts").
 		Preload("CreditProfiles").
 		Preload("ContactMediums").
@@ -51,104 +51,101 @@ func (r *CustomerRepository) GetCustomer(ctx context.Context, id string) (*domai
 }
 
 func (r *CustomerRepository) UpdateCustomer(ctx context.Context, c *domain.Customer) error {
-	return r.withUser(ctx, func(tx *gorm.DB) error {
-		result := tx.Save(c)
-		if result.Error != nil {
-			return fmt.Errorf("failed to update customer: %w", result.Error)
-		}
-		if result.RowsAffected == 0 {
-			return domain.ErrNotFound
-		}
-		// Replace sub-resources
-		return r.updateSubResources(tx, c.ID, c)
-	})
+	tx := GetTx(ctx, r.db)
+	result := tx.Save(c)
+	if result.Error != nil {
+		return fmt.Errorf("failed to update customer: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+	// Replace sub-resources
+	return r.updateSubResources(tx, c.ID, c)
 }
 
 func (r *CustomerRepository) PatchCustomer(ctx context.Context, id string, updates map[string]interface{}) error {
-	return r.withUser(ctx, func(tx *gorm.DB) error {
+	tx := GetTx(ctx, r.db)
 
-		// Handle associations separately
+	// Handle associations separately
 
-		if privacy, ok := updates["privacy_consents"]; ok {
-			if err := tx.Delete(&domain.PrivacyConsent{}, "customer_id = ?", id).Error; err != nil {
-				return fmt.Errorf("failed to delete old privacy consents: %w", err)
-			}
-			if err := tx.Model(&domain.Customer{ID: id}).Association("PrivacyConsents").Replace(privacy); err != nil {
-				return fmt.Errorf("failed to replace privacy consents: %w", err)
-			}
-			delete(updates, "privacy_consents")
+	if privacy, ok := updates["privacy_consents"]; ok {
+		if err := tx.Delete(&domain.PrivacyConsent{}, "customer_id = ?", id).Error; err != nil {
+			return fmt.Errorf("failed to delete old privacy consents: %w", err)
 		}
-		if accounts, ok := updates["accounts"]; ok {
-			if err := tx.Delete(&domain.CustomerAccount{}, "customer_id = ?", id).Error; err != nil {
-				return fmt.Errorf("failed to delete old accounts: %w", err)
-			}
-			if err := tx.Model(&domain.Customer{ID: id}).Association("Accounts").Replace(accounts); err != nil {
-				return fmt.Errorf("failed to replace accounts: %w", err)
-			}
-			delete(updates, "accounts")
+		if err := tx.Model(&domain.Customer{ID: id}).Association("PrivacyConsents").Replace(privacy); err != nil {
+			return fmt.Errorf("failed to replace privacy consents: %w", err)
 		}
-		if creditProfiles, ok := updates["credit_profiles"]; ok {
-			if err := tx.Delete(&domain.CreditProfile{}, "customer_id = ?", id).Error; err != nil {
-				return fmt.Errorf("failed to delete old credit profiles: %w", err)
-			}
-			if err := tx.Model(&domain.Customer{ID: id}).Association("CreditProfiles").Replace(creditProfiles); err != nil {
-				return fmt.Errorf("failed to replace credit profiles: %w", err)
-			}
-			delete(updates, "credit_profiles")
+		delete(updates, "privacy_consents")
+	}
+	if accounts, ok := updates["accounts"]; ok {
+		if err := tx.Delete(&domain.CustomerAccount{}, "customer_id = ?", id).Error; err != nil {
+			return fmt.Errorf("failed to delete old accounts: %w", err)
 		}
-		if related, ok := updates["related_parties"]; ok {
-			if err := tx.Delete(&domain.RelatedParty{}, "customer_id = ?", id).Error; err != nil {
-				return fmt.Errorf("failed to delete old related parties: %w", err)
-			}
-			if err := tx.Model(&domain.Customer{ID: id}).Association("RelatedParties").Replace(related); err != nil {
-				return fmt.Errorf("failed to replace related parties: %w", err)
-			}
-			delete(updates, "related_parties")
+		if err := tx.Model(&domain.Customer{ID: id}).Association("Accounts").Replace(accounts); err != nil {
+			return fmt.Errorf("failed to replace accounts: %w", err)
 		}
-		if payments, ok := updates["payment_methods"]; ok {
-			if err := tx.Delete(&domain.PaymentMethod{}, "customer_id = ?", id).Error; err != nil {
-				return fmt.Errorf("failed to delete old payment methods: %w", err)
-			}
-			if err := tx.Model(&domain.Customer{ID: id}).Association("PaymentMethods").Replace(payments); err != nil {
-				return fmt.Errorf("failed to replace payment methods: %w", err)
-			}
-			delete(updates, "payment_methods")
+		delete(updates, "accounts")
+	}
+	if creditProfiles, ok := updates["credit_profiles"]; ok {
+		if err := tx.Delete(&domain.CreditProfile{}, "customer_id = ?", id).Error; err != nil {
+			return fmt.Errorf("failed to delete old credit profiles: %w", err)
 		}
-		if segments, ok := updates["market_segments"]; ok {
-			if err := tx.Delete(&domain.MarketSegment{}, "customer_id = ?", id).Error; err != nil {
-				return fmt.Errorf("failed to delete old market segments: %w", err)
-			}
-			if err := tx.Model(&domain.Customer{ID: id}).Association("MarketSegments").Replace(segments); err != nil {
-				return fmt.Errorf("failed to replace market segments: %w", err)
-			}
-			delete(updates, "market_segments")
+		if err := tx.Model(&domain.Customer{ID: id}).Association("CreditProfiles").Replace(creditProfiles); err != nil {
+			return fmt.Errorf("failed to replace credit profiles: %w", err)
 		}
+		delete(updates, "credit_profiles")
+	}
+	if related, ok := updates["related_parties"]; ok {
+		if err := tx.Delete(&domain.RelatedParty{}, "customer_id = ?", id).Error; err != nil {
+			return fmt.Errorf("failed to delete old related parties: %w", err)
+		}
+		if err := tx.Model(&domain.Customer{ID: id}).Association("RelatedParties").Replace(related); err != nil {
+			return fmt.Errorf("failed to replace related parties: %w", err)
+		}
+		delete(updates, "related_parties")
+	}
+	if payments, ok := updates["payment_methods"]; ok {
+		if err := tx.Delete(&domain.PaymentMethod{}, "customer_id = ?", id).Error; err != nil {
+			return fmt.Errorf("failed to delete old payment methods: %w", err)
+		}
+		if err := tx.Model(&domain.Customer{ID: id}).Association("PaymentMethods").Replace(payments); err != nil {
+			return fmt.Errorf("failed to replace payment methods: %w", err)
+		}
+		delete(updates, "payment_methods")
+	}
+	if segments, ok := updates["market_segments"]; ok {
+		if err := tx.Delete(&domain.MarketSegment{}, "customer_id = ?", id).Error; err != nil {
+			return fmt.Errorf("failed to delete old market segments: %w", err)
+		}
+		if err := tx.Model(&domain.Customer{ID: id}).Association("MarketSegments").Replace(segments); err != nil {
+			return fmt.Errorf("failed to replace market segments: %w", err)
+		}
+		delete(updates, "market_segments")
+	}
 
-		// Update scalar fields if any remain
-		if len(updates) > 0 {
-			result := tx.Model(&domain.Customer{}).Where("id = ?", id).Updates(updates)
-			if result.Error != nil {
-				return fmt.Errorf("failed to patch customer: %w", result.Error)
-			}
-			if result.RowsAffected == 0 {
-				return domain.ErrNotFound
-			}
-		}
-		return nil
-	})
-}
-
-func (r *CustomerRepository) DeleteCustomer(ctx context.Context, id string) error {
-	return r.withUser(ctx, func(tx *gorm.DB) error {
-		result := tx.Delete(&domain.Customer{}, "id = ?", id)
+	// Update scalar fields if any remain
+	if len(updates) > 0 {
+		result := tx.Model(&domain.Customer{}).Where("id = ?", id).Updates(updates)
 		if result.Error != nil {
-			return fmt.Errorf("failed to delete customer: %w", result.Error)
+			return fmt.Errorf("failed to patch customer: %w", result.Error)
 		}
 		if result.RowsAffected == 0 {
 			return domain.ErrNotFound
 		}
-		return nil
-	})
+	}
+	return nil
+}
+
+func (r *CustomerRepository) DeleteCustomer(ctx context.Context, id string) error {
+	tx := GetTx(ctx, r.db)
+	result := tx.Delete(&domain.Customer{}, "id = ?", id)
+	if result.Error != nil {
+		return fmt.Errorf("failed to delete customer: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
 }
 
 func (r *CustomerRepository) SearchCustomers(ctx context.Context, criteria map[string]interface{}) ([]domain.Customer, error) {
@@ -180,30 +177,14 @@ func (r *CustomerRepository) SearchCustomers(ctx context.Context, criteria map[s
 }
 
 func (r *CustomerRepository) AddInteraction(ctx context.Context, interaction *domain.CustomerInteraction) error {
-	return r.withUser(ctx, func(tx *gorm.DB) error {
-		if err := tx.Create(interaction).Error; err != nil {
-			return fmt.Errorf("failed to add interaction: %w", err)
-		}
-		return nil
-	})
+	tx := GetTx(ctx, r.db)
+	if err := tx.Create(interaction).Error; err != nil {
+		return fmt.Errorf("failed to add interaction: %w", err)
+	}
+	return nil
 }
 
 // Helpers
-
-func (r *CustomerRepository) withUser(ctx context.Context, fn func(tx *gorm.DB) error) error {
-	userID, _ := ctx.Value(domain.UserContextKey).(string)
-	if userID == "" {
-		userID = "unknown"
-	}
-
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Set local session variable for audit trigger
-		if err := tx.Exec("SELECT set_config('app.current_user', ?, true)", userID).Error; err != nil {
-			return err
-		}
-		return fn(tx)
-	})
-}
 
 func (r *CustomerRepository) updateSubResources(tx *gorm.DB, customerID string, c *domain.Customer) error {
 	// 1. Accounts

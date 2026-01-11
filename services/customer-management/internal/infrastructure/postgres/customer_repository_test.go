@@ -18,7 +18,6 @@ func setupTestDB(t *testing.T) (*gorm.DB, string) {
 	// Truncate tables to ensure clean state
 	// Order matters due to FKs
 	tables := []string{
-		"applied_billing_rates",
 		"customer_interactions",
 		"market_segments",
 		"payment_methods",
@@ -191,7 +190,10 @@ func TestAuditTrail(t *testing.T) {
 		Status: domain.CustomerStatusActive,
 	}
 
-	err := repo.CreateCustomer(ctx, cust)
+	tm := NewTransactionManager(db)
+	err := tm.RunInTransaction(ctx, func(ctx context.Context) error {
+		return repo.CreateCustomer(ctx, cust)
+	})
 	assert.NoError(t, err)
 
 	// Verify Audit Log

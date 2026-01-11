@@ -80,8 +80,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	tm := infraPostgres.NewTransactionManager(db)
+	outboxRepo := infraPostgres.NewOutboxRepository(db)
+	outboxPublisher := infraPostgres.NewOutboxPublisher(outboxRepo)
+	outboxWorker := infraPostgres.NewOutboxWorker(outboxRepo, publisher)
+
 	// 5. Initialize Handlers and Listener
-	handlers := rabbitTransport.NewHandlers(repo, publisher)
+	handlers := rabbitTransport.NewHandlers(repo, outboxPublisher, publisher, tm)
 	listener, err := rabbitTransport.NewListener(connMgr.GetConnection())
 	if err != nil {
 		slog.Error("failed to create listener", "error", err)
@@ -93,6 +98,9 @@ func main() {
 	// Create a context that listens for the interrupt signal from the OS.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// Start Outbox Worker
+	go outboxWorker.Start(ctx)
 
 	go func() {
 		if err := listener.Start(ctx, handlers); err != nil {

@@ -23,9 +23,32 @@ func (p *OutboxPublisher) saveEvent(ctx context.Context, routingKey string, even
 		return err
 	}
 
+	// Extract headers
+	headers := make(map[string]string)
+	// Using hardcoded keys as domain constants might not be exported similarly
+	if user, ok := ctx.Value("user").(string); ok {
+		headers["user"] = user
+	}
+	if auth, ok := ctx.Value("Authorization").(string); ok {
+		headers["Authorization"] = auth
+	}
+	// Fallback/standard keys if common package is used
+	if user, ok := ctx.Value(domain.UserContextKey).(string); ok {
+		headers["user"] = user
+	}
+	if auth, ok := ctx.Value(domain.AuthContextKey).(string); ok {
+		headers["Authorization"] = auth
+	}
+
+	headerBytes, err := json.Marshal(headers)
+	if err != nil {
+		return err
+	}
+
 	outboxEvent := &repository.OutboxEventModel{
 		RoutingKey: routingKey,
 		Payload:    payload,
+		Headers:    headerBytes,
 		Status:     repository.StatusPending,
 	}
 
