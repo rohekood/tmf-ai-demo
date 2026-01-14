@@ -195,7 +195,7 @@ func TestRabbitMQHandler_Offering_AdvancedFeatures(t *testing.T) {
 
 	ch, err := rabbitConn.Channel()
 	require.NoError(t, err)
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 
 	// Create Queue for RPC responses
 	q, err := ch.QueueDeclare(
@@ -303,9 +303,6 @@ func TestRabbitMQHandler_Offering_AdvancedFeatures(t *testing.T) {
 
 	select {
 	case d := <-msgs:
-		if d.CorrelationId != corrIdGet {
-			// Might match previous if queue wasn't drained, but here we expect sequential match
-		}
 		assert.Equal(t, corrIdGet, d.CorrelationId)
 		var result domain.ProductOffering
 		err := json.Unmarshal(d.Body, &result)

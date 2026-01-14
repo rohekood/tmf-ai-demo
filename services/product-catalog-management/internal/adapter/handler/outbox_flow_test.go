@@ -40,7 +40,7 @@ func TestOutboxFlow_CreateOffering(t *testing.T) {
 	// 2. Prepare RabbitMQ Consumer to verify delivery
 	ch, err := rabbitConn.Channel()
 	require.NoError(t, err)
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 
 	// Declare exchange (in case publisher hasn't yet, though it should)
 	err = ch.ExchangeDeclare("catalog_events", "topic", true, false, false, false, nil)
