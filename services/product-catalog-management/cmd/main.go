@@ -113,8 +113,8 @@ func main() {
 	listProductSpecificationsUC := specification.NewListProductSpecifications(specRepo)
 
 	// Inject TM into CreateProductOffering
-	createProductOfferingUC := offering.NewCreateProductOffering(offeringRepo, outboxPublisher, tm)
-	updateProductOfferingUC := offering.NewUpdateProductOfferingUseCase(offeringRepo, outboxPublisher, tm)
+	createProductOfferingUC := offering.NewCreateProductOffering(offeringRepo, specRepo, outboxPublisher, tm)
+	updateProductOfferingUC := offering.NewUpdateProductOfferingUseCase(offeringRepo, specRepo, outboxPublisher, tm)
 	deleteProductOfferingUC := offering.NewDeleteProductOfferingUseCase(offeringRepo, outboxPublisher, tm)
 	getProductOfferingUC := offering.NewGetProductOffering(offeringRepo, specRepo, categoryRepo)
 	listProductOfferingsUC := offering.NewListProductOfferings(offeringRepo)

@@ -12,13 +12,20 @@ import (
 
 type CreateProductOffering struct {
 	repo      ports.ProductOfferingRepository
+	specRepo  ports.ProductSpecificationRepository
 	publisher ports.EventPublisher
 	tm        repository.TransactionManager
 }
 
-func NewCreateProductOffering(repo ports.ProductOfferingRepository, publisher ports.EventPublisher, tm repository.TransactionManager) *CreateProductOffering {
+func NewCreateProductOffering(
+	repo ports.ProductOfferingRepository,
+	specRepo ports.ProductSpecificationRepository,
+	publisher ports.EventPublisher,
+	tm repository.TransactionManager,
+) *CreateProductOffering {
 	return &CreateProductOffering{
 		repo:      repo,
+		specRepo:  specRepo,
 		publisher: publisher,
 		tm:        tm,
 	}
@@ -47,12 +54,25 @@ func (uc *CreateProductOffering) Execute(ctx context.Context, input ports.Create
 	}
 
 	if offering.LifecycleStatus == "" {
-		offering.LifecycleStatus = "Created"
+		offering.LifecycleStatus = domain.LifecycleStatusDraft
 	}
 
-	// Basic validation could be extended here or in domain
-	if offering.Name == "" {
-		return nil, domain.ErrInvalidInput
+	// Validate Offering (Price, Enums)
+	if err := offering.Validate(); err != nil {
+		return nil, err
+	}
+
+	// Cross-Entity Validation: Specification
+	if offering.ProductSpecificationID != nil {
+		spec, err := uc.specRepo.Get(ctx, *offering.ProductSpecificationID)
+		if err != nil {
+			return nil, err // Spec must exist
+		}
+		if spec.LifecycleStatus == domain.SpecLifecycleStatusRetired {
+			return nil, domain.ErrInvalidInput // Cannot create offering for retired spec
+		}
+	} else if !offering.IsBundle {
+		// Non-bundle offerings usually require a spec, but we'll leave optional if business allows
 	}
 
 	if err := uc.tm.Run(ctx, func(ctx context.Context) error {

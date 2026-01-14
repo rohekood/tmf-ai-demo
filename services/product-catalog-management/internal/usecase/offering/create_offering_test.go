@@ -14,9 +14,10 @@ import (
 
 func TestCreateOffering_Execute(t *testing.T) {
 	mockRepo := new(MockOfferingRepo)
+	mockSpecRepo := new(MockSpecRepo)
 	mockPub := new(MockEventPublisher)
 
-	useCase := NewCreateProductOffering(mockRepo, mockPub, &repository.NoOpTransactionManager{})
+	useCase := NewCreateProductOffering(mockRepo, mockSpecRepo, mockPub, &repository.NoOpTransactionManager{})
 
 	specID := "spec-123"
 	input := ports.CreateProductOfferingInput{
@@ -36,6 +37,12 @@ func TestCreateOffering_Execute(t *testing.T) {
 		return o.Name == "Internet Plan"
 	})).Return(nil)
 
+	// Mock Spec Repo call
+	mockSpecRepo.On("Get", mock.Anything, "spec-123").Return(&domain.ProductSpecification{
+		ID:              "spec-123",
+		LifecycleStatus: domain.SpecLifecycleStatusActive,
+	}, nil)
+
 	mockPub.On("PublishProductOfferingCreated", mock.Anything, mock.MatchedBy(func(e domain.ProductOfferingCreatedEvent) bool {
 		return e.ProductOffering.Name == "Internet Plan"
 	})).Return(nil)
@@ -48,5 +55,6 @@ func TestCreateOffering_Execute(t *testing.T) {
 	assert.Equal(t, "Internet Plan", result.Name)
 
 	mockRepo.AssertExpectations(t)
+	mockSpecRepo.AssertExpectations(t)
 	mockPub.AssertExpectations(t)
 }

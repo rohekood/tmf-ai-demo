@@ -4,6 +4,12 @@ import (
 	"time"
 )
 
+const (
+	SpecLifecycleStatusDraft   = "Draft"
+	SpecLifecycleStatusActive  = "Active"
+	SpecLifecycleStatusRetired = "Retired"
+)
+
 type ProductSpecification struct {
 	ID              string                               `json:"id"`
 	Name            string                               `json:"name"`

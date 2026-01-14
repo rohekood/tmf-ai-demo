@@ -27,6 +27,7 @@ func TestOutboxFlow_CreateOffering(t *testing.T) {
 	sharedDB.Exec("DELETE FROM outbox_event_models")
 
 	offeringRepo := repository.NewProductOfferingRepo(sharedDB)
+	specRepo := repository.NewProductSpecificationRepo(sharedDB)
 	tm := repository.NewTransactionManager(sharedDB)
 	outboxPub := publisher.NewOutboxPublisher(sharedDB)
 
@@ -35,7 +36,7 @@ func TestOutboxFlow_CreateOffering(t *testing.T) {
 
 	outboxWorker := worker.NewOutboxWorker(sharedDB, rabbitPub)
 
-	createUC := offering.NewCreateProductOffering(offeringRepo, outboxPub, tm)
+	createUC := offering.NewCreateProductOffering(offeringRepo, specRepo, outboxPub, tm)
 
 	// 2. Prepare RabbitMQ Consumer to verify delivery
 	ch, err := rabbitConn.Channel()
@@ -81,6 +82,15 @@ func TestOutboxFlow_CreateOffering(t *testing.T) {
 	// 3. Execute Use Case
 	ctx := context.Background()
 	specID := "spec-123"
+	// 3. Setup Prerequisite: Specification
+	spec := &domain.ProductSpecification{
+		ID:              specID,
+		Name:            "Prerequisite Spec",
+		ProductNumber:   "PRE-001",
+		LifecycleStatus: "Active", // Must be active
+	}
+	require.NoError(t, specRepo.Create(ctx, spec))
+
 	input := ports.CreateProductOfferingInput{
 		Name:            "Outbox Offering",
 		Description:     "Testing Transactional Outbox",
@@ -88,7 +98,9 @@ func TestOutboxFlow_CreateOffering(t *testing.T) {
 		IsSellable:      true,
 		LifecycleStatus: "Active",
 		ProductSpecID:   &specID,
-		Prices:          []domain.ProductOfferingPrice{},
+		Prices: []domain.ProductOfferingPrice{
+			{Price: domain.Money{Value: 10, Unit: "USD"}},
+		}, // Updated to have valid price
 	}
 
 	res, err := createUC.Execute(ctx, input)

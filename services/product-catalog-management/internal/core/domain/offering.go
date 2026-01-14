@@ -4,6 +4,13 @@ import (
 	"time"
 )
 
+const (
+	LifecycleStatusDraft     = "Draft"
+	LifecycleStatusActive    = "Active"
+	LifecycleStatusRetired   = "Retired"
+	LifecycleStatusSuspended = "Suspended"
+)
+
 type ProductOffering struct {
 	ID                     string                 `json:"id"`
 	Name                   string                 `json:"name"`
@@ -48,5 +55,24 @@ func (o *ProductOffering) Validate() error {
 	if o.Name == "" {
 		return ErrInvalidInput
 	}
+
+	// Lifecycle Validation
+	switch o.LifecycleStatus {
+	case LifecycleStatusDraft, LifecycleStatusActive, LifecycleStatusRetired, LifecycleStatusSuspended, "Created": // Allow "Created" for initial state if used
+		// valid
+	default:
+		return ErrInvalidInput // Invalid status
+	}
+
+	// Price Validation
+	for _, p := range o.ProductOfferingPrice {
+		if p.Price.Value < 0 {
+			return ErrInvalidInput // Negative price
+		}
+		if p.Price.Unit == "" {
+			return ErrInvalidInput // Missing currency
+		}
+	}
+
 	return nil
 }

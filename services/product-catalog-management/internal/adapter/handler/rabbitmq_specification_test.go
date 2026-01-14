@@ -34,7 +34,7 @@ func TestRabbitMQHandler_CreateProductSpecification(t *testing.T) {
 	listUC := catalog.NewListCatalogs(repo)
 	createCatUC := category.NewCreateCategory(catRepo, pub, &repository.NoOpTransactionManager{})
 	createSpecUC := specification.NewCreateProductSpecification(specRepo, pub, &repository.NoOpTransactionManager{})
-	createOfferingUC := offering.NewCreateProductOffering(repository.NewProductOfferingRepo(sharedDB), pub, &repository.NoOpTransactionManager{})
+	createOfferingUC := offering.NewCreateProductOffering(repository.NewProductOfferingRepo(sharedDB), specRepo, pub, &repository.NoOpTransactionManager{})
 
 	// Init Handler
 	h, err := handler.NewRabbitMQHandler(
