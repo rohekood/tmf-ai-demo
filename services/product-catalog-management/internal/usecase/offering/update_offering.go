@@ -12,13 +12,20 @@ import (
 
 type UpdateProductOfferingUseCase struct {
 	repo      ports.ProductOfferingRepository
+	specRepo  ports.ProductSpecificationRepository
 	publisher ports.EventPublisher
 	tm        repository.TransactionManager
 }
 
-func NewUpdateProductOfferingUseCase(repo ports.ProductOfferingRepository, publisher ports.EventPublisher, tm repository.TransactionManager) ports.UpdateProductOfferingUseCase {
+func NewUpdateProductOfferingUseCase(
+	repo ports.ProductOfferingRepository,
+	specRepo ports.ProductSpecificationRepository,
+	publisher ports.EventPublisher,
+	tm repository.TransactionManager,
+) ports.UpdateProductOfferingUseCase {
 	return &UpdateProductOfferingUseCase{
 		repo:      repo,
+		specRepo:  specRepo,
 		publisher: publisher,
 		tm:        tm,
 	}
@@ -36,9 +43,34 @@ func (uc *UpdateProductOfferingUseCase) Execute(ctx context.Context, input ports
 	if input.Description != nil {
 		offering.Description = *input.Description
 	}
+
 	if input.LifecycleStatus != nil {
-		offering.LifecycleStatus = *input.LifecycleStatus
+		newStatus := *input.LifecycleStatus
+		// Validate Transitions
+		if err := validateLifecycleTransition(offering.LifecycleStatus, newStatus); err != nil {
+			return nil, err
+		}
+
+		// Cross-Entity Validation on Activation
+		if newStatus == domain.LifecycleStatusActive {
+			var specID string
+			if offering.ProductSpecificationID != nil {
+				specID = *offering.ProductSpecificationID
+			}
+
+			if specID != "" {
+				spec, err := uc.specRepo.Get(ctx, specID)
+				if err != nil {
+					return nil, err
+				}
+				if spec.LifecycleStatus == domain.SpecLifecycleStatusRetired {
+					return nil, domain.ErrInvalidInput // Cannot activate if spec is retired
+				}
+			}
+		}
+		offering.LifecycleStatus = newStatus
 	}
+
 	if input.ValidFor != nil {
 		offering.ValidFor = *input.ValidFor
 	}
@@ -83,4 +115,36 @@ func (uc *UpdateProductOfferingUseCase) Execute(ctx context.Context, input ports
 	}
 
 	return offering, nil
+}
+
+func validateLifecycleTransition(oldStatus, newStatus string) error {
+	if oldStatus == newStatus {
+		return nil
+	}
+	// Simplified State Machine
+	switch oldStatus {
+	case domain.LifecycleStatusDraft:
+		if newStatus == domain.LifecycleStatusActive || newStatus == domain.LifecycleStatusRetired {
+			return nil
+		}
+	case domain.LifecycleStatusActive:
+		if newStatus == domain.LifecycleStatusSuspended || newStatus == domain.LifecycleStatusRetired {
+			return nil
+		}
+	case domain.LifecycleStatusSuspended:
+		if newStatus == domain.LifecycleStatusActive || newStatus == domain.LifecycleStatusRetired {
+			return nil
+		}
+	case domain.LifecycleStatusRetired:
+		// No exit from retired usually, maybe allowed for correction? Sticking to strict for now.
+		return domain.ErrInvalidInput
+	}
+	// Allow transition if old status was unknown or empty (migration case)
+	if oldStatus == "" {
+		return nil
+	}
+
+	// Default: Allow for now if not strictly forbidden above?
+	// Or stricter: return error. Let's return error to be safe.
+	return domain.ErrInvalidInput
 }
