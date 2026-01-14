@@ -71,8 +71,6 @@ func (uc *CreateProductOffering) Execute(ctx context.Context, input ports.Create
 		if spec.LifecycleStatus == domain.SpecLifecycleStatusRetired {
 			return nil, domain.ErrInvalidInput // Cannot create offering for retired spec
 		}
-	} else if !offering.IsBundle {
-		// Non-bundle offerings usually require a spec, but we'll leave optional if business allows
 	}
 
 	if err := uc.tm.Run(ctx, func(ctx context.Context) error {
