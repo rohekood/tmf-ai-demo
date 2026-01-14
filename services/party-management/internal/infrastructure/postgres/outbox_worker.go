@@ -85,7 +85,10 @@ func (w *OutboxWorker) processEvent(ctx context.Context, event *domain.OutboxEve
 		// Retry logic handled by polling if status remains PENDING, but for now we might want to log or backoff.
 		// If we don't update status, it will be picked up again.
 	} else {
-		if err := w.repo.MarkAsProcessed(ctx, event.ID); err != nil {
+		// Use detached context for DB update to ensure it completes even if worker shuts down
+		updateCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := w.repo.MarkAsProcessed(updateCtx, event.ID); err != nil {
 			slog.Error("Failed to update status for outbox event", "id", event.ID, "error", err)
 		}
 	}
