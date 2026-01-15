@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Users, Building2, Bug, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Users, Building2, Bug, ChevronRight, ChevronsLeft, ChevronsRight, BookOpen, Package, ShoppingCart, FolderTree } from 'lucide-react';
 import { useAuth0 } from "@auth0/auth0-react";
 import { LoginButton } from '../auth/LoginButton';
 import { LogoutButton } from '../auth/LogoutButton';
@@ -61,6 +61,34 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse }: SidebarProp
                         icon={<Building2 size={20} />}
                         label={collapsed ? "" : "Customers"}
                         title={collapsed ? "Customers" : undefined}
+                    />
+                </div>
+
+                <div className="sidebar-nav-section">
+                    {!collapsed && <h3 className="sidebar-nav-title">Product Catalog</h3>}
+                    <NavItem
+                        to="/catalog/catalogs"
+                        icon={<BookOpen size={20} />}
+                        label={collapsed ? "" : "Catalogs"}
+                        title={collapsed ? "Catalogs" : undefined}
+                    />
+                    <NavItem
+                        to="/catalog/categories"
+                        icon={<FolderTree size={20} />}
+                        label={collapsed ? "" : "Categories"}
+                        title={collapsed ? "Categories" : undefined}
+                    />
+                    <NavItem
+                        to="/catalog/specifications"
+                        icon={<Package size={20} />}
+                        label={collapsed ? "" : "Specifications"}
+                        title={collapsed ? "Specifications" : undefined}
+                    />
+                    <NavItem
+                        to="/catalog/offerings"
+                        icon={<ShoppingCart size={20} />}
+                        label={collapsed ? "" : "Offerings"}
+                        title={collapsed ? "Offerings" : undefined}
                     />
                 </div>
 

@@ -34,3 +34,7 @@ func (m *OutboxEventModel) BeforeCreate(tx *gorm.DB) (err error) {
 	}
 	return
 }
+
+func (m *OutboxEventModel) TableName() string {
+	return "outbox_events"
+}

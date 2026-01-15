@@ -24,17 +24,19 @@ const (
 
 // Handler handles Customer Management API endpoints
 type Handler struct {
-	rpcClient    RPCClient
-	partyHandler *PartyHandler
-	hub          *Hub
+	rpcClient      RPCClient
+	partyHandler   *PartyHandler
+	catalogHandler *CatalogHandler
+	hub            *Hub
 }
 
 // NewHandler creates a new Handler
 func NewHandler(client RPCClient, hub *Hub) *Handler {
 	return &Handler{
-		rpcClient:    client,
-		partyHandler: NewPartyHandler(client),
-		hub:          hub,
+		rpcClient:      client,
+		partyHandler:   NewPartyHandler(client),
+		catalogHandler: NewCatalogHandler(client),
+		hub:            hub,
 	}
 }
 
@@ -50,6 +52,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	// Party routes
 	h.partyHandler.RegisterRoutes(mux)
+
+	// Catalog routes
+	h.catalogHandler.RegisterRoutes(mux)
 }
 
 func getHeaders(r *http.Request) map[string]interface{} {
