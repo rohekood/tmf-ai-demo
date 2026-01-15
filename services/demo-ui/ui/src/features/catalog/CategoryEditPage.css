@@ -1,0 +1,86 @@
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+}
+
+.page-header-content h2 {
+    font-size: 1.875rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem 0;
+    background: linear-gradient(to right, #fff, #94a3b8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.page-header-content p {
+    color: #94a3b8;
+    margin: 0;
+}
+
+/* Corrections for missing bootstrap classes if any */
+.me-1 {
+    margin-right: 0.25rem;
+}
+
+.mb-2 {
+    margin-bottom: 0.5rem;
+}
+
+.mb-3 {
+    margin-bottom: 1rem;
+}
+
+.mb-4 {
+    margin-bottom: 1.5rem;
+}
+
+.d-block {
+    display: block;
+}
+
+.ms-4 {
+    margin-left: 1.5rem;
+}
+
+.text-decoration-none {
+    text-decoration: none;
+}
+
+.d-flex {
+    display: flex;
+}
+
+.align-items-center {
+    align-items: center;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #6366f1;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.btn-link:hover {
+    color: #818cf8;
+    text-decoration: underline;
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}

@@ -1,0 +1,44 @@
+.specification-list-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.spec-name {
+    font-weight: 500;
+    color: #f8fafc;
+}
+
+.spec-number {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.8125rem;
+    color: #64748b;
+}
+
+.bundle-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: rgba(129, 140, 248, 0.1);
+    color: #818cf8;
+    border: 1px solid rgba(129, 140, 248, 0.2);
+}
+
+/* Status badges */
+.status-badge.draft {
+    background: rgba(100, 116, 139, 0.1);
+    color: #64748b;
+}
+
+.status-badge.active {
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+}
+
+.status-badge.retired {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}

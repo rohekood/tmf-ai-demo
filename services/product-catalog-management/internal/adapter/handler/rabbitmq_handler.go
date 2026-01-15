@@ -350,10 +350,12 @@ func (h *RabbitMQHandler) handleCreateCatalog(d amqp.Delivery) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if _, err := h.createCatalogUC.Execute(ctx, input); err != nil {
+	if result, err := h.createCatalogUC.Execute(ctx, input); err != nil {
 		log.Printf("Error executing CreateCatalog: %v", err)
+		h.reply(ctx, d, map[string]string{"error": err.Error()})
 	} else {
 		log.Printf("Catalog created successfully")
+		h.reply(ctx, d, result)
 	}
 }
 
@@ -383,10 +385,12 @@ func (h *RabbitMQHandler) handleUpdateCatalog(d amqp.Delivery) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if _, err := h.updateCatalogUC.Execute(ctx, input); err != nil {
+	if result, err := h.updateCatalogUC.Execute(ctx, input); err != nil {
 		log.Printf("Error executing UpdateCatalog: %v", err)
+		h.reply(ctx, d, map[string]string{"error": err.Error()})
 	} else {
 		log.Printf("Catalog updated successfully")
+		h.reply(ctx, d, result)
 	}
 }
 
@@ -405,8 +409,10 @@ func (h *RabbitMQHandler) handleDeleteCatalog(d amqp.Delivery) {
 
 	if err := h.deleteCatalogUC.Execute(ctx, ports.DeleteCatalogInput{ID: payload.ID}); err != nil {
 		log.Printf("Error executing DeleteCatalog: %v", err)
+		h.reply(ctx, d, map[string]string{"error": err.Error()})
 	} else {
 		log.Printf("Catalog deleted successfully")
+		h.reply(ctx, d, map[string]string{"status": "deleted", "id": payload.ID})
 	}
 }
 
@@ -429,10 +435,12 @@ func (h *RabbitMQHandler) handleCreateCategory(d amqp.Delivery) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if _, err := h.createCategoryUC.Execute(ctx, input); err != nil {
+	if result, err := h.createCategoryUC.Execute(ctx, input); err != nil {
 		log.Printf("Error executing CreateCategory: %v", err)
+		h.reply(ctx, d, map[string]string{"error": err.Error()})
 	} else {
 		log.Printf("Category created successfully")
+		h.reply(ctx, d, result)
 	}
 }
 
@@ -467,10 +475,12 @@ func (h *RabbitMQHandler) handleUpdateCategory(d amqp.Delivery) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if _, err := h.updateCategoryUC.Execute(ctx, input); err != nil {
+	if result, err := h.updateCategoryUC.Execute(ctx, input); err != nil {
 		log.Printf("Error executing UpdateCategory: %v", err)
+		h.reply(ctx, d, map[string]string{"error": err.Error()})
 	} else {
 		log.Printf("Category updated successfully")
+		h.reply(ctx, d, result)
 	}
 }
 
@@ -489,8 +499,10 @@ func (h *RabbitMQHandler) handleDeleteCategory(d amqp.Delivery) {
 
 	if err := h.deleteCategoryUC.Execute(ctx, ports.DeleteCategoryInput{ID: payload.ID}); err != nil {
 		log.Printf("Error executing DeleteCategory: %v", err)
+		h.reply(ctx, d, map[string]string{"error": err.Error()})
 	} else {
 		log.Printf("Category deleted successfully")
+		h.reply(ctx, d, map[string]string{"status": "deleted", "id": payload.ID})
 	}
 }
 
@@ -514,10 +526,12 @@ func (h *RabbitMQHandler) handleCreateProductSpecification(d amqp.Delivery) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if _, err := h.createProductSpecificationUC.Execute(ctx, input); err != nil {
+	if result, err := h.createProductSpecificationUC.Execute(ctx, input); err != nil {
 		log.Printf("Error executing CreateProductSpecification: %v", err)
+		h.reply(ctx, d, map[string]string{"error": err.Error()})
 	} else {
 		log.Printf("ProductSpecification created successfully")
+		h.reply(ctx, d, result)
 	}
 }
 
@@ -552,10 +566,12 @@ func (h *RabbitMQHandler) handleUpdateProductSpecification(d amqp.Delivery) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if _, err := h.updateProductSpecificationUC.Execute(ctx, input); err != nil {
+	if result, err := h.updateProductSpecificationUC.Execute(ctx, input); err != nil {
 		log.Printf("Error executing UpdateProductSpecification: %v", err)
+		h.reply(ctx, d, map[string]string{"error": err.Error()})
 	} else {
 		log.Printf("ProductSpecification updated successfully")
+		h.reply(ctx, d, result)
 	}
 }
 
@@ -574,8 +590,10 @@ func (h *RabbitMQHandler) handleDeleteProductSpecification(d amqp.Delivery) {
 
 	if err := h.deleteProductSpecificationUC.Execute(ctx, ports.DeleteProductSpecificationInput{ID: payload.ID}); err != nil {
 		log.Printf("Error executing DeleteProductSpecification: %v", err)
+		h.reply(ctx, d, map[string]string{"error": err.Error()})
 	} else {
 		log.Printf("ProductSpecification deleted successfully")
+		h.reply(ctx, d, map[string]string{"status": "deleted", "id": payload.ID})
 	}
 }
 
@@ -602,10 +620,12 @@ func (h *RabbitMQHandler) handleCreateProductOffering(d amqp.Delivery) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if _, err := h.createProductOfferingUC.Execute(ctx, input); err != nil {
+	if result, err := h.createProductOfferingUC.Execute(ctx, input); err != nil {
 		log.Printf("Error executing CreateProductOffering: %v", err)
+		h.reply(ctx, d, map[string]string{"error": err.Error()})
 	} else {
 		log.Printf("ProductOffering created successfully")
+		h.reply(ctx, d, result)
 	}
 }
 
@@ -644,10 +664,12 @@ func (h *RabbitMQHandler) handleUpdateProductOffering(d amqp.Delivery) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if _, err := h.updateProductOfferingUC.Execute(ctx, input); err != nil {
+	if result, err := h.updateProductOfferingUC.Execute(ctx, input); err != nil {
 		log.Printf("Error executing UpdateProductOffering: %v", err)
+		h.reply(ctx, d, map[string]string{"error": err.Error()})
 	} else {
 		log.Printf("ProductOffering updated successfully")
+		h.reply(ctx, d, result)
 	}
 }
 
@@ -666,7 +688,32 @@ func (h *RabbitMQHandler) handleDeleteProductOffering(d amqp.Delivery) {
 
 	if err := h.deleteProductOfferingUC.Execute(ctx, ports.DeleteProductOfferingInput{ID: payload.ID}); err != nil {
 		log.Printf("Error executing DeleteProductOffering: %v", err)
+		h.reply(ctx, d, map[string]string{"error": err.Error()})
 	} else {
 		log.Printf("ProductOffering deleted successfully")
+		h.reply(ctx, d, map[string]string{"status": "deleted", "id": payload.ID})
+	}
+}
+
+func (h *RabbitMQHandler) reply(ctx context.Context, d amqp.Delivery, response interface{}) {
+	responseBody, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("Error marshalling response: %v", err)
+		return
+	}
+
+	err = h.channel.PublishWithContext(ctx,
+		"",        // exchange
+		d.ReplyTo, // routing key (reply queue)
+		false,
+		false,
+		amqp.Publishing{
+			ContentType:   "application/json",
+			CorrelationId: d.CorrelationId,
+			Body:          responseBody,
+		},
+	)
+	if err != nil {
+		log.Printf("Failed to publish response: %v", err)
 	}
 }

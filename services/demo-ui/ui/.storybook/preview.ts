@@ -1,11 +1,19 @@
 import type { Preview } from '@storybook/react-vite';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import '../src/index.css';
 
+const queryClient = new QueryClient();
+
 const preview: Preview = {
   decorators: [
-    (Story) => React.createElement(MemoryRouter, null, React.createElement(Story)),
+    (Story) =>
+      React.createElement(QueryClientProvider, { client: queryClient },
+        React.createElement(MemoryRouter, null,
+          React.createElement(Story)
+        )
+      ),
   ],
   parameters: {
     controls: {
