@@ -1,0 +1,28 @@
+{
+  "cmd.payment.transaction.authorize": {
+    "description": "Command to authorize a credit card charge",
+    "payload": {
+      "sagaId": "uuid",
+      "amount": {
+        "value": "decimal",
+        "currency": "string (EUR)"
+      },
+      "paymentMethodToken": "string",
+      "description": "string"
+    }
+  },
+  "evt.payment.transaction.authorized": {
+    "description": "Event emitted when payment succeeds",
+    "payload": {
+      "sagaId": "uuid",
+      "transactionId": "string"
+    }
+  },
+  "evt.payment.transaction.declined": {
+    "description": "Event emitted when payment fails",
+    "payload": {
+      "sagaId": "uuid",
+      "reason": "string"
+    }
+  }
+}

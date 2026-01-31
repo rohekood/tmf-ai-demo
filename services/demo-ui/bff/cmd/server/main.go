@@ -9,11 +9,22 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	rabbitmqpkg "tmf/pkg/rabbitmq"
 	"tmf/services/demo-ui/bff/internal/auth"
 	"tmf/services/demo-ui/bff/internal/config"
+	"tmf/services/demo-ui/bff/internal/events"
 	httpTransport "tmf/services/demo-ui/bff/internal/transport/http"
 	"tmf/services/demo-ui/bff/internal/transport/rabbitmq"
+
+	"github.com/gorilla/websocket"
 )
+
+var upgrader = websocket.Upgrader{
+	EnableCompression: true,
+	CheckOrigin: func(r *http.Request) bool {
+		return true // Allow all origins for demo
+	},
+}
 
 func main() {
 	// 0. Load Config
@@ -35,10 +46,20 @@ func main() {
 		log.Fatalf("Failed to initialize auth validator: %v", err)
 	}
 
-	// 4. Initialize WebSocket Hub with token validator for authentication
+	// 4. Initialize WebSocket Hub (Legacy Debug + New Event)
 	hub := httpTransport.NewHub()
 	hub.SetTokenValidator(authValidator)
 	go hub.Run()
+
+	// 4b. Initialize New Event Hub (Global)
+	eventHub := events.NewHub()
+
+	// 4c. Start RabbitMQ Consumer for Events
+	eventConsumer, err := rabbitmqpkg.NewConsumer(cfg.RabbitMQURL, "catalog_events", "q.bff.events")
+	if err != nil {
+		log.Fatalf("Failed to create Event Consumer: %v", err)
+	}
+	go eventHub.StartConsumer(eventConsumer)
 
 	// 5. Set broadcaster on RPC client for debug reply forwarding
 	rpcClient.SetBroadcaster(hub)
@@ -51,9 +72,31 @@ func main() {
 		}
 	}()
 
-	// 7. Register WebSocket route
+	// 7. Register WebSocket routes
 	mux.HandleFunc("/ws/debug", func(w http.ResponseWriter, req *http.Request) {
 		hub.ServeWs(w, req)
+	})
+	// NEW Route for specific event streaming
+	mux.HandleFunc("/ws/events", func(w http.ResponseWriter, req *http.Request) {
+		// Upgrade HTTP connection
+		conn, err := upgrader.Upgrade(w, req, nil)
+		if err != nil {
+			log.Println("Upgrade error:", err)
+			return
+		}
+
+		// TODO: Extract proper CorrelationID or UserID from Token
+		// For now, generate a temporary ID or use a query param
+		clientID := req.URL.Query().Get("id")
+		if clientID == "" {
+			clientID = "unknown-" + time.Now().String()
+		}
+
+		// Register with Global Event Hub
+		eventHub.Register(clientID, conn)
+
+		// Keep connection alive (Hub handles writes, we handle read/Ping)
+		// closeHandler/readLoop needed here ideally
 	})
 
 	// 8. Register API Routes

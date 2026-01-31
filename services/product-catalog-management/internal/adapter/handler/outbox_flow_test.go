@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"tmf/pkg/rabbitmq"
 	"tmf/services/product-catalog-management/internal/adapter/publisher"
 	"tmf/services/product-catalog-management/internal/adapter/repository"
 	"tmf/services/product-catalog-management/internal/adapter/worker"
@@ -31,10 +32,13 @@ func TestOutboxFlow_CreateOffering(t *testing.T) {
 	tm := repository.NewTransactionManager(sharedDB)
 	outboxPub := publisher.NewOutboxPublisher(sharedDB)
 
-	rabbitPub, err := publisher.NewRabbitMQPublisher(rabbitConn)
+	// Create Publisher
+	sharedPub, err := rabbitmq.NewPublisherWithConnection(rabbitConn)
+	require.NoError(t, err)
+	pub, err := publisher.NewRabbitMQPublisher(sharedPub, "catalog_events")
 	require.NoError(t, err)
 
-	outboxWorker := worker.NewOutboxWorker(sharedDB, rabbitPub)
+	outboxWorker := worker.NewOutboxWorker(sharedDB, pub)
 
 	createUC := offering.NewCreateProductOffering(offeringRepo, specRepo, outboxPub, tm)
 

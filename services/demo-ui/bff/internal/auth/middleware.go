@@ -10,6 +10,8 @@ import (
 	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
 	"github.com/auth0/go-jwt-middleware/v2/jwks"
 	"github.com/auth0/go-jwt-middleware/v2/validator"
+
+	"tmf/pkg/rabbitmq"
 )
 
 // TokenValidator defines the interface for validating JWT tokens.
@@ -47,7 +49,7 @@ func EnsureValidToken(tokenValidator TokenValidator, domain, audience string) fu
 		log.Printf("DEBUG: Expected Domain: %s, Audience: %s", domain, audience)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"message":"Failed to validate JWT."}`))
+		_, _ = w.Write([]byte(`{"message":"Failed to validate JWT."}`))
 	}
 
 	middleware := jwtmiddleware.New(
@@ -63,7 +65,7 @@ func EnsureValidToken(tokenValidator TokenValidator, domain, audience string) fu
 				// Inject the User ID (sub) into the context as "user"
 				// This is relied upon by customer_handlers.go
 				userID := claims.RegisteredClaims.Subject
-				ctx := context.WithValue(r.Context(), "user", userID)
+				ctx := context.WithValue(r.Context(), rabbitmq.ContextKeyUser, userID)
 				next.ServeHTTP(w, r.WithContext(ctx))
 			} else {
 				// Should not happen if CheckJWT passes, but safe fallback

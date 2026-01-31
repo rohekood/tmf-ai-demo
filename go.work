@@ -1,8 +1,13 @@
 go 1.24.11
 
 use (
+	./pkg
 	./services/customer-management
 	./services/demo-ui/bff
 	./services/party-management
+	./services/pocv
 	./services/product-catalog-management
+	./services/qualification
+	./services/shopping-cart
+	./tests/e2e
 )

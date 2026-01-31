@@ -5,34 +5,20 @@ import (
 	"encoding/json"
 	"log"
 
+	"tmf/pkg/rabbitmq"
 	"tmf/services/product-catalog-management/internal/core/domain"
-
-	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type RabbitMQPublisher struct {
-	channel *amqp.Channel
+	publisher    rabbitmq.Publisher
+	exchangeName string
 }
 
-func NewRabbitMQPublisher(conn *amqp.Connection) (*RabbitMQPublisher, error) {
-	ch, err := conn.Channel()
-	if err != nil {
-		return nil, err
-	}
-	// Declare exchange if not exists (Idempotent)
-	err = ch.ExchangeDeclare(
-		"catalog_events", // name
-		"topic",          // type
-		true,             // durable
-		false,            // auto-deleted
-		false,            // internal
-		false,            // no-wait
-		nil,              // arguments
-	)
-	if err != nil {
-		return nil, err
-	}
-	return &RabbitMQPublisher{channel: ch}, nil
+func NewRabbitMQPublisher(publisher rabbitmq.Publisher, exchangeName string) (*RabbitMQPublisher, error) {
+	return &RabbitMQPublisher{
+		publisher:    publisher,
+		exchangeName: exchangeName,
+	}, nil
 }
 
 func (p *RabbitMQPublisher) PublishCatalogCreated(ctx context.Context, event domain.CatalogCreatedEvent) error {
@@ -84,24 +70,11 @@ func (p *RabbitMQPublisher) PublishProductOfferingDeleted(ctx context.Context, e
 }
 
 func (p *RabbitMQPublisher) publish(ctx context.Context, routingKey string, event interface{}) error {
-	body, err := json.Marshal(event)
-	if err != nil {
-		return err
-	}
-	return p.PublishRaw(ctx, routingKey, body)
+	return p.publisher.Publish(ctx, p.exchangeName, routingKey, event)
 }
 
 func (p *RabbitMQPublisher) PublishRaw(ctx context.Context, routingKey string, body []byte) error {
-	err := p.channel.PublishWithContext(ctx,
-		"catalog_events", // exchange
-		routingKey,       // routing key
-		false,            // mandatory
-		false,            // immediate
-		amqp.Publishing{
-			ContentType: "application/json",
-			Body:        body,
-		},
-	)
+	err := p.publisher.Publish(ctx, p.exchangeName, routingKey, json.RawMessage(body))
 	if err != nil {
 		log.Printf("Failed to publish event %s: %v", routingKey, err)
 		return err

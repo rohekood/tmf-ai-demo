@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"tmf/pkg/rabbitmq"
 	"tmf/services/product-catalog-management/internal/adapter/handler"
 	"tmf/services/product-catalog-management/internal/adapter/publisher"
 	"tmf/services/product-catalog-management/internal/adapter/repository"
@@ -25,7 +26,14 @@ func TestRabbitMQHandler_CreateCatalog(t *testing.T) {
 	repo := repository.NewCatalogRepo(sharedDB)
 	catRepo := repository.NewCategoryRepo(sharedDB)
 	// Create Publisher
-	pub, err := publisher.NewRabbitMQPublisher(rabbitConn)
+	// Create Publisher
+	// Create Publisher
+	sharedPub, err := rabbitmq.NewPublisherWithConnection(rabbitConn)
+	require.NoError(t, err)
+	err = sharedPub.DeclareTopicExchange("catalog_events", true, false, false, false)
+	require.NoError(t, err)
+
+	pub, err := publisher.NewRabbitMQPublisher(sharedPub, "catalog_events")
 	require.NoError(t, err)
 
 	createUC := catalog.NewCreateCatalog(repo, pub, &repository.NoOpTransactionManager{})

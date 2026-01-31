@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"tmf/pkg/rabbitmq"
 	"tmf/services/customer-management/internal/domain"
 	"tmf/services/customer-management/internal/infrastructure/postgres"
-	infraRabbit "tmf/services/customer-management/internal/infrastructure/rabbitmq"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -33,7 +33,7 @@ var (
 	sharedDB             *gorm.DB
 	sharedRepo           *postgres.CustomerRepository
 	sharedConn           *amqp.Connection
-	sharedPublisher      *infraRabbit.Publisher
+	sharedPublisher      rabbitmq.Publisher
 	sharedTM             *postgres.TransactionManager
 	sharedEventPublisher *postgres.OutboxPublisher
 	pgInstance           testcontainers.Container
@@ -123,10 +123,20 @@ func TestMain(m *testing.M) {
 	}
 	_ = ch.Close()
 
-	sharedPublisher, err = infraRabbit.NewPublisher(sharedConn)
+	sharedPublisher, err = rabbitmq.NewPublisherWithConnection(sharedConn)
 	if err != nil {
 		log.Fatalf("failed to create publisher: %v", err)
 	}
+	// Exchange is already declared above manually (lines 112-123) which is fine,
+	// OR we can use DeclareTopicExchange helper.
+	// Since tests declared it manually, we can keep it or replace it.
+	// Let's replace the manual declaration with helper later if needed, but for now just fix the NewPublisherWithConnection call.
+	// Actually, the manual declaration code (lines 112-123) is redundant now if we use helper, but it's safe.
+	// But lines 126 uses "tmf.events" in NewPublisherWithConnection, which logic is removed.
+	// The manual declaration uses "tmf.events".
+	// The implementation of NewPublisherWithConnection NO LONGER declares exchange.
+	// So the MANUAL declaration (lines 108-124) is now NECESSARY if we don't call DeclareTopicExchange.
+	// Wait, existing code lines 108-124 ALREADY declare "tmf.events". So we just update the constructor.
 
 	sharedTM = postgres.NewTransactionManager(sharedDB)
 	outboxRepo := postgres.NewOutboxRepository(sharedDB)

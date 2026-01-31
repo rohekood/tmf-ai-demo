@@ -1,0 +1,19 @@
+{
+  "query.gis.geography.check": {
+    "description": "RPC Query to check if an address falls within a service polygon",
+    "request": {
+      "address": {
+        "street": "string",
+        "number": "string",
+        "city": "string",
+        "zip": "string",
+        "country": "string"
+      }
+    },
+    "response": {
+      "inFootprint": "boolean",
+      "zoneId": "string (optional)",
+      "technology": "string (GPON | XGS-PON | 5G)"
+    }
+  }
+}

@@ -5,18 +5,17 @@ import (
 	"encoding/json"
 	"log/slog"
 	"time"
-	"tmf/services/customer-management/internal/domain"
-	"tmf/services/customer-management/internal/infrastructure/rabbitmq"
+	"tmf/pkg/rabbitmq"
 )
 
 type OutboxWorker struct {
 	repo      *OutboxRepository
-	publisher *rabbitmq.Publisher
+	publisher rabbitmq.Publisher
 	logger    *slog.Logger
 	stop      chan struct{}
 }
 
-func NewOutboxWorker(repo *OutboxRepository, publisher *rabbitmq.Publisher, logger *slog.Logger) *OutboxWorker {
+func NewOutboxWorker(repo *OutboxRepository, publisher rabbitmq.Publisher, logger *slog.Logger) *OutboxWorker {
 	return &OutboxWorker{
 		repo:      repo,
 		publisher: publisher,
@@ -69,10 +68,10 @@ func (w *OutboxWorker) processEvents(ctx context.Context) {
 			var headers map[string]string
 			if err := json.Unmarshal(event.Headers, &headers); err == nil {
 				if user, ok := headers["user"]; ok {
-					publishCtx = context.WithValue(publishCtx, domain.UserContextKey, user)
+					publishCtx = context.WithValue(publishCtx, rabbitmq.ContextKeyUser, user)
 				}
 				if auth, ok := headers["Authorization"]; ok {
-					publishCtx = context.WithValue(publishCtx, domain.AuthContextKey, auth)
+					publishCtx = context.WithValue(publishCtx, rabbitmq.Key("Authorization"), auth)
 				}
 			}
 		}

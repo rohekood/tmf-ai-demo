@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"tmf/pkg/rabbitmq"
 	"tmf/services/party-management/internal/domain"
 	"tmf/services/party-management/internal/infrastructure/postgres"
-	infraRabbit "tmf/services/party-management/internal/infrastructure/rabbitmq"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -34,7 +34,7 @@ var (
 	sharedDB        *gorm.DB
 	sharedRepo      *postgres.PartyRepository
 	sharedConn      *amqp.Connection
-	sharedPublisher *infraRabbit.Publisher
+	sharedPublisher rabbitmq.Publisher
 	pgInstance      testcontainers.Container
 	rabbitInstance  testcontainers.Container
 )
@@ -44,7 +44,7 @@ type IntegrationTestSuite struct {
 	DB        *gorm.DB
 	Repo      *postgres.PartyRepository
 	Conn      *amqp.Connection
-	Publisher *infraRabbit.Publisher
+	Publisher rabbitmq.Publisher
 	Listener  *Listener
 	Handlers  *Handlers
 	EventChan <-chan amqp.Delivery
@@ -125,16 +125,20 @@ func TestMain(m *testing.M) {
 	}
 
 	// Create shared Publisher
-	sharedPublisher, err = infraRabbit.NewPublisher(sharedConn)
+	sharedPublisher, err = rabbitmq.NewPublisherWithConnection(sharedConn)
 	if err != nil {
 		log.Fatalf("failed to create publisher: %s", err)
 	}
 
 	// Declare exchange once
-	ch, _ := sharedPublisher.GetChannel()
+	ch, err := sharedConn.Channel()
+	if err != nil {
+		log.Fatalf("failed to open channel: %s", err)
+	}
 	if err := ch.ExchangeDeclare(EventExchange, "topic", true, false, false, false, nil); err != nil {
 		log.Fatalf("failed to declare exchange: %s", err)
 	}
+	_ = ch.Close()
 
 	// Run tests
 	code := m.Run()

@@ -3,85 +3,35 @@ package rabbitmq
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
-	"github.com/google/uuid"
+	pkgrmq "tmf/pkg/rabbitmq"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+// Client wraps the shared RPC client with BFF-specific features like debug broadcasting
 type Client struct {
-	conn        *amqp.Connection
-	channel     *amqp.Channel
-	replyQueue  amqp.Queue
-	mu          sync.Mutex
-	callbacks   map[string]chan<- []byte
+	*pkgrmq.RPCClient
 	broadcaster Broadcaster
 }
 
+// NewClient creates a new BFF RabbitMQ client using the shared library
 func NewClient(url string) (*Client, error) {
 	if url == "" {
 		url = "amqp://guest:guest@localhost:5672/"
 	}
-	conn, err := amqp.Dial(url)
+
+	rpcClient, err := pkgrmq.NewRPCClient(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed dial rabbitmq: %w", err)
+		return nil, fmt.Errorf("failed to create RPC client: %w", err)
 	}
 
-	ch, err := conn.Channel()
-	if err != nil {
-		return nil, fmt.Errorf("failed open channel: %w", err)
-	}
-
-	// Declare exclusive reply queue
-	q, err := ch.QueueDeclare(
-		"",    // name (empty = generated)
-		false, // durable
-		true,  // delete when unused
-		true,  // exclusive
-		false, // no-wait
-		nil,   // arguments
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed declare reply queue: %w", err)
-	}
-
-	client := &Client{
-		conn:       conn,
-		channel:    ch,
-		replyQueue: q,
-		callbacks:  make(map[string]chan<- []byte),
-	}
-
-	// Start consuming replies
-	msgs, err := ch.Consume(
-		q.Name, // queue
-		"",     // consumer
-		true,   // auto-ack
-		false,  // exclusive
-		false,  // no-local
-		false,  // no-wait
-		nil,    // args
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed consume reply queue: %w", err)
-	}
-
-	go client.handleReplies(msgs)
-
-	return client, nil
-}
-
-func (c *Client) Close() {
-	if c.channel != nil {
-		c.channel.Close()
-	}
-	if c.conn != nil {
-		c.conn.Close()
-	}
+	return &Client{
+		RPCClient: rpcClient,
+	}, nil
 }
 
 // SetBroadcaster sets the broadcaster for forwarding RPC replies to the debug console
@@ -89,104 +39,88 @@ func (c *Client) SetBroadcaster(b Broadcaster) {
 	c.broadcaster = b
 }
 
-func (c *Client) handleReplies(msgs <-chan amqp.Delivery) {
-	for d := range msgs {
-		// Broadcast reply to debug console if broadcaster is set
-		if c.broadcaster != nil {
-			var payload map[string]interface{}
-			_ = json.Unmarshal(d.Body, &payload)
-			if payload == nil {
-				payload = map[string]interface{}{
-					"raw": string(d.Body),
-				}
-			}
-
-			debugMsg := DebugMessage{
-				ID:            fmt.Sprintf("reply-%s-%d", d.CorrelationId, time.Now().UnixNano()),
-				Timestamp:     time.Now(),
-				Type:          "reply",
-				Topic:         "rpc.reply",
-				CorrelationID: d.CorrelationId,
-				ReplyTo:       d.ReplyTo,
-				Payload:       payload,
-				Service:       "bff",
-			}
-			c.broadcaster.Broadcast(debugMsg)
-		}
-
-		c.mu.Lock()
-		callback, ok := c.callbacks[d.CorrelationId]
-		delete(c.callbacks, d.CorrelationId)
-		c.mu.Unlock()
-
-		if ok {
-			callback <- d.Body
-		} else {
-			log.Printf("Received reply for unknown correlation ID: %s", d.CorrelationId)
-		}
-	}
-}
-
-// CallRPC sends a request and waits for a response (RPC pattern)
+// CallRPC sends a request and waits for a response, with debug broadcasting support
 func (c *Client) CallRPC(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
-	corrId := uuid.New().String()
-	replyChan := make(chan []byte, 1)
-
-	c.mu.Lock()
-	c.callbacks[corrId] = replyChan
-	c.mu.Unlock()
-
-	defer func() {
-		c.mu.Lock()
-		delete(c.callbacks, corrId)
-		c.mu.Unlock()
-	}()
-
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("marshal payload: %w", err)
+	// Broadcast request if broadcaster is set
+	if c.broadcaster != nil {
+		c.broadcastRequest(exchange, routingKey, payload, headers)
 	}
 
-	err = c.channel.PublishWithContext(ctx,
-		exchange,   // exchange
-		routingKey, // routing key
-		false,      // mandatory
-		false,      // immediate
-		amqp.Publishing{
-			ContentType:   "application/json",
-			CorrelationId: corrId,
-			ReplyTo:       c.replyQueue.Name,
-			Body:          body,
-			Headers:       headers,
-		})
-	if err != nil {
-		return nil, fmt.Errorf("failed publish: %w", err)
+	// Use the shared library for the actual RPC call
+	resp, err := c.RequestWithHeaders(ctx, exchange, routingKey, payload, headers)
+
+	// Broadcast reply if broadcaster is set
+	if c.broadcaster != nil && err == nil {
+		c.broadcastReply(routingKey, resp)
 	}
 
-	select {
-	case res := <-replyChan:
-		return res, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case <-time.After(10 * time.Second): // Default timeout
-		return nil, errors.New("RPC timeout")
+	return resp, err
+}
+
+// PublishCommand sends a message without waiting for reply (kept for backward compatibility)
+func (c *Client) PublishCommand(ctx context.Context, exchange, routingKey string, payload interface{}) error {
+	// Broadcast if broadcaster is set
+	if c.broadcaster != nil {
+		c.broadcastRequest(exchange, routingKey, payload, nil)
+	}
+
+	return c.Publish(ctx, exchange, routingKey, payload)
+}
+
+// Connection returns the underlying AMQP connection for advanced use cases
+func (c *Client) Connection() *amqp.Connection {
+	return c.RPCClient.Connection()
+}
+
+// Close closes the underlying RPC client
+func (c *Client) Close() {
+	if c.RPCClient != nil {
+		_ = c.RPCClient.Close()
 	}
 }
 
-// PublishCommand sends a message without waiting for reply
-func (c *Client) PublishCommand(ctx context.Context, exchange, routingKey string, payload interface{}) error {
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("marshal payload: %w", err)
+func (c *Client) broadcastRequest(exchange, routingKey string, payload interface{}, headers map[string]interface{}) {
+	var payloadMap map[string]interface{}
+	if data, err := json.Marshal(payload); err == nil {
+		_ = json.Unmarshal(data, &payloadMap)
+	}
+	if payloadMap == nil {
+		payloadMap = map[string]interface{}{"data": payload}
 	}
 
-	return c.channel.PublishWithContext(ctx,
-		exchange,
-		routingKey,
-		false,
-		false,
-		amqp.Publishing{
-			ContentType: "application/json",
-			Body:        body,
-		})
+	debugMsg := DebugMessage{
+		ID:        fmt.Sprintf("req-%s-%d", routingKey, time.Now().UnixNano()),
+		Timestamp: time.Now(),
+		Type:      "request",
+		Topic:     routingKey,
+		Exchange:  exchange,
+		Payload:   payloadMap,
+		Service:   "bff",
+	}
+	c.broadcaster.Broadcast(debugMsg)
+}
+
+func (c *Client) broadcastReply(routingKey string, body []byte) {
+	var payload map[string]interface{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		payload = map[string]interface{}{
+			"raw": string(body),
+		}
+	}
+
+	debugMsg := DebugMessage{
+		ID:        fmt.Sprintf("reply-%s-%d", routingKey, time.Now().UnixNano()),
+		Timestamp: time.Now(),
+		Type:      "reply",
+		Topic:     "rpc.reply",
+		Payload:   payload,
+		Service:   "bff",
+	}
+	c.broadcaster.Broadcast(debugMsg)
+}
+
+// LogUnknownCorrelation logs when a reply is received for an unknown correlation ID
+// This is handled internally by the shared library now, but we keep logging for debugging
+func LogUnknownCorrelation(correlationID string) {
+	log.Printf("Received reply for unknown correlation ID: %s", correlationID)
 }
