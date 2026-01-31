@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"time"
 
+	"tmf/pkg/rabbitmq"
 	"tmf/services/party-management/internal/domain"
-	infraRabbit "tmf/services/party-management/internal/infrastructure/rabbitmq"
 
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -51,11 +51,11 @@ const (
 type Handlers struct {
 	repo           domain.Repository
 	eventPublisher domain.EventPublisher
-	rpcPublisher   *infraRabbit.Publisher
+	rpcPublisher   rabbitmq.Publisher
 	tm             domain.TransactionManager
 }
 
-func NewHandlers(repo domain.Repository, eventPublisher domain.EventPublisher, rpcPublisher *infraRabbit.Publisher, tm domain.TransactionManager) *Handlers {
+func NewHandlers(repo domain.Repository, eventPublisher domain.EventPublisher, rpcPublisher rabbitmq.Publisher, tm domain.TransactionManager) *Handlers {
 	return &Handlers{
 		repo:           repo,
 		eventPublisher: eventPublisher,
@@ -1004,9 +1004,8 @@ func (h *Handlers) replyTo(ctx context.Context, d amqp.Delivery, response interf
 		return nil
 	}
 
-	body, err := json.Marshal(response)
-	if err != nil {
-		return fmt.Errorf("failed to marshal response: %w", err)
+	if d.CorrelationId != "" {
+		ctx = context.WithValue(ctx, rabbitmq.ContextKeyCorrelationID, d.CorrelationId)
 	}
 
 	if h.rpcPublisher == nil {
@@ -1014,22 +1013,7 @@ func (h *Handlers) replyTo(ctx context.Context, d amqp.Delivery, response interf
 		return nil
 	}
 
-	ch, err := h.rpcPublisher.GetChannel()
-	if err != nil {
-		return fmt.Errorf("failed to get channel for reply: %w", err)
-	}
-
-	return ch.PublishWithContext(ctx,
-		"",        // default exchange
-		d.ReplyTo, // routing key = reply queue
-		false,     // mandatory
-		false,     // immediate
-		amqp.Publishing{
-			ContentType:   "application/json",
-			Headers:       amqp.Table{"user": ctx.Value(domain.UserContextKey)},
-			CorrelationId: d.CorrelationId,
-			Body:          body,
-		})
+	return h.rpcPublisher.Publish(ctx, "", d.ReplyTo, response)
 }
 
 func (h *Handlers) extractUser(ctx context.Context, d amqp.Delivery) context.Context {

@@ -16,6 +16,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	"tmf/pkg/rabbitmq"
 	"tmf/services/product-catalog-management/internal/adapter/handler"
 	"tmf/services/product-catalog-management/internal/adapter/publisher"
 	"tmf/services/product-catalog-management/internal/adapter/repository"
@@ -84,9 +85,20 @@ func main() {
 	offeringRepo := repository.NewProductOfferingRepo(db)
 
 	// 5. Init Publisher & Transaction Manager
-	rabbitPublisher, err := publisher.NewRabbitMQPublisher(conn)
+	// Create shared Publisher from pkg/rabbitmq
+	sharedPublisher, err := rabbitmq.NewPublisherWithConnection(conn)
 	if err != nil {
-		log.Fatalf("Failed to initialize RabbitMQ publisher: %v", err)
+		log.Fatalf("Failed to initialize shared rabbitmq publisher: %v", err)
+	}
+	// Declare exchange explicitly
+	if err := sharedPublisher.DeclareTopicExchange("catalog_events", true, false, false, false); err != nil {
+		log.Fatalf("Failed to declare exchange: %v", err)
+	}
+
+	// Wrap it in adapter
+	rabbitPublisher, err := publisher.NewRabbitMQPublisher(sharedPublisher, "catalog_events")
+	if err != nil {
+		log.Fatalf("Failed to initialize RabbitMQ publisher adapter: %v", err)
 	}
 
 	tm := repository.NewTransactionManager(db)

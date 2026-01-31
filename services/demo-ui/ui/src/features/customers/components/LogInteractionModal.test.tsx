@@ -17,7 +17,7 @@ describe('LogInteractionModal', () => {
         vi.mocked(api.useLogInteraction).mockReturnValue({
             mutateAsync: mockMutateAsync,
             isPending: false
-        } as any);
+        } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
     });
 
     it('renders correctly', () => {

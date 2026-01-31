@@ -229,7 +229,9 @@ func (h *CatalogHandler) handleCommand(w http.ResponseWriter, r *http.Request, t
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	defer func() {
+		_ = r.Body.Close()
+	}()
 
 	var payload interface{}
 	if err := json.Unmarshal(body, &payload); err != nil {
@@ -264,7 +266,9 @@ func (h *CatalogHandler) handleCommandWithID(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	defer func() {
+		_ = r.Body.Close()
+	}()
 
 	var payload map[string]interface{}
 	if err := json.Unmarshal(body, &payload); err != nil {

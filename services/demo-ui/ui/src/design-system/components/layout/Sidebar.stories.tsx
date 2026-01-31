@@ -20,7 +20,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 // Mock Render Link
-const MockLink = (item: any, children: React.ReactNode, className: string) => (
+const MockLink = (item: { path: string }, children: React.ReactNode, className: string) => (
     <a href={item.path} className={className} onClick={(e) => e.preventDefault()}>
         {children}
     </a>

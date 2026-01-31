@@ -1,0 +1,35 @@
+{
+  "query.inventory.resource.capacity": {
+    "description": "RPC Query to check available ports at a location",
+    "request": {
+      "locationId": "string (CABINET_ID)",
+      "resourceType": "string (OLT_PORT | GPON_PORT)"
+    },
+    "response": {
+      "total": "integer",
+      "used": "integer",
+      "reserved": "integer",
+      "free": "integer"
+    }
+  },
+  "cmd.inventory.resource.reserve": {
+    "description": "Command to lock a resource for a specific Saga",
+    "payload": {
+      "sagaId": "uuid",
+      "resources": [
+        {
+          "type": "string",
+          "location": "string",
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  "cmd.inventory.resource.release": {
+    "description": "Compensation Command to unlock resources",
+    "payload": {
+      "sagaId": "uuid",
+      "reason": "string"
+    }
+  }
+}

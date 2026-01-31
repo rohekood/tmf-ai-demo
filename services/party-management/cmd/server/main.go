@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"tmf/pkg/rabbitmq"
 	"tmf/services/party-management/internal/config"
 	infraPostgres "tmf/services/party-management/internal/infrastructure/postgres"
 	infraRabbit "tmf/services/party-management/internal/infrastructure/rabbitmq"
@@ -74,9 +75,13 @@ func main() {
 
 	// 4. Initialize Repository and Publisher
 	repo := infraPostgres.NewPartyRepository(db)
-	publisher, err := infraRabbit.NewPublisher(connMgr.GetConnection())
+	publisher, err := rabbitmq.NewPublisherWithConnection(connMgr.GetConnection())
 	if err != nil {
 		slog.Error("failed to create publisher", "error", err)
+		os.Exit(1)
+	}
+	if err := publisher.DeclareTopicExchange("tmf.events", true, false, false, false); err != nil {
+		slog.Error("failed to declare exchange (tmf.events)", "error", err)
 		os.Exit(1)
 	}
 

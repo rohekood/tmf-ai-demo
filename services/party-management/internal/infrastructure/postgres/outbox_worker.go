@@ -6,18 +6,18 @@ import (
 	"log/slog"
 	"time"
 
+	"tmf/pkg/rabbitmq"
 	"tmf/services/party-management/internal/domain"
-	"tmf/services/party-management/internal/infrastructure/rabbitmq"
 )
 
 type OutboxWorker struct {
 	repo            *OutboxRepository
-	rabbitPublisher *rabbitmq.Publisher
+	rabbitPublisher rabbitmq.Publisher
 	batchSize       int
 	pollInterval    time.Duration
 }
 
-func NewOutboxWorker(repo *OutboxRepository, rabbitPublisher *rabbitmq.Publisher) *OutboxWorker {
+func NewOutboxWorker(repo *OutboxRepository, rabbitPublisher rabbitmq.Publisher) *OutboxWorker {
 	return &OutboxWorker{
 		repo:            repo,
 		rabbitPublisher: rabbitPublisher,
@@ -68,10 +68,10 @@ func (w *OutboxWorker) processEvent(ctx context.Context, event *domain.OutboxEve
 		var headers map[string]string
 		if err := json.Unmarshal(event.Headers, &headers); err == nil {
 			if user, ok := headers["user"]; ok {
-				publishCtx = context.WithValue(publishCtx, domain.UserContextKey, user)
+				publishCtx = context.WithValue(publishCtx, rabbitmq.ContextKeyUser, user)
 			}
 			if auth, ok := headers["Authorization"]; ok {
-				publishCtx = context.WithValue(publishCtx, domain.AuthContextKey, auth)
+				publishCtx = context.WithValue(publishCtx, rabbitmq.Key("Authorization"), auth)
 			}
 		} else {
 			slog.Warn("Failed to unmarshal headers for event", "id", event.ID, "error", err)

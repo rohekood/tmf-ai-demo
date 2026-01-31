@@ -14,6 +14,7 @@ type DebugMessage struct {
 	Timestamp     time.Time              `json:"timestamp"`
 	Type          string                 `json:"type"` // cmd, evt, query
 	Topic         string                 `json:"topic"`
+	Exchange      string                 `json:"exchange,omitempty"`
 	CorrelationID string                 `json:"correlationId,omitempty"`
 	ReplyTo       string                 `json:"replyTo,omitempty"`
 	Payload       map[string]interface{} `json:"payload"`
@@ -40,7 +41,7 @@ func NewDebugConsumer(client *Client, broadcaster Broadcaster) *DebugConsumer {
 
 // StartSubscribing sets up a queue to listen to everything on the topic exchange
 func (dc *DebugConsumer) StartSubscribing(exchangeName string) error {
-	ch, err := dc.client.conn.Channel()
+	ch, err := dc.client.Connection().Channel()
 	if err != nil {
 		return fmt.Errorf("failed updates channel: %w", err)
 	}
@@ -77,11 +78,9 @@ func (dc *DebugConsumer) StartSubscribing(exchangeName string) error {
 			nil,   // args
 		)
 		if err != nil {
-			// Log error but continue? Or fail?
-			// Services might not be up yet.
-			// Let's assume they are responsible for creating them, we just bind.
-			// Actually we probably shouldn't declare here to avoid config mismatch.
-			// Just trying to bind.
+			// Ignore error as exchange might already exist with different config or service not up.
+			// Debug consumer will just fail to bind if exchange is missing.
+			_ = err
 		}
 
 		err = ch.QueueBind(

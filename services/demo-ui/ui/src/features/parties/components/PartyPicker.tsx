@@ -15,9 +15,11 @@ interface PartyPickerProps {
 export default function PartyPicker({ value, onChange, readOnly = false, placeholder = 'Select a party...', customActions }: PartyPickerProps) {
     const [isSelecting, setIsSelecting] = useState(false);
 
+
     // If value is null, ensure we are in selection mode (unless readOnly which just shows empty)
     useEffect(() => {
         if (!value && !readOnly) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setIsSelecting(true);
         }
     }, [value, readOnly]);

@@ -1,0 +1,53 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "model": "google/antigravity-claude-opus-4-5-thinking",
+    "agent": {
+        "coder": {
+            "description": "Primary coding agent",
+            "mode": "primary",
+            "model": "google/antigravity-gemini-3-pro",
+            "prompt": "{file:./.prompts/.coder.md}",
+            "temperature": 0.2,
+            "tools": {
+                "write": true,
+                "edit": true,
+                "bash": true
+            }
+        },
+        "researcher": {
+            "description": "Research agent for real-time web search",
+            "mode": "subagent",
+            "model": "google/antigravity-gemini-3-pro",
+            "temperature": 0.8,
+            "tools": {
+                "write": false,
+                "edit": false,
+                "bash": false
+            }
+        },
+        "debugger": {
+            "description": "Debug and testing agent. Use this agent for debugging, linting and testing purposes. this agent must be used whenever you changed any file.",
+            "mode": "subagent",
+            "model": "google/antigravity-gemini-3-pro",
+            "temperature": 0.3,
+            "prompt": "{file:./.prompts/.debugger.md}",
+            "tools": {
+                "write": true,
+                "edit": true,
+                "bash": true
+            }
+        },
+        "reviewer": {
+            "description": "Reviewer agent. Use this agent for reviewing code against architecture and documentation and analysis. You must use this agen whenever you changed any file",
+            "mode": "subagent",
+            "model": "google/antigravity-claude-opus-4-5-thinking",
+            "temperature": 0.3,
+            "prompt": "{file:./.prompts/.reviewer.md}",
+            "tools": {
+                "write": true,
+                "edit": true,
+                "bash": true
+            }
+        }
+    }
+}

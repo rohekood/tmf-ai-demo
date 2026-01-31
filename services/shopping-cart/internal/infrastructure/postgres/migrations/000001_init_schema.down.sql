@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS product_prices;
+DROP TABLE IF EXISTS outbox_events;
+DROP TABLE IF EXISTS cart_items;
+DROP TABLE IF EXISTS carts;

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+	"tmf/pkg/rabbitmq"
 	"tmf/services/customer-management/internal/domain"
-	infraRabbit "tmf/services/customer-management/internal/infrastructure/rabbitmq"
 
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -17,12 +17,12 @@ import (
 // Handlers manages command and query handling
 type Handlers struct {
 	repo           domain.Repository
-	publisher      *infraRabbit.Publisher
+	publisher      rabbitmq.Publisher
 	tm             domain.TransactionManager
 	eventPublisher domain.EventPublisher
 }
 
-func NewHandlers(repo domain.Repository, publisher *infraRabbit.Publisher, tm domain.TransactionManager, eventPublisher domain.EventPublisher) *Handlers {
+func NewHandlers(repo domain.Repository, publisher rabbitmq.Publisher, tm domain.TransactionManager, eventPublisher domain.EventPublisher) *Handlers {
 	return &Handlers{
 		repo:           repo,
 		publisher:      publisher,
@@ -599,26 +599,11 @@ func (h *Handlers) replyTo(ctx context.Context, d amqp.Delivery, payload interfa
 		return nil
 	}
 
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("failed to marshal response: %w", err)
+	if d.CorrelationId != "" {
+		ctx = context.WithValue(ctx, rabbitmq.ContextKeyCorrelationID, d.CorrelationId)
 	}
 
-	ch, err := h.publisher.GetChannel()
-	if err != nil {
-		return fmt.Errorf("failed to get channel for reply: %w", err)
-	}
-
-	return ch.PublishWithContext(ctx,
-		"",        // exchange
-		d.ReplyTo, // routing key
-		false,     // mandatory
-		false,     // immediate
-		amqp.Publishing{
-			ContentType:   "application/json",
-			CorrelationId: d.CorrelationId,
-			Body:          body,
-		})
+	return h.publisher.Publish(ctx, "", d.ReplyTo, payload)
 }
 
 func (h *Handlers) mapPrivacyConsent(dto PrivacyConsentDTO, customerID string) domain.PrivacyConsent {

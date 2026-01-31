@@ -10,11 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"tmf/pkg/rabbitmq"
 	"tmf/services/customer-management/internal/infrastructure/postgres"
-	infraRabbit "tmf/services/customer-management/internal/infrastructure/rabbitmq"
 	"tmf/services/customer-management/internal/infrastructure/telemetry"
 	transportHttp "tmf/services/customer-management/internal/transport/http"
-	"tmf/services/customer-management/internal/transport/rabbitmq"
+	transportRabbit "tmf/services/customer-management/internal/transport/rabbitmq"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -74,9 +74,13 @@ func main() {
 		}
 	}()
 
-	publisher, err := infraRabbit.NewPublisher(conn)
+	publisher, err := rabbitmq.NewPublisherWithConnection(conn)
 	if err != nil {
 		slog.Error("failed to create publisher", "error", err)
+		os.Exit(1)
+	}
+	if err := publisher.DeclareTopicExchange("customer.events", true, false, false, false); err != nil {
+		slog.Error("failed to declare exchange", "error", err)
 		os.Exit(1)
 	}
 	defer func() {
@@ -88,8 +92,9 @@ func main() {
 	outboxWorker := postgres.NewOutboxWorker(outboxRepo, publisher, slog.Default())
 
 	// 4. Handlers & Listener
-	handlers := rabbitmq.NewHandlers(repo, publisher, tm, eventPublisher)
-	listener, err := rabbitmq.NewListener(conn)
+	// 4. Handlers & Listener
+	handlers := transportRabbit.NewHandlers(repo, publisher, tm, eventPublisher)
+	listener, err := transportRabbit.NewListener(conn)
 	if err != nil {
 		slog.Error("failed to create listener", "error", err)
 		os.Exit(1)

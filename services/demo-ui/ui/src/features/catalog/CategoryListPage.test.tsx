@@ -38,7 +38,7 @@ describe('CategoryListPage', () => {
             data: undefined,
             isLoading: true,
             isError: false,
-        } as any);
+        } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
         renderComponent();
         expect(screen.getByText('Loading categories...')).toBeInTheDocument();
@@ -52,7 +52,7 @@ describe('CategoryListPage', () => {
             ],
             isLoading: false,
             isError: false,
-        } as any);
+        } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
         renderComponent();
         expect(screen.getByText('Electronics')).toBeInTheDocument();
@@ -72,7 +72,7 @@ describe('CategoryListPage', () => {
             data: [],
             isLoading: false,
             isError: false,
-        } as any);
+        } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
         renderComponent();
         expect(screen.getByText('No categories found.')).toBeInTheDocument();

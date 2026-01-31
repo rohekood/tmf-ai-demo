@@ -40,7 +40,7 @@ describe('SpecificationEditPage', () => {
             data: undefined,
             isLoading: false,
             isError: false,
-        } as any);
+        } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
         renderComponent(['/catalog/specifications/new']);
 

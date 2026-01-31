@@ -21,7 +21,7 @@ func TestClient_Integration(t *testing.T) {
 	if err != nil {
 		t.Skipf("RabbitMQ not available at %s, skipping integration test: %v", url, err)
 	}
-	conn.Close()
+	_ = conn.Close()
 
 	// 1. Create Client
 	client, err := NewClient(url)
@@ -34,11 +34,11 @@ func TestClient_Integration(t *testing.T) {
 	exchange := "test.exchange"
 	routingKey := "test.rpc"
 
-	ch, err := client.conn.Channel()
+	ch, err := client.Connection().Channel()
 	if err != nil {
 		t.Fatalf("Failed to open channel: %v", err)
 	}
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 
 	err = ch.ExchangeDeclare(exchange, "topic", false, true, false, false, nil)
 	if err != nil {
@@ -64,12 +64,12 @@ func TestClient_Integration(t *testing.T) {
 	go func() {
 		for d := range msgs {
 			var req map[string]string
-			json.Unmarshal(d.Body, &req)
+			_ = json.Unmarshal(d.Body, &req)
 
 			res := map[string]string{"result": "echo-" + req["data"]}
 			resBytes, _ := json.Marshal(res)
 
-			ch.Publish(
+			_ = ch.Publish(
 				"",        // default exchange
 				d.ReplyTo, // routing key
 				false,
