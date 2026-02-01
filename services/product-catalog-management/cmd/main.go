@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -28,6 +28,9 @@ import (
 )
 
 func main() {
+	// Init logger
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
 	// 1. Config
 	dbDSN := os.Getenv("POSTGRES_URL")
 	if dbDSN == "" {
@@ -41,23 +44,26 @@ func main() {
 	// 2. Database
 	db, err := gorm.Open(postgres.Open(dbDSN), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		logger.Error("Failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 
 	// Database Migrations
-	log.Println("Running database migrations...")
+	logger.Info("Running database migrations...")
 	m, err := migrate.New(
 		"file://internal/adapter/repository/migrations",
 		dbDSN,
 	)
 	if err != nil {
-		log.Fatalf("Failed to initialize migrations: %v", err)
+		logger.Error("Failed to initialize migrations", "error", err)
+		os.Exit(1)
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		log.Fatalf("Failed to run migrations: %v", err)
+		logger.Error("Failed to run migrations", "error", err)
+		os.Exit(1)
 	}
-	log.Println("Database migrations applied successfully")
+	logger.Info("Database migrations applied successfully")
 
 	// 3. RabbitMQ
 	var conn *amqp.Connection
@@ -66,15 +72,16 @@ func main() {
 		if err == nil {
 			break
 		}
-		log.Printf("Failed to connect to RabbitMQ, retrying in 2s... (%v)", err)
+		logger.Warn("Failed to connect to RabbitMQ, retrying in 2s...", "error", err, "attempt", i+1)
 		time.Sleep(2 * time.Second)
 	}
 	if err != nil {
-		log.Fatalf("Failed to connect to RabbitMQ after retries: %v", err)
+		logger.Error("Failed to connect to RabbitMQ after retries", "error", err)
+		os.Exit(1)
 	}
 	defer func() {
 		if err := conn.Close(); err != nil {
-			log.Printf("Error closing RabbitMQ connection: %v", err)
+			logger.Error("Error closing RabbitMQ connection", "error", err)
 		}
 	}()
 
@@ -88,17 +95,20 @@ func main() {
 	// Create shared Publisher from pkg/rabbitmq
 	sharedPublisher, err := rabbitmq.NewPublisherWithConnection(conn)
 	if err != nil {
-		log.Fatalf("Failed to initialize shared rabbitmq publisher: %v", err)
+		logger.Error("Failed to initialize shared rabbitmq publisher", "error", err)
+		os.Exit(1)
 	}
 	// Declare exchange explicitly
 	if err := sharedPublisher.DeclareTopicExchange("catalog_events", true, false, false, false); err != nil {
-		log.Fatalf("Failed to declare exchange: %v", err)
+		logger.Error("Failed to declare exchange", "error", err)
+		os.Exit(1)
 	}
 
 	// Wrap it in adapter
 	rabbitPublisher, err := publisher.NewRabbitMQPublisher(sharedPublisher, "catalog_events")
 	if err != nil {
-		log.Fatalf("Failed to initialize RabbitMQ publisher adapter: %v", err)
+		logger.Error("Failed to initialize RabbitMQ publisher adapter", "error", err)
+		os.Exit(1)
 	}
 
 	tm := repository.NewTransactionManager(db)
@@ -156,7 +166,24 @@ func main() {
 		listProductOfferingsUC,
 	)
 	if err != nil {
-		log.Fatalf("Failed to initialize RabbitMQ handler: %v", err)
+		logger.Error("Failed to initialize RabbitMQ handler", "error", err)
+		os.Exit(1)
+	}
+
+	// 7.1 Init RPC Handler for pricing queries
+	rpcHandler := handler.NewCatalogRPCHandler(offeringRepo, sharedPublisher, logger)
+
+	// 7.2 Create RPC consumer
+	rpcConsumer, err := rabbitmq.NewConsumerWithConnection(conn, "catalog_events", "catalog_rpc_queue")
+	if err != nil {
+		logger.Error("Failed to create RPC consumer", "error", err)
+		os.Exit(1)
+	}
+
+	// 7.3 Bind RPC handlers
+	if err := rpcHandler.BindRPCHandlers(rpcConsumer); err != nil {
+		logger.Error("Failed to bind RPC handlers", "error", err)
+		os.Exit(1)
 	}
 
 	// 8. Start
@@ -165,20 +192,20 @@ func main() {
 
 	go func() {
 		if err := rabbitHandler.Start(ctx); err != nil {
-			log.Printf("RabbitMQ handler error: %v", err)
+			logger.Error("RabbitMQ handler error", "error", err)
 			cancel() // Shutdown on error
 		}
 	}()
 
 	go outboxWorker.Start(ctx)
 
-	log.Println("Product Catalog Management Service Started")
+	logger.Info("Product Catalog Management Service Started")
 
 	// 8. Graceful Shutdown
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
 
-	log.Println("Shutting down...")
+	logger.Info("Shutting down...")
 	// Cleanup happens via defers (conn.Close, etc.) and ctx cancellation
 }

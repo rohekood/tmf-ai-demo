@@ -17,6 +17,7 @@ type Address struct {
 
 type CheckEligibilityCommand struct {
 	Address        Address  `json:"address"`
+	CustomerID     string   `json:"customerId"` // NEW: For pricing calculation
 	CategoryFilter []string `json:"categoryFilter"`
 	CorrelationID  string   `json:"correlationId"`
 	ReplyTo        string   `json:"replyTo"`
@@ -24,9 +25,11 @@ type CheckEligibilityCommand struct {
 
 type EligibilityResult struct {
 	QualificationID      string              `json:"qualificationId"`
+	SessionID            string              `json:"sessionId,omitempty"` // NEW: Session ID for reuse
 	CorrelationID        string              `json:"correlationId"`
 	Status               QualificationStatus `json:"status"`
 	EligibleCategories   []EligibleCategory  `json:"eligibleCategories"`
+	QualifiedOffers      []QualifiedOffer    `json:"qualifiedOffers,omitempty"` // NEW: Offers with prices
 	UnavailabilityReason string              `json:"unavailabilityReason,omitempty"`
 }
 

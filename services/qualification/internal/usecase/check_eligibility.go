@@ -19,6 +19,8 @@ type CheckEligibility struct {
 	invClient     ports.InventoryClient
 	catalogClient ports.CatalogClient
 	publisher     ports.EventPublisher
+	sessionRepo   ports.SessionRepository
+	pricingCalc   *PricingCalculator
 	logger        *slog.Logger
 }
 
@@ -27,13 +29,20 @@ func NewCheckEligibility(
 	inv ports.InventoryClient,
 	cat ports.CatalogClient,
 	pub ports.EventPublisher,
+	sessionRepo ports.SessionRepository,
+	customerClient ports.CustomerPricingClient,
+	catalogPricing ports.CatalogPricingClient,
 	logger *slog.Logger,
 ) *CheckEligibility {
+	pricingCalc := NewPricingCalculator(catalogPricing, customerClient)
+
 	return &CheckEligibility{
 		gisClient:     gis,
 		invClient:     inv,
 		catalogClient: cat,
 		publisher:     pub,
+		sessionRepo:   sessionRepo,
+		pricingCalc:   pricingCalc,
 		logger:        logger,
 	}
 }
@@ -133,13 +142,58 @@ func (uc *CheckEligibility) Execute(ctx context.Context, cmd domain.CheckEligibi
 		status = domain.StatusUnqualified
 	}
 
-	result := domain.EligibilityResult{
-		Status:               status,
-		EligibleCategories:   eligible,
-		UnavailabilityReason: reason,
+	logger.Info("Eligibility determined", "status", status, "reason", reason)
+
+	// NEW: Create qualification session with pricing if qualified
+	var sessionID string
+	var qualifiedOffers []domain.QualifiedOffer
+
+	if isQualified && cmd.CustomerID != "" {
+		// Calculate prices for each eligible offering
+		for _, category := range eligible {
+			// For now, use category ID as offering ID
+			// In real implementation, get actual offerings from catalog
+			price, err := uc.pricingCalc.CalculatePrice(ctx, category.ID, cmd.CustomerID)
+			if err != nil {
+				logger.Warn("Failed to calculate price", "offeringId", category.ID, "error", err)
+				continue
+			}
+
+			qualifiedOffers = append(qualifiedOffers, domain.QualifiedOffer{
+				OfferingID:   category.ID,
+				OfferingName: category.Name,
+				Price:        *price,
+				Eligibility:  "QUALIFIED",
+			})
+		}
+
+		// Create session
+		session := &domain.QualificationSession{
+			CustomerID:      cmd.CustomerID,
+			Address:         cmd.Address,
+			QualifiedOffers: qualifiedOffers,
+			Status:          "QUALIFIED",
+			CreatedAt:       time.Now(),
+			ExpiresAt:       time.Now().Add(24 * time.Hour),
+		}
+
+		var err error
+		sessionID, err = uc.sessionRepo.Create(ctx, session)
+		if err != nil {
+			logger.Error("Failed to create session", "error", err)
+			// Continue anyway - session creation is not critical for qualification
+		} else {
+			logger.Info("Created qualification session", "sessionId", sessionID)
+		}
 	}
 
-	logger.Info("Eligibility determined", "status", status, "reason", reason)
+	result := domain.EligibilityResult{
+		Status:               status,
+		SessionID:            sessionID,
+		EligibleCategories:   eligible,
+		QualifiedOffers:      qualifiedOffers,
+		UnavailabilityReason: reason,
+	}
 
 	// 3. Publish Result Event
 	return uc.publishResult(ctx, cmd, result)
