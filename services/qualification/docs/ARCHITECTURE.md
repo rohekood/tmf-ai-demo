@@ -122,13 +122,223 @@ The primary user intention "Check Eligibility" maps to `usecase.CheckEligibility
 *   **Isolation**: Business logic depends ONLY on the Domain and Ports.
 *   **Concurrency**: The Use Case manages the `errgroup` logic for parallel execution.
 
-## 5. Technology Stack
+## 5. Qualification Session Architecture (TMF679 Extension)
+
+> [!IMPORTANT]
+> **Evolution**: The service is being extended from stateless to **session-based** to support TMF679 qualification sessions with customer-specific pricing.
+
+### 5.1 Why Sessions?
+
+**Problem**: If pricing is calculated separately in BFF (for display) and Shopping Cart (for cart), prices might differ → **legal liability**.
+
+**Solution**: Qualification creates a **persistent session** with:
+- Qualified offerings
+- **Customer-specific prices** (calculated once)
+- Eligibility results
+- Session ID (reusable)
+
+### 5.2 Session Flow
+
+#### Customer Browses Catalog
+
+```mermaid
+graph TB
+    UI[UI] -->|1. Show offerings for address| BFF[BFF]
+    BFF -->|2. Create qualification| Qual[Qualification Service]
+    
+    Qual -->|Query| GIS[GIS Service]
+    Qual -->|Query| Catalog[Product Catalog]
+    Qual -->|Query| Customer[Customer Management]
+    
+    GIS -->|Address coverage| Qual
+    Catalog -->|Offerings + base prices| Qual
+    Customer -->|Customer tier| Qual
+    
+    Qual -->|Calculate prices| Qual
+    Qual -->|Store session| DB[(PostgreSQL)]
+    
+    Qual -->|3. Return sessionId + offerings + prices| BFF
+    BFF -->|4. Display| UI
+    
+    style Qual fill:#e1f5ff
+    style DB fill:#ffe1e1
+```
+
+#### Add to Cart Flow
+
+```mermaid
+sequenceDiagram
+    participant UI
+    participant BFF
+    participant Cart as Shopping Cart
+    participant Qual as Qualification
+    
+    UI->>BFF: Add offering (offeringId, sessionId)
+    BFF->>Cart: cmd.cart.item.add (offeringId, sessionId, qty)
+    
+    Cart->>Qual: query.qual.session.get (sessionId)
+    Qual->>Qual: Validate session not expired
+    Qual-->>Cart: Return session with prices
+    
+    Cart->>Cart: Extract price from session
+    Cart->>Cart: Store item in cart
+    Cart-->>BFF: Success
+    BFF-->>UI: Cart updated
+    
+    Note over Cart,Qual: Price from session = Price shown to customer
+```
+
+#### Complete E2E Flow
+
+```mermaid
+sequenceDiagram
+    participant UI
+    participant BFF
+    participant Qual as Qualification
+    participant Cart as Shopping Cart
+    participant POCV as POCV Saga
+    participant Catalog
+    participant Customer
+    
+    rect rgb(200, 220, 255)
+        Note over UI,Customer: Phase 1: Qualification
+        UI->>BFF: Check offerings for address
+        BFF->>Qual: cmd.qual.check (address, customerId)
+        
+        Qual->>Catalog: Get offerings + base prices
+        Qual->>Customer: Get customer tier
+        Qual->>Qual: Calculate customer-specific prices
+        Qual->>Qual: Store session (sessionId, offerings, prices)
+        
+        Qual-->>BFF: evt.qual.checked (sessionId, offerings with prices)
+        BFF-->>UI: Display offerings + prices
+    end
+    
+    rect rgb(200, 255, 220)
+        Note over UI,POCV: Phase 2: Add to Cart
+        UI->>BFF: Add to cart (offeringId, sessionId)
+        BFF->>Cart: cmd.cart.item.add (offeringId, sessionId)
+        
+        Cart->>Qual: query.qual.session.get (sessionId)
+        Qual-->>Cart: Return session with prices
+        
+        Cart->>Cart: Store item with price from session
+    end
+    
+    rect rgb(255, 220, 200)
+        Note over Cart,POCV: Phase 3: Checkout
+        UI->>BFF: Checkout
+        BFF->>POCV: cmd.order.checkout.submit (cartId)
+        
+        POCV->>Cart: query.cart.session.get (cartId)
+        Cart-->>POCV: Return cart with prices
+        
+        POCV->>POCV: Store cart snapshot
+        POCV->>POCV: Process order with prices from cart
+    end
+```
+
+### 5.3 Session Data Model
+
+```go
+type QualificationSession struct {
+    ID              string                 `json:"id"`
+    CustomerID      string                 `json:"customerId"`
+    Address         Address                `json:"address"`
+    QualifiedOffers []QualifiedOffer       `json:"qualifiedOffers"`
+    Status          string                 `json:"status"` // "QUALIFIED", "UNQUALIFIED"
+    CreatedAt       time.Time              `json:"createdAt"`
+    ExpiresAt       time.Time              `json:"expiresAt"` // 24 hours
+}
+
+type QualifiedOffer struct {
+    OfferingID      string                 `json:"offeringId"`
+    OfferingName    string                 `json:"offeringName"`
+    Price           Price                  `json:"price"` // Customer-specific
+    Eligibility     string                 `json:"eligibility"`
+    Constraints     []string               `json:"constraints,omitempty"`
+}
+
+type Price struct {
+    Amount          float64                `json:"amount"`
+    Currency        string                 `json:"currency"`
+    TaxIncluded     bool                   `json:"taxIncluded"`
+}
+```
+
+### 5.4 New RPC Endpoints
+
+| Topic | Direction | Purpose |
+|:------|:----------|:--------|
+| `query.qual.session.get` | IN (RPC) | Shopping Cart queries session by ID |
+| `query.qual.session.validate` | IN (RPC) | Validate session is still valid |
+
+### 5.5 Session Storage
+
+**Options:**
+- **Redis**: Fast, TTL support, but ephemeral
+- **Postgres**: Durable, auditable, but slower
+
+**Recommendation**: **Postgres** for legal compliance and auditability.
+
+**Database Schema:**
+```sql
+CREATE TABLE qualification_sessions (
+    id UUID PRIMARY KEY,
+    customer_id UUID NOT NULL,
+    address JSONB NOT NULL,
+    qualified_offers JSONB NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL,
+    INDEX idx_customer_id (customer_id),
+    INDEX idx_expires_at (expires_at)
+);
+```
+
+### 5.6 Implementation Changes
+
+**Qualification Service:**
+1. Add PostgreSQL database (currently stateless)
+2. Add repository layer for session persistence
+3. Add pricing calculation logic (query catalog + customer)
+4. Add RPC handler: `query.qual.session.get`
+5. Add RPC handler: `query.qual.session.validate`
+
+**Shopping Cart Service:**
+1. Accept `qualificationSessionId` in `cmd.cart.item.add`
+2. Add Qualification RPC client
+3. Query qualification session for prices
+4. Remove independent pricing calculation
+
+**BFF Service:**
+1. Display `sessionId` to UI (for debugging)
+2. Pass `sessionId` when adding to cart
+
+### 5.7 Benefits
+
+✅ **Legal Compliance**: Price shown = price charged (same session)
+✅ **TMF Aligned**: Qualification is the pricing authority
+✅ **Performance**: Calculate once, reuse many times
+✅ **Auditable**: Sessions persisted with timestamp
+✅ **Consistency**: Single source of truth
+
+### 5.8 Open Questions
+
+1. **Session Expiry**: How long should qualification sessions be valid? (Recommendation: 24 hours)
+2. **Price Changes**: What if catalog price changes after qualification? (Options: notify customer, invalidate session)
+3. **Session Cleanup**: How to handle expired sessions? (Recommendation: background job)
+4. **Backward Compatibility**: Can we add this without breaking existing flow? (Yes, make sessionId optional initially)
+
+---
+
+## 6. Technology Stack
 - **Languages**: Go 1.23+
 - **Messaging**: RabbitMQ (AMQP 0.9.1)
-- **Database**: None (Stateless Service).
+- **Database**: PostgreSQL 16+ (for qualification sessions)
 - **Caching**: Redis (Optional, for GIS Polygon caching).
 
-## 6. Deployment Diagram
+## 7. Deployment Diagram
 ```mermaid
 graph LR
     Client["BFF / Client"] -- "cmd.qual.eligibility.check" --> Broker(("RabbitMQ"))

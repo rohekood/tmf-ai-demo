@@ -41,7 +41,10 @@ func TestCheckEligibilityUseCase_Check(t *testing.T) {
 		mockCat := new(MockCatalogClient)
 		mockPub := new(MockEventPublisher)
 
-		uc := NewCheckEligibility(mockGIS, mockInv, mockCat, mockPub, logger)
+		mockSessionRepo := &MockSessionRepository{}
+		mockCustomerClient := &MockCustomerPricingClient{}
+		mockCatalogPricing := &MockCatalogPricingClient{}
+		uc := NewCheckEligibility(mockGIS, mockInv, mockCat, mockPub, mockSessionRepo, mockCustomerClient, mockCatalogPricing, logger)
 
 		// Expectation: GIS returns true (in polygon)
 		mockGIS.On("CheckPolygon", mock.Anything, cmd.Address).Return(true, nil)
@@ -77,7 +80,10 @@ func TestCheckEligibilityUseCase_Check(t *testing.T) {
 		mockCat := new(MockCatalogClient)
 		mockPub := new(MockEventPublisher)
 
-		uc := NewCheckEligibility(mockGIS, mockInv, mockCat, mockPub, logger)
+		mockSessionRepo := &MockSessionRepository{}
+		mockCustomerClient := &MockCustomerPricingClient{}
+		mockCatalogPricing := &MockCatalogPricingClient{}
+		uc := NewCheckEligibility(mockGIS, mockInv, mockCat, mockPub, mockSessionRepo, mockCustomerClient, mockCatalogPricing, logger)
 
 		// Expectation: GIS returns true
 		mockGIS.On("CheckPolygon", mock.Anything, cmd.Address).Return(true, nil)
@@ -113,7 +119,10 @@ func TestCheckEligibilityUseCase_Check(t *testing.T) {
 		mockCat := new(MockCatalogClient)
 		mockPub := new(MockEventPublisher)
 
-		uc := NewCheckEligibility(mockGIS, mockInv, mockCat, mockPub, logger)
+		mockSessionRepo := &MockSessionRepository{}
+		mockCustomerClient := &MockCustomerPricingClient{}
+		mockCatalogPricing := &MockCatalogPricingClient{}
+		uc := NewCheckEligibility(mockGIS, mockInv, mockCat, mockPub, mockSessionRepo, mockCustomerClient, mockCatalogPricing, logger)
 
 		// Expectation: GIS returns error
 		gisErr := errors.New("GIS service down")

@@ -35,6 +35,9 @@ erDiagram
 *   **Scatter-Gather**: Must query multiple backends in parallel (GIS, Inventory, Catalog) to minimize user wait time.
 *   **TMF Compliance**: Must map internal logic to TMF679 standard attributes.
 *   **Idempotency**: Repeated checks for the same address/offering should yield consistent results (caching strategy).
+*   **Session Persistence**: Must store qualification sessions with customer-specific prices for reuse by Shopping Cart.
+*   **Price Consistency**: Prices calculated during qualification MUST match prices used in Shopping Cart (legal requirement).
+*   **Session Expiry**: Sessions must have TTL (e.g., 24 hours) to prevent stale pricing.
 
 ## 5. Use Cases (API Operations)
 
@@ -46,10 +49,18 @@ erDiagram
     4.  **Filter Catalog**: specific Offerings that match the technical result.
     5.  **Return Result**: Qualified/Unqualified with reasons.
 
-### 5.2 Retrieval
-*   **Get Qualification**: Retrieve a past qualification result by ID. Useful for auditing or resuming a session.
+### 5.2 Get Qualification Session (NEW)
+*   **Get Session**: Retrieve a qualification session by ID. Used by Shopping Cart to get customer-specific prices.
+    1.  **Validate Session**: Check if session exists and is not expired.
+    2.  **Return Session**: Return qualified offerings with prices.
 
-### 5.3 Management
+### 5.3 Validate Session (NEW)
+*   **Validate Session**: Check if a session is still valid (not expired, prices still current).
+    1.  **Check Expiry**: Verify session timestamp.
+    2.  **Optional Price Revalidation**: Check if catalog prices changed.
+    3.  **Return Status**: Valid/Expired/PriceChanged.
+
+### 5.4 Management
 *   **Update Qualification State**: (Internal) Update the status if a check is long-running (deferred).
 
 ## 6. Architecture & Implementation Design
