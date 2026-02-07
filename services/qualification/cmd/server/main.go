@@ -15,6 +15,9 @@ import (
 	"tmf/services/qualification/internal/infrastructure/postgres"
 	"tmf/services/qualification/internal/usecase"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
 )
 
@@ -53,7 +56,10 @@ func main() {
 	}
 	eventPub := publisher.NewEventPublisher(rmqPub, "ex.domain.market")
 
-	// 2. Database Connection
+	// 2. Database Migrations
+	runMigrations(dbURL, logger)
+
+	// 3. Database Connection
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		logger.Error("Failed to connect to database", "error", err)
@@ -118,7 +124,13 @@ func main() {
 	}
 
 	invClient := rpc.NewInventoryClient(rpcClient)
-	catClient := rpc.NewMockCatalogClient() // Catalog still mocked as it's not critical for this E2E flow yet or not implemented
+
+	// Real Catalog Client
+	catClient, err := rpc.NewCatalogRPCClient(rabbitURL)
+	if err != nil {
+		logger.Error("Failed to create catalog RPC client", "error", err)
+		os.Exit(1)
+	}
 
 	// Pricing clients for session creation
 	catalogPricingClient := rpc.NewCatalogPricingClient(rpcClient)
@@ -142,29 +154,41 @@ func main() {
 	// 6.1 Initialize RPC Handler for session queries
 	rpcHandler := handler.NewRPCHandler(sessionRepo, rmqPub, logger)
 
-	// 7. Start Consumer
+	// 7. Start Command Consumer
 	// Exchange: ex.domain.market
 	// Queue: q.qual.command
-	// Binding: cmd.qual.eligibility.check
-	consumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.market", "q.qual.command")
+	commandConsumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.market", "q.qual.command")
 	if err != nil {
-		logger.Error("Failed to create Consumer", "error", err)
+		logger.Error("Failed to create command Consumer", "error", err)
 		os.Exit(1)
 	}
 	defer func() {
-		if err := consumer.Close(); err != nil {
-			logger.Error("Failed to close consumer", "error", err)
+		if err := commandConsumer.Close(); err != nil {
+			logger.Error("Failed to close command consumer", "error", err)
 		}
 	}()
 
-	err = consumer.Subscribe(rabbitmq.CmdQualEligibilityCheck, h.HandleCheckCommand)
+	err = commandConsumer.Subscribe(rabbitmq.CmdQualEligibilityCheck, h.HandleCheckCommand)
 	if err != nil {
-		logger.Error("Failed to subscribe", "error", err)
+		logger.Error("Failed to subscribe command", "error", err)
 		os.Exit(1)
 	}
 
+	// 7.1 Start RPC Consumer
+	// Queue: q.qual.rpc
+	rpcConsumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.market", "q.qual.rpc")
+	if err != nil {
+		logger.Error("Failed to create RPC Consumer", "error", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if err := rpcConsumer.Close(); err != nil {
+			logger.Error("Failed to close RPC consumer", "error", err)
+		}
+	}()
+
 	// Bind RPC handlers for session queries
-	if err := rpcHandler.BindRPCHandlers(consumer); err != nil {
+	if err := rpcHandler.BindRPCHandlers(rpcConsumer); err != nil {
 		logger.Error("Failed to bind RPC handlers", "error", err)
 		os.Exit(1)
 	}
@@ -177,4 +201,21 @@ func main() {
 	<-stop
 
 	logger.Info("Shutting down...")
+}
+
+func runMigrations(dbURL string, logger *slog.Logger) {
+	m, err := migrate.New(
+		"file://internal/infrastructure/postgres/migrations",
+		dbURL,
+	)
+	if err != nil {
+		logger.Error("failed to create migration instance", "error", err)
+		os.Exit(1)
+	}
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		logger.Error("failed to run migrations", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("Migrations completed successfully.")
 }

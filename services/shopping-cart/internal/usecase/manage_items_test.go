@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"tmf/services/shopping-cart/internal/core/domain"
 	"tmf/services/shopping-cart/internal/usecase"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 // MockCartRepository is a mock implementation of ports.CartRepository
@@ -41,13 +42,37 @@ func (m *MockCartRepository) UpsertPrice(ctx context.Context, price *domain.Prod
 	return args.Error(0)
 }
 
+// MockQualificationClient for testing
+type MockQualificationClient struct {
+	mock.Mock
+}
+
+// MockQualificationSession for testing
+type MockQualificationSession struct {
+	mock.Mock
+}
+
+func (m *MockQualificationSession) GetOfferingPrice(offeringID string) (price float64, currency string, eligible bool, found bool) {
+	args := m.Called(offeringID)
+	return args.Get(0).(float64), args.String(1), args.Bool(2), args.Bool(3)
+}
+
+func (m *MockQualificationClient) GetSession(ctx context.Context, sessionID string) (usecase.QualificationSession, error) {
+	args := m.Called(ctx, sessionID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(usecase.QualificationSession), args.Error(1)
+}
+
 func TestManageItemsUseCase_AddItem(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Scenario 1: New Cart", func(t *testing.T) {
 		// Arrange
 		mockRepo := new(MockCartRepository)
-		uc := usecase.NewManageItemsUseCase(mockRepo)
+		mockQualClient := new(MockQualificationClient)
+		uc := usecase.NewManageItemsUseCase(mockRepo, mockQualClient)
 		cartID := "cart-123"
 		offeringID := "offering-abc"
 		qty := 2
@@ -71,7 +96,7 @@ func TestManageItemsUseCase_AddItem(t *testing.T) {
 		})).Return(nil)
 
 		// Act
-		err := uc.AddItem(ctx, cartID, offeringID, qty)
+		err := uc.AddItem(ctx, cartID, offeringID, "", qty)
 
 		// Assert
 		assert.NoError(t, err)
@@ -81,7 +106,8 @@ func TestManageItemsUseCase_AddItem(t *testing.T) {
 	t.Run("Scenario 2: Existing Cart", func(t *testing.T) {
 		// Arrange
 		mockRepo := new(MockCartRepository)
-		uc := usecase.NewManageItemsUseCase(mockRepo)
+		mockQualClient := new(MockQualificationClient)
+		uc := usecase.NewManageItemsUseCase(mockRepo, mockQualClient)
 		cartID := "cart-456"
 		offeringID := "offering-xyz"
 		qty := 1
@@ -110,7 +136,7 @@ func TestManageItemsUseCase_AddItem(t *testing.T) {
 		}), mock.Anything).Return(nil)
 
 		// Act
-		err := uc.AddItem(ctx, cartID, offeringID, qty)
+		err := uc.AddItem(ctx, cartID, offeringID, "", qty)
 
 		// Assert
 		assert.NoError(t, err)

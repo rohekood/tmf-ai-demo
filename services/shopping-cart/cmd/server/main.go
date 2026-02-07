@@ -10,6 +10,7 @@ import (
 	"tmf/pkg/rabbitmq"
 	"tmf/services/shopping-cart/internal/adapter/handler"
 	"tmf/services/shopping-cart/internal/adapter/repository"
+	"tmf/services/shopping-cart/internal/adapter/rpc"
 	"tmf/services/shopping-cart/internal/adapter/worker"
 	"tmf/services/shopping-cart/internal/usecase"
 
@@ -72,11 +73,26 @@ func main() {
 		slog.Error("Failed to declare exchange", "error", err)
 		os.Exit(1)
 	}
+	if err := pub.DeclareTopicExchange("ex.domain.market", true, false, false, false); err != nil {
+		slog.Error("Failed to declare market exchange", "error", err)
+		os.Exit(1)
+	}
 
 	// 5. Layers
 	repo := repository.NewCartRepository(db)
 
-	manageUC := usecase.NewManageItemsUseCase(repo)
+	// 5.1 Create RPC client for qualification service
+	rpcClient, err := rabbitmq.NewRPCClient(rabbitURL)
+	if err != nil {
+		slog.Error("Failed to create RPC client", "error", err)
+		os.Exit(1)
+	}
+	defer func() { _ = rpcClient.Close() }()
+
+	qualRPCClient := rpc.NewQualificationClient(rpcClient)
+	qualClient := rpc.NewQualificationClientAdapter(qualRPCClient)
+
+	manageUC := usecase.NewManageItemsUseCase(repo, qualClient)
 	syncUC := usecase.NewSyncCatalogUseCase(repo)
 	priceUC := usecase.NewUpdatePriceUseCase(repo)
 

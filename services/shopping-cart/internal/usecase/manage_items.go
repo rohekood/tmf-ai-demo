@@ -15,14 +15,28 @@ import (
 )
 
 type manageItemsUseCase struct {
-	repo ports.CartRepository
+	repo       ports.CartRepository
+	qualClient QualificationClient
 }
 
-func NewManageItemsUseCase(repo ports.CartRepository) ports.ManageItemsUseCase {
-	return &manageItemsUseCase{repo: repo}
+// QualificationSession interface for session data
+type QualificationSession interface {
+	GetOfferingPrice(offeringID string) (price float64, currency string, eligible bool, found bool)
 }
 
-func (u *manageItemsUseCase) AddItem(ctx context.Context, cartID, offeringID string, qty int) error {
+// QualificationClient interface for RPC calls
+type QualificationClient interface {
+	GetSession(ctx context.Context, sessionID string) (QualificationSession, error)
+}
+
+func NewManageItemsUseCase(repo ports.CartRepository, qualClient QualificationClient) ports.ManageItemsUseCase {
+	return &manageItemsUseCase{
+		repo:       repo,
+		qualClient: qualClient,
+	}
+}
+
+func (u *manageItemsUseCase) AddItem(ctx context.Context, cartID, offeringID, qualificationSessionID string, qty int) error {
 	// 1. Load Cart
 	cart, err := u.repo.Get(ctx, cartID)
 	if err != nil {
@@ -38,18 +52,38 @@ func (u *manageItemsUseCase) AddItem(ctx context.Context, cartID, offeringID str
 		}
 	}
 
-	// 2. Fetch Price (Internal Lookup)
-	price, err := u.repo.GetPrice(ctx, offeringID)
+	// 2. Determine Price Source
 	var unitAmount float64
 	var currency = "EUR"
 
-	if err != nil {
-		slog.WarnContext(ctx, "Failed to look up price", "error", err)
-	} else if price != nil {
-		unitAmount = price.UnitAmount
-		currency = price.Currency
+	if qualificationSessionID != "" {
+		// Use qualification session price
+		slog.InfoContext(ctx, "Using qualification session for pricing", "sessionId", qualificationSessionID)
+		session, err := u.qualClient.GetSession(ctx, qualificationSessionID)
+		if err != nil {
+			return fmt.Errorf("failed to get qualification session: %w", err)
+		}
+
+		price, curr, eligible, found := session.GetOfferingPrice(offeringID)
+		if !found {
+			return fmt.Errorf("offering %s not found in qualification session", offeringID)
+		}
+		if !eligible {
+			return fmt.Errorf("offering %s is not eligible in this session", offeringID)
+		}
+		unitAmount = price
+		currency = curr
 	} else {
-		slog.WarnContext(ctx, "Price not found for offering", "offeringId", offeringID)
+		// Fallback: Fetch Price from internal lookup
+		price, err := u.repo.GetPrice(ctx, offeringID)
+		if err != nil {
+			slog.WarnContext(ctx, "Failed to look up price", "error", err)
+		} else if price != nil {
+			unitAmount = price.UnitAmount
+			currency = price.Currency
+		} else {
+			slog.WarnContext(ctx, "Price not found for offering", "offeringId", offeringID)
+		}
 	}
 
 	// 3. Add Item Logic

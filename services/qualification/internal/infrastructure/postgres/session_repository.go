@@ -186,7 +186,12 @@ func (r *sessionRepository) FindExpired(ctx context.Context) ([]*domain.Qualific
 	if err != nil {
 		return nil, fmt.Errorf("failed to query expired sessions: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			// Log error but don't override return error
+			_ = err
+		}
+	}()
 
 	var sessions []*domain.QualificationSession
 

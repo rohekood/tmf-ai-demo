@@ -36,16 +36,20 @@ func NewCartHandler(
 // HandleAddItem handles cmd.cart.item.add
 func (h *CartHandler) HandleAddItem(ctx context.Context, payload []byte) error {
 	var cmd struct {
-		CartID     string `json:"cartId"`
-		OfferingID string `json:"offeringId"`
-		Quantity   int    `json:"quantity"`
+		CartID                 string `json:"cartId"`
+		OfferingID             string `json:"offeringId"`
+		Quantity               int    `json:"quantity"`
+		QualificationSessionID string `json:"qualificationSessionId,omitempty"`
 	}
 	if err := json.Unmarshal(payload, &cmd); err != nil {
 		return err
 	}
 
-	slog.InfoContext(ctx, "Adding item to cart", "cartId", cmd.CartID, "offeringId", cmd.OfferingID)
-	return h.manageUC.AddItem(ctx, cmd.CartID, cmd.OfferingID, cmd.Quantity)
+	slog.InfoContext(ctx, "Adding item to cart",
+		"cartId", cmd.CartID,
+		"offeringId", cmd.OfferingID,
+		"qualificationSessionId", cmd.QualificationSessionID)
+	return h.manageUC.AddItem(ctx, cmd.CartID, cmd.OfferingID, cmd.QualificationSessionID, cmd.Quantity)
 }
 
 // HandleUpdatePrice (Deprecated/Internal)

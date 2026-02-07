@@ -100,6 +100,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	// 4.1 Initialize RPC Handler for pricing queries
+	rpcHandler := transportRabbit.NewRPCHandler(repo, publisher, logger)
+
+	// 4.2 Create RPC consumer
+	rpcConsumer, err := rabbitmq.NewConsumerWithConnection(conn, "customer.events", "customer_rpc_queue")
+	if err != nil {
+		slog.Error("Failed to create RPC consumer", "error", err)
+		os.Exit(1)
+	}
+
+	// 4.3 Bind RPC handlers
+	if err := rpcHandler.BindRPCHandlers(rpcConsumer); err != nil {
+		slog.Error("Failed to bind RPC handlers", "error", err)
+		os.Exit(1)
+	}
+
 	// 5. Start Service
 	// Create a context that listens for the interrupt signal from the OS.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

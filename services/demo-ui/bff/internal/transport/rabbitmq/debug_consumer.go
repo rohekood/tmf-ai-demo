@@ -18,6 +18,7 @@ type DebugMessage struct {
 	CorrelationID string                 `json:"correlationId,omitempty"`
 	ReplyTo       string                 `json:"replyTo,omitempty"`
 	Payload       map[string]interface{} `json:"payload"`
+	Headers       map[string]interface{} `json:"headers,omitempty"`
 	Service       string                 `json:"service"` // derived from topic prefix
 }
 

@@ -95,6 +95,7 @@ func (c *Client) broadcastRequest(exchange, routingKey string, payload interface
 		Topic:     routingKey,
 		Exchange:  exchange,
 		Payload:   payloadMap,
+		Headers:   headers,
 		Service:   "bff",
 	}
 	c.broadcaster.Broadcast(debugMsg)
