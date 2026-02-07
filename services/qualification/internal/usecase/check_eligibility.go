@@ -56,7 +56,7 @@ func (uc *CheckEligibility) Execute(ctx context.Context, cmd domain.CheckEligibi
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	g, ctx := errgroup.WithContext(ctx)
+	g, groupCtx := errgroup.WithContext(ctx)
 
 	// Results containers
 	var (
@@ -71,7 +71,7 @@ func (uc *CheckEligibility) Execute(ctx context.Context, cmd domain.CheckEligibi
 	// Query GIS
 	g.Go(func() error {
 		var err error
-		inPolygon, err = uc.gisClient.CheckPolygon(ctx, cmd.Address)
+		inPolygon, err = uc.gisClient.CheckPolygon(groupCtx, cmd.Address)
 		if err != nil {
 			logger.Error("GIS Check failed", "error", err)
 			return err
@@ -82,7 +82,7 @@ func (uc *CheckEligibility) Execute(ctx context.Context, cmd domain.CheckEligibi
 	// Query Inventory
 	g.Go(func() error {
 		var err error
-		freePorts, err = uc.invClient.GetPortCapacity(ctx, cmd.Address)
+		freePorts, err = uc.invClient.GetPortCapacity(groupCtx, cmd.Address)
 		if err != nil {
 			logger.Error("Inventory Check failed", "error", err)
 			return err
@@ -99,7 +99,7 @@ func (uc *CheckEligibility) Execute(ctx context.Context, cmd domain.CheckEligibi
 			category = cmd.CategoryFilter[0] // Simplify for now
 		}
 
-		offers, err := uc.catalogClient.GetOffersByCategory(ctx, category)
+		offers, err := uc.catalogClient.GetOffersByCategory(groupCtx, category)
 		if err != nil {
 			logger.Error("Catalog Check failed", "error", err)
 			return err

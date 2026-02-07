@@ -7,7 +7,7 @@ import (
 
 // Primary Port (Use Cases)
 type ManageItemsUseCase interface {
-	AddItem(ctx context.Context, cartID, offeringID string, qty int) error
+	AddItem(ctx context.Context, cartID, offeringID, qualificationSessionID string, qty int) error
 	// UpdateItem, RemoveItem...
 }
 

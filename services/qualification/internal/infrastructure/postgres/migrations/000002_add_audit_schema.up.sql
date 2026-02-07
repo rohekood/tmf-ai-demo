@@ -1,13 +1,8 @@
--- Audit triggers for POCV
--- Requires the audit schema to exist (we will assume it's created if sharing DB or create it)
--- Since each service is independent, we create schema again.
-
+-- Based on https://wiki.postgresql.org/wiki/Audit_trigger
 CREATE SCHEMA IF NOT EXISTS audit;
--- ... (Copying standard audit function) ...
--- For brevity, I'll assume the same function definition as Shopping Cart
--- In a real repo, we might share the SQL file or use a common migration.
+REVOKE ALL ON SCHEMA audit FROM public;
 
-CREATE TABLE IF NOT EXISTS audit.logged_actions (
+CREATE TABLE audit.logged_actions (
     schema_name text NOT NULL,
     table_name text NOT NULL,
     user_name text,
@@ -19,29 +14,35 @@ CREATE TABLE IF NOT EXISTS audit.logged_actions (
     query text
 );
 
+REVOKE ALL ON audit.logged_actions FROM public;
+
 CREATE OR REPLACE FUNCTION audit.if_modified_func() RETURNS trigger AS $body$
 DECLARE
     audit_row audit.logged_actions;
+    include_values boolean;
+    log_queries boolean;
     v_user text;
 BEGIN
     IF TG_WHEN <> 'AFTER' THEN
         RAISE EXCEPTION 'audit.if_modified_func() must be fired as an AFTER trigger';
     END IF;
 
+    -- Search for app.current_user in session data
+    -- We use COALESCE to fallback to session_user if app.current_user is not set
     v_user := current_setting('app.current_user', true);
     IF v_user IS NULL OR v_user = '' THEN
         v_user := session_user;
     END IF;
 
     audit_row = ROW(
-        TG_TABLE_SCHEMA::text,
-        TG_TABLE_NAME::text,
-        v_user,
-        clock_timestamp(),
-        txid_current(),
-        substring(TG_OP,1,1),
-        NULL, NULL,
-        current_query()
+        TG_TABLE_SCHEMA::text,                          -- schema_name
+        TG_TABLE_NAME::text,                            -- table_name
+        v_user,                                         -- user_name
+        clock_timestamp(),                              -- action_tstamp_clk
+        txid_current(),                                 -- transaction_id
+        substring(TG_OP,1,1),                           -- action (I/U/D/T)
+        NULL, NULL,                                     -- original_data, new_data
+        current_query()                                 -- query
     );
 
     IF (TG_OP = 'UPDATE') THEN
@@ -59,5 +60,3 @@ END;
 $body$
 LANGUAGE plpgsql
 SECURITY DEFINER;
-
-CREATE TRIGGER audit_trigger_saga AFTER INSERT OR UPDATE OR DELETE ON saga_instances FOR EACH ROW EXECUTE PROCEDURE audit.if_modified_func();

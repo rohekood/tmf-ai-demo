@@ -46,21 +46,13 @@ func NewMockCatalogClient() *MockCatalogClient {
 func (m *MockCatalogClient) GetOffersByCategory(ctx context.Context, category string) ([]domain.EligibleCategory, error) {
 	time.Sleep(50 * time.Millisecond)
 
-	if category == "Fiber" {
+	if category == "Fiber" || category == "Internet" {
 		return []domain.EligibleCategory{
 			{
-				ID:   "CAT_FIBER_1G",
-				Name: "Fiber 1Gbps Bundle",
+				ID:   "OFFERING_INTERNET_1",
+				Name: "Fiber Internet 1000",
 				Characteristics: map[string]string{
 					"MaxSpeed":   "1000Mbps",
-					"Technology": "GPON",
-				},
-			},
-			{
-				ID:   "CAT_FIBER_300M",
-				Name: "Fiber 300Mbps",
-				Characteristics: map[string]string{
-					"MaxSpeed":   "300Mbps",
 					"Technology": "GPON",
 				},
 			},

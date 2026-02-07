@@ -205,7 +205,7 @@ func setupTestSuite(t *testing.T) *IntegrationTestSuite {
 }
 
 // Helper to wait for event
-func (s *IntegrationTestSuite) waitForEvent(t *testing.T, timeout time.Duration) *amqp.Delivery {
+func (s *IntegrationTestSuite) waitForEvent(_ *testing.T, timeout time.Duration) *amqp.Delivery {
 	select {
 	case event := <-s.EventChan:
 		return &event

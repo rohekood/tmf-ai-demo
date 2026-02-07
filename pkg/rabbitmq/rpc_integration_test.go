@@ -55,11 +55,11 @@ func TestRPCClient_ExclusiveReplyQueue(t *testing.T) {
 	// Test that each RPC client gets its own exclusive reply queue
 	client1, err := rabbitmq.NewRPCClient(amqpURL)
 	require.NoError(t, err)
-	defer client1.Close()
+	defer func() { _ = client1.Close() }()
 
 	client2, err := rabbitmq.NewRPCClient(amqpURL)
 	require.NoError(t, err)
-	defer client2.Close()
+	defer func() { _ = client2.Close() }()
 
 	// Verify each client has a unique reply queue
 	assert.NotEqual(t, client1.ReplyQueue(), client2.ReplyQueue(),
@@ -72,16 +72,16 @@ func TestRPCClient_RequestReply(t *testing.T) {
 	// Create RPC client with custom exchange
 	client, err := rabbitmq.NewRPCClient(amqpURL, rabbitmq.WithExchange("ex.test.rpc"))
 	require.NoError(t, err)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Setup a mock responder
 	conn, err := amqp.Dial(amqpURL)
 	require.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	ch, err := conn.Channel()
 	require.NoError(t, err)
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 
 	// Declare the exchange
 	err = ch.ExchangeDeclare("ex.test.rpc", "topic", true, false, false, false, nil)
@@ -103,7 +103,10 @@ func TestRPCClient_RequestReply(t *testing.T) {
 		for d := range msgs {
 			// Echo back the request with "pong" response
 			var req map[string]string
-			json.Unmarshal(d.Body, &req)
+			if err := json.Unmarshal(d.Body, &req); err != nil {
+				log.Printf("failed to unmarshal request: %v", err)
+				continue
+			}
 
 			response := map[string]string{
 				"response": "pong",
@@ -111,7 +114,7 @@ func TestRPCClient_RequestReply(t *testing.T) {
 			}
 			respBody, _ := json.Marshal(response)
 
-			ch.PublishWithContext(context.Background(),
+			if err := ch.PublishWithContext(context.Background(),
 				"",        // default exchange
 				d.ReplyTo, // reply to the client's queue
 				false, false,
@@ -119,7 +122,9 @@ func TestRPCClient_RequestReply(t *testing.T) {
 					ContentType:   "application/json",
 					CorrelationId: d.CorrelationId,
 					Body:          respBody,
-				})
+				}); err != nil {
+				log.Printf("failed to publish response: %v", err)
+			}
 		}
 	}()
 
@@ -145,15 +150,15 @@ func TestRPCClient_RequestReply(t *testing.T) {
 func TestRPCClient_RequestWithHeaders(t *testing.T) {
 	client, err := rabbitmq.NewRPCClient(amqpURL)
 	require.NoError(t, err)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	conn, err := amqp.Dial(amqpURL)
 	require.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	ch, err := conn.Channel()
 	require.NoError(t, err)
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 
 	// Use default exchange with direct routing to queue
 	q, err := ch.QueueDeclare("q.test.headers", false, true, false, false, nil)
@@ -169,13 +174,15 @@ func TestRPCClient_RequestWithHeaders(t *testing.T) {
 			receivedHeaders <- d.Headers
 
 			// Send response
-			ch.PublishWithContext(context.Background(),
+			if err := ch.PublishWithContext(context.Background(),
 				"", d.ReplyTo, false, false,
 				amqp.Publishing{
 					ContentType:   "application/json",
 					CorrelationId: d.CorrelationId,
 					Body:          []byte(`{"ok": true}`),
-				})
+				}); err != nil {
+				log.Printf("failed to publish response: %v", err)
+			}
 		}
 	}()
 
@@ -207,7 +214,7 @@ func TestRPCClient_RequestWithHeaders(t *testing.T) {
 func TestRPCClient_Timeout(t *testing.T) {
 	client, err := rabbitmq.NewRPCClient(amqpURL)
 	require.NoError(t, err)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Request to non-existent queue - should timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
@@ -221,7 +228,7 @@ func TestRPCClient_Timeout(t *testing.T) {
 func TestRPCClient_ContextCancellation(t *testing.T) {
 	client, err := rabbitmq.NewRPCClient(amqpURL)
 	require.NoError(t, err)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -237,20 +244,20 @@ func TestRPCClient_MultipleClientsIsolation(t *testing.T) {
 	// Verify that replies go to the correct client even with multiple clients
 	client1, err := rabbitmq.NewRPCClient(amqpURL)
 	require.NoError(t, err)
-	defer client1.Close()
+	defer func() { _ = client1.Close() }()
 
 	client2, err := rabbitmq.NewRPCClient(amqpURL)
 	require.NoError(t, err)
-	defer client2.Close()
+	defer func() { _ = client2.Close() }()
 
 	// Setup responder that echoes client identifier
 	conn, err := amqp.Dial(amqpURL)
 	require.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	ch, err := conn.Channel()
 	require.NoError(t, err)
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 
 	q, err := ch.QueueDeclare("q.test.isolation", false, true, false, false, nil)
 	require.NoError(t, err)
@@ -261,19 +268,24 @@ func TestRPCClient_MultipleClientsIsolation(t *testing.T) {
 	go func() {
 		for d := range msgs {
 			var req map[string]string
-			json.Unmarshal(d.Body, &req)
+			if err := json.Unmarshal(d.Body, &req); err != nil {
+				log.Printf("failed to unmarshal: %v", err)
+				continue
+			}
 
 			// Echo back the client ID
 			response := map[string]string{"clientId": req["clientId"]}
 			respBody, _ := json.Marshal(response)
 
-			ch.PublishWithContext(context.Background(),
+			if err := ch.PublishWithContext(context.Background(),
 				"", d.ReplyTo, false, false,
 				amqp.Publishing{
 					ContentType:   "application/json",
 					CorrelationId: d.CorrelationId,
 					Body:          respBody,
-				})
+				}); err != nil {
+				log.Printf("failed to publish: %v", err)
+			}
 		}
 	}()
 
@@ -288,7 +300,7 @@ func TestRPCClient_MultipleClientsIsolation(t *testing.T) {
 		resp, err := client1.RequestWithHeaders(ctx, "", q.Name, map[string]string{"clientId": "client1"}, nil)
 		require.NoError(t, err)
 		var r map[string]string
-		json.Unmarshal(resp, &r)
+		_ = json.Unmarshal(resp, &r)
 		assert.Equal(t, "client1", r["clientId"])
 		done <- struct{}{}
 	}()
@@ -297,7 +309,7 @@ func TestRPCClient_MultipleClientsIsolation(t *testing.T) {
 		resp, err := client2.RequestWithHeaders(ctx, "", q.Name, map[string]string{"clientId": "client2"}, nil)
 		require.NoError(t, err)
 		var r map[string]string
-		json.Unmarshal(resp, &r)
+		_ = json.Unmarshal(resp, &r)
 		assert.Equal(t, "client2", r["clientId"])
 		done <- struct{}{}
 	}()
