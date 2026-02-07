@@ -122,6 +122,7 @@ func (s *E2ESuite) setupDatabases() {
 
 func (s *E2ESuite) buildService(name, path, srcDir string) {
 	outPath := filepath.Join(os.TempDir(), name)
+	_ = os.Remove(outPath) // Force delete to ensure rebuild
 	cmd := exec.Command("go", "build", "-o", outPath, path)
 	out, err := cmd.CombinedOutput()
 	s.Require().NoError(err, "Failed to build %s: %s", name, string(out))
@@ -584,7 +585,7 @@ func (s *E2ESuite) Test6_QualificationSession_StandardPricing() {
 	var session map[string]interface{}
 	_ = json.Unmarshal(sessionResp, &session)
 
-	// Verify price is not discounted
+	// Verify price is discounted
 	qualifiedOffers := session["qualifiedOffers"].([]interface{})
 	s.NotEmpty(qualifiedOffers, "Should have qualified offers")
 	offer := qualifiedOffers[0].(map[string]interface{})

@@ -37,17 +37,21 @@ func NewQualificationClientForTest(rpcRequester RPCRequester) *QualificationClie
 type QualificationSession struct {
 	ID                string                       `json:"id"`
 	CustomerID        string                       `json:"customerId"`
-	QualifiedOffering []QualifiedOfferingWithPrice `json:"qualifiedOffering"`
+	QualifiedOffering []QualifiedOfferingWithPrice `json:"qualifiedOffers"`
 	ExpiresAt         time.Time                    `json:"expiresAt"`
 	Status            string                       `json:"status"`
 }
 
 // QualifiedOfferingWithPrice represents an offering with its calculated price
 type QualifiedOfferingWithPrice struct {
-	OfferingID string  `json:"offeringId"`
-	Price      float64 `json:"price"`
-	Currency   string  `json:"currency"`
-	Eligible   bool    `json:"eligible"`
+	OfferingID string    `json:"offeringId"`
+	PriceInfo  PriceInfo `json:"price"`
+	Eligible   string    `json:"eligibility"` // Changed to string to match "QUALIFIED"
+}
+
+type PriceInfo struct {
+	Amount   float64 `json:"amount"`
+	Currency string  `json:"currency"`
 }
 
 // GetSession retrieves a qualification session by ID
@@ -74,7 +78,7 @@ func (c *QualificationClient) GetSession(ctx context.Context, sessionID string) 
 	}
 
 	// Validate session is not expired
-	if time.Now().After(session.ExpiresAt) {
+	if time.Now().UTC().After(session.ExpiresAt) {
 		return nil, fmt.Errorf("qualification session has expired")
 	}
 
@@ -85,7 +89,8 @@ func (c *QualificationClient) GetSession(ctx context.Context, sessionID string) 
 func (s *QualificationSession) GetOfferingPrice(offeringID string) (price float64, currency string, eligible bool, found bool) {
 	for _, offering := range s.QualifiedOffering {
 		if offering.OfferingID == offeringID {
-			return offering.Price, offering.Currency, offering.Eligible, true
+			isEligible := offering.Eligible == "QUALIFIED" || offering.Eligible == "true"
+			return offering.PriceInfo.Amount, offering.PriceInfo.Currency, isEligible, true
 		}
 	}
 	return 0, "", false, false
@@ -113,10 +118,10 @@ func (c *QualificationClient) GetPriceForOffering(sessionInterface interface{}, 
 
 	for _, offering := range session.QualifiedOffering {
 		if offering.OfferingID == offeringID {
-			if !offering.Eligible {
+			if offering.Eligible != "QUALIFIED" && offering.Eligible != "true" {
 				return 0, "", fmt.Errorf("offering %s is not eligible in this session", offeringID)
 			}
-			return offering.Price, offering.Currency, nil
+			return offering.PriceInfo.Amount, offering.PriceInfo.Currency, nil
 		}
 	}
 	return 0, "", fmt.Errorf("offering %s not found in qualification session", offeringID)

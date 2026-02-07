@@ -144,7 +144,7 @@ func (dc *DebugConsumer) handleMessages(msgs <-chan amqp.Delivery) {
 
 		debugMsg := DebugMessage{
 			ID:            fmt.Sprintf("%s-%d", d.MessageId, time.Now().UnixNano()), // Generate ID if missing
-			Timestamp:     time.Now(),
+			Timestamp:     time.Now().UTC(),
 			Type:          msgType,
 			Topic:         d.RoutingKey,
 			CorrelationID: d.CorrelationId,

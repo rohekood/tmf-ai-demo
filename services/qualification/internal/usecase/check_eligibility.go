@@ -173,8 +173,8 @@ func (uc *CheckEligibility) Execute(ctx context.Context, cmd domain.CheckEligibi
 			Address:         cmd.Address,
 			QualifiedOffers: qualifiedOffers,
 			Status:          "QUALIFIED",
-			CreatedAt:       time.Now(),
-			ExpiresAt:       time.Now().Add(24 * time.Hour),
+			CreatedAt:       time.Now().UTC(),
+			ExpiresAt:       time.Now().UTC().Add(24 * time.Hour),
 		}
 
 		var err error

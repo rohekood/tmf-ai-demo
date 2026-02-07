@@ -47,7 +47,7 @@ func (u *manageItemsUseCase) AddItem(ctx context.Context, cartID, offeringID, qu
 			ID:          cartID,
 			Status:      domain.CartStatusActive,
 			Version:     1,
-			ValidForEnd: time.Now().Add(24 * time.Hour),
+			ValidForEnd: time.Now().UTC().Add(24 * time.Hour),
 			Items:       []domain.CartItem{},
 		}
 	}
@@ -116,7 +116,7 @@ func (u *manageItemsUseCase) AddItem(ctx context.Context, cartID, offeringID, qu
 			Topic:     rabbitmq.EvtCartSessionUpdated, // Subscribers (if any) get the full priced cart
 			Payload:   eventPayload,
 			Status:    "PENDING",
-			CreatedAt: time.Now(),
+			CreatedAt: time.Now().UTC(),
 		},
 	}
 

@@ -43,19 +43,17 @@ func (h *RPCHandler) HandleGetSession(ctx context.Context, payload []byte) error
 	session, err := h.sessionRepo.Get(ctx, req.SessionID)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "Failed to get session", "sessionId", req.SessionID, "error", err)
-		return fmt.Errorf("session not found: %w", err)
+		return h.replyError(ctx, err)
 	}
 
 	// Validate not expired
-	if time.Now().After(session.ExpiresAt) {
-		h.logger.WarnContext(ctx, "Session expired", "sessionId", req.SessionID, "expiresAt", session.ExpiresAt)
-		return fmt.Errorf("session expired")
-	}
-
-	// Marshal response
-	respBytes, err := json.Marshal(session)
-	if err != nil {
-		return fmt.Errorf("failed to marshal session: %w", err)
+	if time.Now().UTC().After(session.ExpiresAt) {
+		h.logger.WarnContext(ctx, "Session expired",
+			"sessionId", req.SessionID,
+			"expiresAt", session.ExpiresAt,
+			"now", time.Now().UTC(),
+		)
+		return h.replyError(ctx, fmt.Errorf("session expired: now=%v, expires=%v", time.Now().UTC(), session.ExpiresAt))
 	}
 
 	// Send RPC reply
@@ -66,7 +64,20 @@ func (h *RPCHandler) HandleGetSession(ctx context.Context, payload []byte) error
 		return fmt.Errorf("missing replyTo or correlationId in context")
 	}
 
-	return h.publisher.PublishToQueue(ctx, replyTo.(string), correlationID.(string), respBytes)
+	return h.publisher.PublishToQueue(ctx, replyTo.(string), correlationID.(string), session)
+}
+
+// replyError sends an error response
+func (h *RPCHandler) replyError(ctx context.Context, err error) error {
+	replyTo := ctx.Value(rabbitmq.ContextKeyReplyTo)
+	correlationID := ctx.Value(rabbitmq.ContextKeyAMQPCorrelationID)
+
+	if replyTo == nil || correlationID == nil {
+		return fmt.Errorf("missing replyTo or correlationId in context")
+	}
+
+	errResponse := map[string]string{"error": err.Error()}
+	return h.publisher.PublishToQueue(ctx, replyTo.(string), correlationID.(string), errResponse)
 }
 
 // BindRPCHandlers binds RPC handlers to the consumer

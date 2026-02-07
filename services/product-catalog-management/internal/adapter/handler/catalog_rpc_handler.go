@@ -42,7 +42,7 @@ func (h *CatalogRPCHandler) HandleGetOffering(ctx context.Context, payload []byt
 	offering, err := h.offeringRepo.Get(ctx, req.OfferingID)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "Failed to get offering", "offeringId", req.OfferingID, "error", err)
-		return fmt.Errorf("offering not found: %w", err)
+		return h.replyError(ctx, err)
 	}
 
 	// Extract base price from offering prices
@@ -125,18 +125,46 @@ func (h *CatalogRPCHandler) HandleGetOffersByCategory(ctx context.Context, paylo
 	return h.publisher.PublishToQueue(ctx, replyTo.(string), correlationID.(string), response)
 }
 
-// BindRPCHandlers binds RPC handlers to the consumer
-func (h *CatalogRPCHandler) BindRPCHandlers(consumer rabbitmq.Consumer) error {
-	// Bind query.catalog.offering.get
-	if err := consumer.Subscribe("query.catalog.offering.get", h.HandleGetOffering); err != nil {
-		return fmt.Errorf("failed to bind query.catalog.offering.get: %w", err)
+// replyError sends an error response
+func (h *CatalogRPCHandler) replyError(ctx context.Context, err error) error {
+	replyTo := ctx.Value(rabbitmq.ContextKeyReplyTo)
+	correlationID := ctx.Value(rabbitmq.ContextKeyAMQPCorrelationID)
+
+	if replyTo == nil || correlationID == nil {
+		return fmt.Errorf("missing replyTo or correlationId in context")
 	}
 
-	// Bind query.catalog.offering.by_category
-	if err := consumer.Subscribe("query.catalog.offering.by_category", h.HandleGetOffersByCategory); err != nil {
-		return fmt.Errorf("failed to bind query.catalog.offering.by_category: %w", err)
+	errResponse := map[string]string{"error": err.Error()}
+	return h.publisher.PublishToQueue(ctx, replyTo.(string), correlationID.(string), errResponse)
+}
+
+// BindRPCHandlers binds RPC handlers to the consumer
+func (h *CatalogRPCHandler) BindRPCHandlers(consumer rabbitmq.Consumer) error {
+	// Use wildcard binding to handle multiple routing keys with a single consumer
+	// to avoid Round-Robin issues when using shared consumers/queues
+	if err := consumer.Subscribe("query.catalog.offering.#", h.HandleDispatch); err != nil {
+		return fmt.Errorf("failed to bind query.catalog.offering.#: %w", err)
 	}
 
 	h.logger.Info("Catalog RPC handlers bound successfully")
 	return nil
+}
+
+// HandleDispatch dispatches requests based on routing key
+func (h *CatalogRPCHandler) HandleDispatch(ctx context.Context, payload []byte) error {
+	routingKey, ok := ctx.Value(rabbitmq.ContextKeyRoutingKey).(string)
+	if !ok {
+		return fmt.Errorf("routing key not found in context")
+	}
+
+	switch routingKey {
+	case "query.catalog.offering.get":
+		return h.HandleGetOffering(ctx, payload)
+	case "query.catalog.offering.by_category":
+		return h.HandleGetOffersByCategory(ctx, payload)
+	default:
+		// Ignore unknown keys (or log them)
+		h.logger.DebugContext(ctx, "Ignoring unknown RPC routing key", "key", routingKey)
+		return nil
+	}
 }

@@ -95,7 +95,7 @@ func (uc *UpdateProductOfferingUseCase) Execute(ctx context.Context, input ports
 		}
 	}
 
-	offering.LastUpdate = time.Now()
+	offering.LastUpdate = time.Now().UTC()
 
 	if err := offering.Validate(); err != nil {
 		return nil, err

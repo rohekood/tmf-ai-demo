@@ -269,7 +269,7 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 		return fmt.Errorf("failed to unmarshal type info: %w", err)
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 
 	switch typeInfo.Type {
 	case "Individual":
@@ -406,7 +406,7 @@ func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error
 		return fmt.Errorf("failed to unmarshal type info: %w", err)
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 
 	switch typeInfo.Type {
 	case "Individual":
@@ -603,7 +603,7 @@ func (h *Handlers) HandlePatchParty(ctx context.Context, d amqp.Delivery) error 
 			if payload.Status != nil {
 				existing.Status = *payload.Status
 			}
-			existing.UpdatedAt = time.Now()
+			existing.UpdatedAt = time.Now().UTC()
 
 			if err := h.repo.UpdateIndividual(txCtx, existing); err != nil {
 				return fmt.Errorf("failed to patch individual: %w", err)
@@ -641,7 +641,7 @@ func (h *Handlers) HandlePatchParty(ctx context.Context, d amqp.Delivery) error 
 			if payload.Status != nil {
 				existingOrg.Status = *payload.Status
 			}
-			existingOrg.UpdatedAt = time.Now()
+			existingOrg.UpdatedAt = time.Now().UTC()
 
 			if err := h.repo.UpdateOrganization(txCtx, existingOrg); err != nil {
 				return fmt.Errorf("failed to patch organization: %w", err)
@@ -1112,8 +1112,8 @@ func (h *Handlers) mapExternalReferences(dtos []ExternalReferenceDTO, partyID st
 			PartyID:             partyID,
 			ExternalSystemID:    dto.ExternalSystemID,
 			ExternalReferenceID: dto.ExternalReferenceID,
-			CreatedAt:           time.Now(),
-			UpdatedAt:           time.Now(),
+			CreatedAt:           time.Now().UTC(),
+			UpdatedAt:           time.Now().UTC(),
 		})
 	}
 	return results
@@ -1142,8 +1142,8 @@ func (h *Handlers) mapTaxExemptions(dtos []TaxExemptionDTO, partyID string) []do
 			IssuingJurisdiction: dto.IssuingJurisdiction,
 			ValidForStart:       start,
 			ValidForEnd:         endPtr,
-			CreatedAt:           time.Now(),
-			UpdatedAt:           time.Now(),
+			CreatedAt:           time.Now().UTC(),
+			UpdatedAt:           time.Now().UTC(),
 		})
 	}
 	return results
@@ -1175,8 +1175,8 @@ func (h *Handlers) mapAttachments(dtos []AttachmentDTO, partyID string) []domain
 			RefType:        dto.RefType,
 			RefID:          dto.RefID,
 			ContentData:    dto.Content, // Transferred for repository processing
-			CreatedAt:      time.Now(),
-			UpdatedAt:      time.Now(),
+			CreatedAt:      time.Now().UTC(),
+			UpdatedAt:      time.Now().UTC(),
 		})
 	}
 	return results

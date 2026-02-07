@@ -30,6 +30,7 @@ func (r *ProductOfferingRepo) Create(ctx context.Context, offering *domain.Produ
 }
 
 func (r *ProductOfferingRepo) Get(ctx context.Context, id string) (*domain.ProductOffering, error) {
+	// fmt.Printf("DEBUG: ProductOfferingRepo.Get called with id='%s'\n", id)
 	var model ProductOfferingModel
 	if err := r.db.WithContext(ctx).First(&model, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

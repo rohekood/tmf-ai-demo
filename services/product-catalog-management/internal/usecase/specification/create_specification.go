@@ -34,7 +34,7 @@ func (uc *CreateProductSpecification) Execute(ctx context.Context, input ports.C
 		LifecycleStatus: input.LifecycleStatus,
 		ValidFor:        input.ValidFor,
 		Characteristics: input.Characteristics,
-		LastUpdate:      time.Now(),
+		LastUpdate:      time.Now().UTC(),
 	}
 
 	if spec.LifecycleStatus == "" {

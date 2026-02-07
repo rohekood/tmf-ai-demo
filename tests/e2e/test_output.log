@@ -1,0 +1,396 @@
+=== RUN   TestE2ESuite
+2026/02/07 03:08:04 github.com/testcontainers/testcontainers-go - Connected to docker: 
+  Server Version: 29.1.3
+  API Version: 1.51
+  Operating System: Docker Desktop
+  Total Memory: 32054 MB
+  Labels:
+    com.docker.desktop.address=unix:///var/run/docker-cli.sock
+  Testcontainers for Go Version: v0.40.0
+  Resolved Docker Host: unix:///var/run/docker.sock
+  Resolved Docker Socket Path: /var/run/docker.sock
+  Test SessionID: 4909cf0b82ef44328b0941df1ab185beca31956d56caebb9ead9f10eb5bd3efb
+  Test ProcessID: 4ef7d66e-f9a1-451c-aacd-f881330cfa21
+2026/02/07 03:08:04 🐳 Creating container for image rabbitmq:3.12-management-alpine
+2026/02/07 03:08:04 🐳 Creating container for image testcontainers/ryuk:0.13.0
+2026/02/07 03:08:04 ✅ Container created: f8276564b9e9
+2026/02/07 03:08:04 🐳 Starting container: f8276564b9e9
+2026/02/07 03:08:05 ✅ Container started: f8276564b9e9
+2026/02/07 03:08:05 ⏳ Waiting for container id f8276564b9e9 image: testcontainers/ryuk:0.13.0. Waiting for: port 8080/tcp to be listening
+2026/02/07 03:08:05 Shell not found in container
+2026/02/07 03:08:05 🔔 Container is ready: f8276564b9e9
+2026/02/07 03:08:05 ✅ Container created: a3507d0df14a
+2026/02/07 03:08:05 🐳 Starting container: a3507d0df14a
+2026/02/07 03:08:06 ✅ Container started: a3507d0df14a
+2026/02/07 03:08:06 ⏳ Waiting for container id a3507d0df14a image: rabbitmq:3.12-management-alpine. Waiting for: all of: [log pattern ".*Server startup complete.*"]
+2026/02/07 03:08:23 🔔 Container is ready: a3507d0df14a
+2026/02/07 03:08:23 🐳 Creating container for image postgres:16
+2026/02/07 03:08:23 ✅ Container created: 3ae5b5c6b2da
+2026/02/07 03:08:23 🐳 Starting container: 3ae5b5c6b2da
+2026/02/07 03:08:23 ✅ Container started: 3ae5b5c6b2da
+2026/02/07 03:08:23 ⏳ Waiting for container id 3ae5b5c6b2da image: postgres:16. Waiting for: all of: [log message "database system is ready to accept connections" (occurrence: 2)]
+2026/02/07 03:08:25 🔔 Container is ready: 3ae5b5c6b2da
+{"time":"2026-02-07T03:08:28.216946738+02:00","level":"INFO","msg":"starting customer management service"}
+✅ customer-management is ready
+time=2026-02-07T03:08:28.251+02:00 level=INFO msg="Running database migrations..."
+time=2026-02-07T03:08:28.327+02:00 level=INFO msg="Database migrations applied successfully"
+{"time":"2026-02-07T03:08:28.363376225+02:00","level":"INFO","msg":"Migrations completed successfully."}
+time=2026-02-07T03:08:28.365+02:00 level=INFO msg="[DEBUG] Binding queue to topic" queue=catalog_rpc_queue topic=query.catalog.offering.get exchange=catalog_events
+time=2026-02-07T03:08:28.374+02:00 level=INFO msg="[DEBUG] Queue binding successful" queue=catalog_rpc_queue topic=query.catalog.offering.get
+time=2026-02-07T03:08:28.375+02:00 level=INFO msg="[DEBUG] Consumer started on queue" queue=catalog_rpc_queue topic=query.catalog.offering.get
+time=2026-02-07T03:08:28.375+02:00 level=INFO msg="[DEBUG] Consumer goroutine running" queue=catalog_rpc_queue topic=query.catalog.offering.get
+time=2026-02-07T03:08:28.375+02:00 level=INFO msg="[DEBUG] Binding queue to topic" queue=catalog_rpc_queue topic=query.catalog.offering.by_category exchange=catalog_events
+time=2026-02-07T03:08:28.384+02:00 level=INFO msg="[DEBUG] Queue binding successful" queue=catalog_rpc_queue topic=query.catalog.offering.by_category
+time=2026-02-07T03:08:28.385+02:00 level=INFO msg="[DEBUG] Consumer started on queue" queue=catalog_rpc_queue topic=query.catalog.offering.by_category
+time=2026-02-07T03:08:28.385+02:00 level=INFO msg="[DEBUG] Consumer goroutine running" queue=catalog_rpc_queue topic=query.catalog.offering.by_category
+time=2026-02-07T03:08:28.385+02:00 level=INFO msg="Catalog RPC handlers bound successfully"
+time=2026-02-07T03:08:28.385+02:00 level=INFO msg="Product Catalog Management Service Started"
+✅ product-catalog-management is ready
+time=2026-02-07T03:08:28.385+02:00 level=INFO msg="Starting Outbox Worker..."
+time=2026-02-07T03:08:28.413+02:00 level=INFO msg="Mock Inventory Started. Waiting for RPC queries..."
+✅ mock-inventory is ready
+time=2026-02-07T03:08:28.438+02:00 level=INFO msg="Mock GIS Started. Waiting for RPC queries..."
+✅ mock-gis is ready
+2026/02/07 03:08:28 INFO [DEBUG] Binding queue to topic queue=q.mock.billing topic=cmd.payment.transaction.authorize exchange=ex.domain.order
+2026/02/07 03:08:28 INFO [DEBUG] Queue binding successful queue=q.mock.billing topic=cmd.payment.transaction.authorize
+2026/02/07 03:08:28 INFO [DEBUG] Consumer started on queue queue=q.mock.billing topic=cmd.payment.transaction.authorize
+2026/02/07 03:08:28 INFO [DEBUG] Consumer goroutine running queue=q.mock.billing topic=cmd.payment.transaction.authorize
+time=2026-02-07T03:08:28.504+02:00 level=INFO msg="Mock Billing Started"
+✅ mock-billing is ready
+{"time":"2026-02-07T03:08:28.524708891+02:00","level":"INFO","msg":"Starting Qualification Service..."}
+time=2026-02-07T03:08:28.533+02:00 level=INFO msg="RabbitMQ Handler started"
+{"time":"2026-02-07T03:08:28.589575431+02:00","level":"INFO","msg":"Migrations completed successfully."}
+{"time":"2026-02-07T03:08:28.598436692+02:00","level":"INFO","msg":"Connected to PostgreSQL"}
+{"time":"2026-02-07T03:08:33.599340054+02:00","level":"WARN","msg":"Redis not available, continuing without cache","error":"failed to connect to redis: context deadline exceeded"}
+redis: 2026/02/07 03:08:33 pool.go:419: redis: connection pool: failed to dial after 1 attempts: dial tcp 127.0.0.1:6379: i/o timeout
+2026/02/07 03:08:33 INFO [DEBUG] Binding queue to topic queue=q.qual.command topic=cmd.qual.eligibility.check exchange=ex.domain.market
+2026/02/07 03:08:33 INFO [DEBUG] Queue binding successful queue=q.qual.command topic=cmd.qual.eligibility.check
+2026/02/07 03:08:33 INFO [DEBUG] Consumer started on queue queue=q.qual.command topic=cmd.qual.eligibility.check
+2026/02/07 03:08:33 INFO [DEBUG] Consumer goroutine running queue=q.qual.command topic=cmd.qual.eligibility.check
+2026/02/07 03:08:33 INFO [DEBUG] Binding queue to topic queue=q.qual.rpc topic=query.qual.session.get exchange=ex.domain.market
+2026/02/07 03:08:33 INFO [DEBUG] Queue binding successful queue=q.qual.rpc topic=query.qual.session.get
+2026/02/07 03:08:33 INFO [DEBUG] Consumer started on queue queue=q.qual.rpc topic=query.qual.session.get
+2026/02/07 03:08:33 INFO [DEBUG] Consumer goroutine running queue=q.qual.rpc topic=query.qual.session.get
+{"time":"2026-02-07T03:08:33.676013474+02:00","level":"INFO","msg":"RPC handlers bound successfully"}
+{"time":"2026-02-07T03:08:33.676045456+02:00","level":"INFO","msg":"Qualification Service Ready. Waiting for commands..."}
+✅ qualification is ready
+{"time":"2026-02-07T03:08:33.753010661+02:00","level":"INFO","msg":"database migrations applied successfully"}
+{"time":"2026-02-07T03:08:33.808824524+02:00","level":"INFO","msg":"[DEBUG] Binding queue to topic","queue":"q.cart.commands","topic":"cmd.cart.item.add","exchange":"ex.domain.commerce"}
+{"time":"2026-02-07T03:08:33.816937836+02:00","level":"INFO","msg":"[DEBUG] Queue binding successful","queue":"q.cart.commands","topic":"cmd.cart.item.add"}
+{"time":"2026-02-07T03:08:33.817992368+02:00","level":"INFO","msg":"[DEBUG] Consumer started on queue","queue":"q.cart.commands","topic":"cmd.cart.item.add"}
+{"time":"2026-02-07T03:08:33.818116665+02:00","level":"INFO","msg":"[DEBUG] Consumer goroutine running","queue":"q.cart.commands","topic":"cmd.cart.item.add"}
+{"time":"2026-02-07T03:08:33.840466057+02:00","level":"INFO","msg":"[DEBUG] Binding queue to topic","queue":"q.cart.catalog.sync","topic":"evt.catalog.offering.#","exchange":"ex.domain.catalog"}
+{"time":"2026-02-07T03:08:33.847837757+02:00","level":"INFO","msg":"[DEBUG] Queue binding successful","queue":"q.cart.catalog.sync","topic":"evt.catalog.offering.#"}
+{"time":"2026-02-07T03:08:33.848830594+02:00","level":"INFO","msg":"[DEBUG] Consumer started on queue","queue":"q.cart.catalog.sync","topic":"evt.catalog.offering.#"}
+{"time":"2026-02-07T03:08:33.848868103+02:00","level":"INFO","msg":"[DEBUG] Consumer goroutine running","queue":"q.cart.catalog.sync","topic":"evt.catalog.offering.#"}
+{"time":"2026-02-07T03:08:33.867008065+02:00","level":"INFO","msg":"[DEBUG] Binding queue to topic","queue":"q.cart.rpc.v2","topic":"query.cart.session.get","exchange":"ex.domain.commerce"}
+{"time":"2026-02-07T03:08:33.874689181+02:00","level":"INFO","msg":"[DEBUG] Queue binding successful","queue":"q.cart.rpc.v2","topic":"query.cart.session.get"}
+{"time":"2026-02-07T03:08:33.87586068+02:00","level":"INFO","msg":"[DEBUG] Consumer started on queue","queue":"q.cart.rpc.v2","topic":"query.cart.session.get"}
+{"time":"2026-02-07T03:08:33.875929594+02:00","level":"INFO","msg":"[DEBUG] Consumer goroutine running","queue":"q.cart.rpc.v2","topic":"query.cart.session.get"}
+{"time":"2026-02-07T03:08:33.876488043+02:00","level":"INFO","msg":"Shopping Cart Service Started"}
+✅ shopping-cart is ready
+{"time":"2026-02-07T03:08:33.898702826+02:00","level":"INFO","msg":"Starting POCV Service..."}
+{"time":"2026-02-07T03:08:33.969526892+02:00","level":"INFO","msg":"Subscribing to all events with Dispatcher"}
+{"time":"2026-02-07T03:08:33.969577784+02:00","level":"INFO","msg":"[DEBUG] Binding queue to topic","queue":"q.pocv.saga","topic":"#","exchange":"ex.domain.order"}
+{"time":"2026-02-07T03:08:33.976723122+02:00","level":"INFO","msg":"[DEBUG] Queue binding successful","queue":"q.pocv.saga","topic":"#"}
+{"time":"2026-02-07T03:08:33.977763+02:00","level":"INFO","msg":"[DEBUG] Consumer started on queue","queue":"q.pocv.saga","topic":"#"}
+{"time":"2026-02-07T03:08:33.977894035+02:00","level":"INFO","msg":"[DEBUG] Consumer goroutine running","queue":"q.pocv.saga","topic":"#"}
+{"time":"2026-02-07T03:08:33.977945633+02:00","level":"INFO","msg":"POCV Service Started"}
+✅ pocv is ready
+=== RUN   TestE2ESuite/Test1_HappyPath_FiberOrder
+[SNOOP ex.domain.market] cmd.qual.eligibility.check: {"address": {"street": "Main St", "city": "Berlin"}, "categoryFilter": ["Internet"]}
+2026/02/07 03:08:34 INFO [DEBUG] Message received on queue queue=q.qual.command routingKey=cmd.qual.eligibility.check replyTo="" correlationId=dc943f88-7294-48a2-8aa4-061b9765ce77
+{"time":"2026-02-07T03:08:34.014408197+02:00","level":"INFO","msg":"Received Check Command","address_street":"Main St","address_city":"Berlin"}
+{"time":"2026-02-07T03:08:34.014446339+02:00","level":"INFO","msg":"Starting eligibility check","correlation_id":"dc943f88-7294-48a2-8aa4-061b9765ce77","address":"Main St "}
+[RPC] Publishing to Ex: catalog_events, Key: query.catalog.offering.by_category, ReplyTo: amq.gen-Ttp584Z8gkSCOw2c74JFWQ, CorrID: 3ca8ce1a-246e-47b3-90e7-14a6c881d898
+2026/02/07 03:08:34 INFO RPC Call: GetPortCapacity reqID=2f46c6df-aaf1-41e5-825d-bf314ca64ac5
+[RPC] Publishing to Ex: ex.domain.market, Key: query.inventory.resource.capacity, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: a48fb59b-bb8a-453b-b2d6-739ea68b25de
+2026/02/07 03:08:34 INFO RPC Call: CheckPolygon reqID=e9193620-c702-442b-a253-1c316965b214
+[RPC] Publishing to Ex: ex.domain.market, Key: query.gis.geography.check, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: 4a803f78-ce98-4536-979f-a365914aadb4
+time=2026-02-07T03:08:34.015+02:00 level=INFO msg="Unknown query routing key: query.catalog.offering.by_category"
+time=2026-02-07T03:08:34.016+02:00 level=INFO msg="[DEBUG] Message received on queue" queue=catalog_rpc_queue routingKey=query.catalog.offering.by_category replyTo=amq.gen-Ttp584Z8gkSCOw2c74JFWQ correlationId=3ca8ce1a-246e-47b3-90e7-14a6c881d898
+time=2026-02-07T03:08:34.016+02:00 level=INFO msg="Getting offering for pricing" offeringId=""
+[SNOOP ex.domain.market] query.inventory.resource.capacity: {"locationId":"CABINET_BERLIN_05","requestId":"2f46c6df-aaf1-41e5-825d-bf314ca64ac5","resourceType":"OLT_PORT"}
+[SNOOP ex.domain.market] query.gis.geography.check: {"address":{"street":"Main St","number":"","city":"Berlin","zip":""},"requestId":"e9193620-c702-442b-a253-1c316965b214"}
+time=2026-02-07T03:08:34.016+02:00 level=INFO msg="Received Query" correlation_id=4a803f78-ce98-4536-979f-a365914aadb4 reply_to=amq.gen-WEvGuZmHPETGRyK048uBmw routing_key=query.gis.geography.check exchange=ex.domain.market body="{\"address\":{\"street\":\"Main St\",\"number\":\"\",\"city\":\"Berlin\",\"zip\":\"\"},\"requestId\":\"e9193620-c702-442b-a253-1c316965b214\"}"
+time=2026-02-07T03:08:34.016+02:00 level=INFO msg="Received Query" correlation_id=a48fb59b-bb8a-453b-b2d6-739ea68b25de reply_to=amq.gen-WEvGuZmHPETGRyK048uBmw
+
+2026/02/07 03:08:34 [31;1m/home/raino/IdeaProject/tmf/services/product-catalog-management/internal/adapter/repository/offering_repo.go:34 [35;1mrecord not found
+[0m[33m[2.043ms] [34;1m[rows:0][0m SELECT * FROM "product_offerings" WHERE id = '' ORDER BY "product_offerings"."id" LIMIT 1
+time=2026-02-07T03:08:34.018+02:00 level=ERROR msg="Failed to get offering" offeringId="" error="record not found"
+time=2026-02-07T03:08:34.018+02:00 level=ERROR msg="Failed to process message" error="offering not found: record not found" topic=query.catalog.offering.get
+{"time":"2026-02-07T03:08:44.015485624+02:00","level":"ERROR","msg":"Catalog Check failed","correlation_id":"dc943f88-7294-48a2-8aa4-061b9765ce77","address":"Main St ","error":"rpc request failed: context deadline exceeded"}
+{"time":"2026-02-07T03:08:44.015573421+02:00","level":"ERROR","msg":"Scatter-Gather failed","correlation_id":"dc943f88-7294-48a2-8aa4-061b9765ce77","address":"Main St ","error":"rpc request failed: context deadline exceeded"}
+[SNOOP ex.domain.market] evt.qual.checked: {"qualificationId":"310a5573-fabb-411f-8d5f-1edc4b6ec5d3","correlationId":"dc943f88-7294-48a2-8aa4-061b9765ce77","status":"Error","eligibleCategories":null,"unavailabilityReason":"System Dependency Failed: rpc request failed: context deadline exceeded"}
+    e2e_test.go:309: 
+        	Error Trace:	/home/raino/IdeaProject/tmf/tests/e2e/e2e_test.go:309
+        	Error:      	"{\"qualificationId\":\"310a5573-fabb-411f-8d5f-1edc4b6ec5d3\",\"correlationId\":\"dc943f88-7294-48a2-8aa4-061b9765ce77\",\"status\":\"Error\",\"eligibleCategories\":null,\"unavailabilityReason\":\"System Dependency Failed: rpc request failed: context deadline exceeded\"}" does not contain "Qualified"
+        	Test:       	TestE2ESuite/Test1_HappyPath_FiberOrder
+[SNOOP ex.domain.commerce] cmd.cart.item.add: {"cartId": "d2a16dad-7d96-483e-9596-356033f1b3ce", "offeringId": "146a5617-72b8-4c96-89be-85669824b304", "quantity": 1}
+{"time":"2026-02-07T03:08:44.025304322+02:00","level":"INFO","msg":"[DEBUG] Message received on queue","queue":"q.cart.commands","routingKey":"cmd.cart.item.add","replyTo":"","correlationId":"46170879-1e8e-4e6f-ac87-729dc33d7b51"}
+{"time":"2026-02-07T03:08:44.025461719+02:00","level":"INFO","msg":"Adding item to cart","cartId":"d2a16dad-7d96-483e-9596-356033f1b3ce","offeringId":"146a5617-72b8-4c96-89be-85669824b304","qualificationSessionId":""}
+
+2026/02/07 03:08:44 [31;1m/home/raino/IdeaProject/tmf/services/shopping-cart/internal/adapter/repository/postgres_repo.go:56 [35;1mrecord not found
+[0m[33m[2.726ms] [34;1m[rows:0][0m SELECT * FROM "carts" WHERE id = 'd2a16dad-7d96-483e-9596-356033f1b3ce' ORDER BY "carts"."id" LIMIT 1
+
+2026/02/07 03:08:44 [31;1m/home/raino/IdeaProject/tmf/services/shopping-cart/internal/adapter/repository/postgres_repo.go:116 [35;1mrecord not found
+[0m[33m[1.418ms] [34;1m[rows:0][0m SELECT * FROM "product_prices" WHERE id = '146a5617-72b8-4c96-89be-85669824b304' ORDER BY "product_prices"."id" LIMIT 1
+{"time":"2026-02-07T03:08:44.029977975+02:00","level":"WARN","msg":"Price not found for offering","offeringId":"146a5617-72b8-4c96-89be-85669824b304"}
+[SNOOP ex.domain.commerce] evt.cart.session.updated: {"id":"d2a16dad-7d96-483e-9596-356033f1b3ce","items":[{"id":"85a8c86c-ef5e-4f7b-a0e1-2ca54f4c10da","cartId":"d2a16dad-7d96-483e-9596-356033f1b3ce","currency":"EUR","quantity":1,"unitPrice":0,"offeringId":"146a5617-72b8-4c96-89be-85669824b304","unitAmount":0,"productConfig":null}],"status":"Active","version":2,"CreatedAt":"0001-01-01T00:00:00Z","UpdatedAt":"0001-01-01T00:00:00Z","customerId":"","totalPrice":0,"validForEnd":"2026-02-08T03:08:44.028505074+02:00","totalPriceAmount":0,"totalPriceCurrency":"EUR"}
+[SNOOP ex.domain.order] cmd.order.checkout.submit: {"cartId": "d2a16dad-7d96-483e-9596-356033f1b3ce"}
+{"time":"2026-02-07T03:08:44.387719718+02:00","level":"INFO","msg":"[DEBUG] Message received on queue","queue":"q.pocv.saga","routingKey":"cmd.order.checkout.submit","replyTo":"","correlationId":"4ad09528-9168-46fa-87b3-02de3387c9cf"}
+
+2026/02/07 03:08:44 [31;1m/home/raino/IdeaProject/tmf/services/pocv/internal/adapter/repository/postgres_repo.go:31 [35;1mrecord not found
+[0m[33m[1.798ms] [34;1m[rows:0][0m SELECT * FROM "saga_instances" WHERE cart_id = 'd2a16dad-7d96-483e-9596-356033f1b3ce' ORDER BY "saga_instances"."id" LIMIT 1
+[RPC] Publishing to Ex: ex.domain.commerce, Key: query.cart.session.get, ReplyTo: amq.gen-Bso0GEvFuJ8YN4N010Aa0Q, CorrID: 1a0458f5-e38a-4291-8c90-982f3d954707
+[SNOOP ex.domain.commerce] query.cart.session.get: {"cartId":"d2a16dad-7d96-483e-9596-356033f1b3ce"}
+{"time":"2026-02-07T03:08:44.391260902+02:00","level":"INFO","msg":"[DEBUG] Message received on queue","queue":"q.cart.rpc.v2","routingKey":"query.cart.session.get","replyTo":"amq.gen-Bso0GEvFuJ8YN4N010Aa0Q","correlationId":"1a0458f5-e38a-4291-8c90-982f3d954707"}
+{"time":"2026-02-07T03:08:44.391335553+02:00","level":"INFO","msg":"Processing RPC: GetCart","cartId":"d2a16dad-7d96-483e-9596-356033f1b3ce"}
+{"time":"2026-02-07T03:08:44.399611933+02:00","level":"INFO","msg":"POCV: Saga Started for Cart: d2a16dad-7d96-483e-9596-356033f1b3ce"}
+[SNOOP ex.domain.order] cmd.inventory.resource.reserve: {"items":[{"id":"85a8c86c-ef5e-4f7b-a0e1-2ca54f4c10da","cartId":"d2a16dad-7d96-483e-9596-356033f1b3ce","currency":"EUR","quantity":1,"unitPrice":0,"offeringId":"146a5617-72b8-4c96-89be-85669824b304","unitAmount":0,"productConfig":null}],"sagaId":"2ab20242-d709-4f80-896c-4c265cb07bf1"}
+time=2026-02-07T03:08:44.548+02:00 level=INFO msg="Received Inventory Reserve Command" routing_key=cmd.inventory.resource.reserve
+{"time":"2026-02-07T03:08:44.548878511+02:00","level":"INFO","msg":"[DEBUG] Message received on queue","queue":"q.pocv.saga","routingKey":"cmd.inventory.resource.reserve","replyTo":"","correlationId":""}
+[SNOOP ex.domain.order] evt.inventory.resource.reserved: {"orderId":"2ab20242-d709-4f80-896c-4c265cb07bf1"}
+{"time":"2026-02-07T03:08:44.549890158+02:00","level":"INFO","msg":"[DEBUG] Message received on queue","queue":"q.pocv.saga","routingKey":"evt.inventory.resource.reserved","replyTo":"","correlationId":""}
+{"time":"2026-02-07T03:08:44.563281122+02:00","level":"INFO","msg":"POCV: Inventory Processed for Saga: 2ab20242-d709-4f80-896c-4c265cb07bf1"}
+[SNOOP ex.domain.order] cmd.payment.transaction.authorize: {"token":"tok_visa_mock","amount":0,"sagaId":"2ab20242-d709-4f80-896c-4c265cb07bf1"}
+{"time":"2026-02-07T03:08:44.750380426+02:00","level":"INFO","msg":"[DEBUG] Message received on queue","queue":"q.pocv.saga","routingKey":"cmd.payment.transaction.authorize","replyTo":"","correlationId":""}
+2026/02/07 03:08:44 INFO [DEBUG] Message received on queue queue=q.mock.billing routingKey=cmd.payment.transaction.authorize replyTo="" correlationId=""
+time=2026-02-07T03:08:44.750+02:00 level=INFO msg="Processing Payment" sagaId=2ab20242-d709-4f80-896c-4c265cb07bf1 amount=0 outcome=evt.payment.transaction.authorized
+[SNOOP ex.domain.order] evt.payment.transaction.authorized: {"sagaId":"2ab20242-d709-4f80-896c-4c265cb07bf1"}
+{"time":"2026-02-07T03:08:44.752483357+02:00","level":"INFO","msg":"[DEBUG] Message received on queue","queue":"q.pocv.saga","routingKey":"evt.payment.transaction.authorized","replyTo":"","correlationId":""}
+{"time":"2026-02-07T03:08:44.949579538+02:00","level":"INFO","msg":"[DEBUG] Message received on queue","queue":"q.pocv.saga","routingKey":"cmd.order.management.create","replyTo":"","correlationId":""}
+[SNOOP ex.domain.order] cmd.order.management.create: {"id":"d2a16dad-7d96-483e-9596-356033f1b3ce","items":[{"id":"85a8c86c-ef5e-4f7b-a0e1-2ca54f4c10da","cartId":"d2a16dad-7d96-483e-9596-356033f1b3ce","currency":"EUR","quantity":1,"unitPrice":0,"offeringId":"146a5617-72b8-4c96-89be-85669824b304","unitAmount":0,"productConfig":null}],"status":"Active","version":2,"CreatedAt":"0001-01-01T00:00:00Z","UpdatedAt":"0001-01-01T00:00:00Z","customerId":"","totalPrice":0,"validForEnd":"2026-02-08T03:08:44.028505Z","totalPriceAmount":0,"totalPriceCurrency":"EUR"}
+=== RUN   TestE2ESuite/Test2_UnhappyPath_QualificationFailed
+2026/02/07 03:08:44 INFO [DEBUG] Message received on queue queue=q.qual.command routingKey=cmd.qual.eligibility.check replyTo="" correlationId=5cae8bff-2965-4977-88ac-931a22aa9152
+{"time":"2026-02-07T03:08:44.975413613+02:00","level":"INFO","msg":"Received Check Command","address_street":"Main St","address_city":"Nowhere"}
+{"time":"2026-02-07T03:08:44.975456585+02:00","level":"INFO","msg":"Starting eligibility check","correlation_id":"5cae8bff-2965-4977-88ac-931a22aa9152","address":"Main St "}
+[RPC] Publishing to Ex: catalog_events, Key: query.catalog.offering.by_category, ReplyTo: amq.gen-Ttp584Z8gkSCOw2c74JFWQ, CorrID: b4266594-02c2-43dd-a75c-422710b9b761
+2026/02/07 03:08:44 INFO RPC Call: CheckPolygon reqID=ea910677-54cd-4c76-b797-bd1df0b5f53b
+[RPC] Publishing to Ex: ex.domain.market, Key: query.gis.geography.check, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: bb5099e7-7951-4a27-8ab7-954bff65d86c
+2026/02/07 03:08:44 INFO RPC Call: GetPortCapacity reqID=3d3ccb29-9135-46da-8a8e-3a6eee3fbdf1
+[RPC] Publishing to Ex: ex.domain.market, Key: query.inventory.resource.capacity, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: fe14e062-e8d0-45e4-a039-9b8fc4078f51
+time=2026-02-07T03:08:44.976+02:00 level=INFO msg="Unknown query routing key: query.catalog.offering.by_category"
+time=2026-02-07T03:08:44.976+02:00 level=INFO msg="[DEBUG] Message received on queue" queue=catalog_rpc_queue routingKey=query.catalog.offering.by_category replyTo=amq.gen-Ttp584Z8gkSCOw2c74JFWQ correlationId=b4266594-02c2-43dd-a75c-422710b9b761
+time=2026-02-07T03:08:44.976+02:00 level=INFO msg="Getting offers by category" category=Internet
+time=2026-02-07T03:08:44.976+02:00 level=INFO msg="Received Query" correlation_id=bb5099e7-7951-4a27-8ab7-954bff65d86c reply_to=amq.gen-WEvGuZmHPETGRyK048uBmw routing_key=query.gis.geography.check exchange=ex.domain.market body="{\"address\":{\"street\":\"Main St\",\"number\":\"\",\"city\":\"Nowhere\",\"zip\":\"\"},\"requestId\":\"ea910677-54cd-4c76-b797-bd1df0b5f53b\"}"
+time=2026-02-07T03:08:44.976+02:00 level=INFO msg="Received Query" correlation_id=fe14e062-e8d0-45e4-a039-9b8fc4078f51 reply_to=amq.gen-WEvGuZmHPETGRyK048uBmw
+{"time":"2026-02-07T03:08:44.979796439+02:00","level":"INFO","msg":"Eligibility determined","correlation_id":"5cae8bff-2965-4977-88ac-931a22aa9152","address":"Main St ","status":"Unqualified","reason":"Address outside service area"}
+=== RUN   TestE2ESuite/Test3_UnhappyPath_PaymentDeclined
+{"time":"2026-02-07T03:08:44.993490282+02:00","level":"INFO","msg":"[DEBUG] Message received on queue","queue":"q.cart.catalog.sync","routingKey":"evt.catalog.offering.created","replyTo":"","correlationId":"2135247a-917e-4b39-8f57-f91b61ebd269"}
+{"time":"2026-02-07T03:08:45.094224311+02:00","level":"INFO","msg":"[DEBUG] Message received on queue","queue":"q.cart.commands","routingKey":"cmd.cart.item.add","replyTo":"","correlationId":"b33a1465-0782-46b7-9583-f7838fec1b04"}
+{"time":"2026-02-07T03:08:45.094280887+02:00","level":"INFO","msg":"Adding item to cart","cartId":"4bcb55d9-6d6a-4ca9-8ff2-03d75942a037","offeringId":"baff150b-38cb-4288-9cb2-5d387169257f","qualificationSessionId":""}
+
+2026/02/07 03:08:45 [31;1m/home/raino/IdeaProject/tmf/services/shopping-cart/internal/adapter/repository/postgres_repo.go:56 [35;1mrecord not found
+[0m[33m[0.961ms] [34;1m[rows:0][0m SELECT * FROM "carts" WHERE id = '4bcb55d9-6d6a-4ca9-8ff2-03d75942a037' ORDER BY "carts"."id" LIMIT 1
+{"time":"2026-02-07T03:08:46.102681144+02:00","level":"INFO","msg":"[DEBUG] Message received on queue","queue":"q.pocv.saga","routingKey":"cmd.order.checkout.submit","replyTo":"","correlationId":"96cd7260-d408-4a4b-be07-e90105270fc8"}
+
+2026/02/07 03:08:46 [31;1m/home/raino/IdeaProject/tmf/services/pocv/internal/adapter/repository/postgres_repo.go:31 [35;1mrecord not found
+[0m[33m[1.101ms] [34;1m[rows:0][0m SELECT * FROM "saga_instances" WHERE cart_id = '4bcb55d9-6d6a-4ca9-8ff2-03d75942a037' ORDER BY "saga_instances"."id" LIMIT 1
+[RPC] Publishing to Ex: ex.domain.commerce, Key: query.cart.session.get, ReplyTo: amq.gen-Bso0GEvFuJ8YN4N010Aa0Q, CorrID: c8adf0df-bf8f-47a4-94df-8302f3bf42ee
+{"time":"2026-02-07T03:08:46.105208077+02:00","level":"INFO","msg":"[DEBUG] Message received on queue","queue":"q.cart.rpc.v2","routingKey":"query.cart.session.get","replyTo":"amq.gen-Bso0GEvFuJ8YN4N010Aa0Q","correlationId":"c8adf0df-bf8f-47a4-94df-8302f3bf42ee"}
+{"time":"2026-02-07T03:08:46.105270115+02:00","level":"INFO","msg":"Processing RPC: GetCart","cartId":"4bcb55d9-6d6a-4ca9-8ff2-03d75942a037"}
+{"time":"2026-02-07T03:08:46.111510415+02:00","level":"INFO","msg":"POCV: Saga Started for Cart: 4bcb55d9-6d6a-4ca9-8ff2-03d75942a037"}
+{"time":"2026-02-07T03:08:46.14934428+02:00","level":"INFO","msg":"[DEBUG] Message received on queue","queue":"q.pocv.saga","routingKey":"cmd.inventory.resource.reserve","replyTo":"","correlationId":""}
+time=2026-02-07T03:08:46.149+02:00 level=INFO msg="Received Inventory Reserve Command" routing_key=cmd.inventory.resource.reserve
+{"time":"2026-02-07T03:08:46.15045738+02:00","level":"INFO","msg":"[DEBUG] Message received on queue","queue":"q.pocv.saga","routingKey":"evt.inventory.resource.reserved","replyTo":"","correlationId":""}
+{"time":"2026-02-07T03:08:46.154084741+02:00","level":"INFO","msg":"POCV: Inventory Processed for Saga: 2da80b39-1a90-4dfd-8de1-ef1a69d5d5a1"}
+{"time":"2026-02-07T03:08:46.349637746+02:00","level":"INFO","msg":"[DEBUG] Message received on queue","queue":"q.pocv.saga","routingKey":"cmd.payment.transaction.authorize","replyTo":"","correlationId":""}
+2026/02/07 03:08:46 INFO [DEBUG] Message received on queue queue=q.mock.billing routingKey=cmd.payment.transaction.authorize replyTo="" correlationId=""
+time=2026-02-07T03:08:46.349+02:00 level=INFO msg="Processing Payment" sagaId=2da80b39-1a90-4dfd-8de1-ef1a69d5d5a1 amount=2e+07 outcome=evt.payment.transaction.declined
+{"time":"2026-02-07T03:08:46.350846369+02:00","level":"INFO","msg":"[DEBUG] Message received on queue","queue":"q.pocv.saga","routingKey":"evt.payment.transaction.declined","replyTo":"","correlationId":""}
+{"time":"2026-02-07T03:08:46.549527586+02:00","level":"INFO","msg":"[DEBUG] Message received on queue","queue":"q.pocv.saga","routingKey":"cmd.inventory.resource.release","replyTo":"","correlationId":""}
+=== RUN   TestE2ESuite/Test4_QualificationSession_VIPDiscount
+✅ Seeded customer 1c589e1e-2d2e-416d-a93e-cb0ab40308df with tier VIP
+✅ Seeded product offering 2c33e757-7b9b-429e-93e5-ede574623254 with base price 100.00 EUR
+2026/02/07 03:08:46 INFO [DEBUG] Message received on queue queue=q.qual.command routingKey=cmd.qual.eligibility.check replyTo="" correlationId=4f74c529-429a-477b-a8c6-5f735c74061a
+{"time":"2026-02-07T03:08:46.639494102+02:00","level":"INFO","msg":"Received Check Command","address_street":"Main St","address_city":"Berlin"}
+{"time":"2026-02-07T03:08:46.639548615+02:00","level":"INFO","msg":"Starting eligibility check","correlation_id":"4f74c529-429a-477b-a8c6-5f735c74061a","address":"Main St "}
+2026/02/07 03:08:46 INFO RPC Call: CheckPolygon reqID=6fdd71b8-9937-418b-94df-c417737cc2dd
+[RPC] Publishing to Ex: catalog_events, Key: query.catalog.offering.by_category, ReplyTo: amq.gen-Ttp584Z8gkSCOw2c74JFWQ, CorrID: a71edb1e-5c06-4545-9df3-c456366989e2
+2026/02/07 03:08:46 INFO RPC Call: GetPortCapacity reqID=e086901e-5220-4a14-b8b9-f19fb7454696
+[RPC] Publishing to Ex: ex.domain.market, Key: query.gis.geography.check, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: e265a90e-55de-403d-a2e6-220910c627a7
+[RPC] Publishing to Ex: ex.domain.market, Key: query.inventory.resource.capacity, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: b6f755e9-df87-49ba-b8fb-7b02263514e2
+time=2026-02-07T03:08:46.641+02:00 level=INFO msg="Unknown query routing key: query.catalog.offering.by_category"
+time=2026-02-07T03:08:46.641+02:00 level=INFO msg="[DEBUG] Message received on queue" queue=catalog_rpc_queue routingKey=query.catalog.offering.by_category replyTo=amq.gen-Ttp584Z8gkSCOw2c74JFWQ correlationId=a71edb1e-5c06-4545-9df3-c456366989e2
+time=2026-02-07T03:08:46.641+02:00 level=INFO msg="Getting offering for pricing" offeringId=""
+time=2026-02-07T03:08:46.641+02:00 level=INFO msg="Received Query" correlation_id=e265a90e-55de-403d-a2e6-220910c627a7 reply_to=amq.gen-WEvGuZmHPETGRyK048uBmw routing_key=query.gis.geography.check exchange=ex.domain.market body="{\"address\":{\"street\":\"Main St\",\"number\":\"\",\"city\":\"Berlin\",\"zip\":\"\"},\"requestId\":\"6fdd71b8-9937-418b-94df-c417737cc2dd\"}"
+time=2026-02-07T03:08:46.641+02:00 level=INFO msg="Received Query" correlation_id=b6f755e9-df87-49ba-b8fb-7b02263514e2 reply_to=amq.gen-WEvGuZmHPETGRyK048uBmw
+
+2026/02/07 03:08:46 [31;1m/home/raino/IdeaProject/tmf/services/product-catalog-management/internal/adapter/repository/offering_repo.go:34 [35;1mrecord not found
+[0m[33m[1.136ms] [34;1m[rows:0][0m SELECT * FROM "product_offerings" WHERE id = '' ORDER BY "product_offerings"."id" LIMIT 1
+time=2026-02-07T03:08:46.642+02:00 level=ERROR msg="Failed to get offering" offeringId="" error="record not found"
+time=2026-02-07T03:08:46.642+02:00 level=ERROR msg="Failed to process message" error="offering not found: record not found" topic=query.catalog.offering.get
+{"time":"2026-02-07T03:08:59.367977585+02:00","level":"ERROR","msg":"Catalog Check failed","correlation_id":"4f74c529-429a-477b-a8c6-5f735c74061a","address":"Main St ","error":"rpc request failed: context deadline exceeded"}
+{"time":"2026-02-07T03:08:59.368045957+02:00","level":"ERROR","msg":"Scatter-Gather failed","correlation_id":"4f74c529-429a-477b-a8c6-5f735c74061a","address":"Main St ","error":"rpc request failed: context deadline exceeded"}
+    e2e_test.go:441: 
+        	Error Trace:	/home/raino/IdeaProject/tmf/tests/e2e/e2e_test.go:441
+        	Error:      	"{\"qualificationId\":\"ee38921e-b634-42b3-81ce-6f93d83a7db8\",\"correlationId\":\"4f74c529-429a-477b-a8c6-5f735c74061a\",\"status\":\"Error\",\"eligibleCategories\":null,\"unavailabilityReason\":\"System Dependency Failed: rpc request failed: context deadline exceeded\"}" does not contain "Qualified"
+        	Test:       	TestE2ESuite/Test4_QualificationSession_VIPDiscount
+    e2e_test.go:448: 
+        	Error Trace:	/home/raino/IdeaProject/tmf/tests/e2e/e2e_test.go:448
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestE2ESuite/Test4_QualificationSession_VIPDiscount
+        	Messages:   	Session ID should be present in qualification response
+[RPC] Publishing to Ex: ex.domain.market, Key: query.qual.session.get, ReplyTo: amq.gen-Ayv0Oi2YZyfjB-iCZo80NQ, CorrID: 7e973bea-1192-4545-958c-ff7778b85739
+2026/02/07 03:08:59 INFO [DEBUG] Message received on queue queue=q.qual.rpc routingKey=query.qual.session.get replyTo=amq.gen-Ayv0Oi2YZyfjB-iCZo80NQ correlationId=7e973bea-1192-4545-958c-ff7778b85739
+{"time":"2026-02-07T03:08:59.383188987+02:00","level":"INFO","msg":"Getting qualification session","sessionId":""}
+2026/02/07 03:08:59 ERROR Failed to process message error="session not found: failed to get session: pq: invalid input syntax for type uuid: \"\"" topic=query.qual.session.get
+{"time":"2026-02-07T03:08:59.385287482+02:00","level":"ERROR","msg":"Failed to get session","sessionId":"","error":"failed to get session: pq: invalid input syntax for type uuid: \"\""}
+{"time":"2026-02-07T03:09:01.099304392+02:00","level":"ERROR","msg":"failed to connect to RabbitMQ","error":"dial tcp 127.0.0.1:5672: i/o timeout"}
+    e2e_test.go:458: 
+        	Error Trace:	/home/raino/IdeaProject/tmf/tests/e2e/e2e_test.go:458
+        	            				/usr/local/go/src/runtime/asm_amd64.s:1700
+        	Error:      	Received unexpected error:
+        	            	rpc timeout
+        	Test:       	TestE2ESuite/Test4_QualificationSession_VIPDiscount
+=== RUN   TestE2ESuite/Test5_QualificationSession_PremiumDiscount
+✅ Seeded customer 59080ae1-6bda-47bd-a1d4-f58fd4ac0672 with tier Premium
+✅ Seeded product offering 55b88b7c-29d1-454f-8be6-e00e8de8b682 with base price 100.00 EUR
+2026/02/07 03:09:32 INFO [DEBUG] Message received on queue queue=q.qual.command routingKey=cmd.qual.eligibility.check replyTo="" correlationId=e704c3ed-f98b-4ca6-92be-fe66037ca54b
+{"time":"2026-02-07T03:09:32.19402147+02:00","level":"INFO","msg":"Received Check Command","address_street":"Main St","address_city":"Berlin"}
+{"time":"2026-02-07T03:09:32.194063012+02:00","level":"INFO","msg":"Starting eligibility check","correlation_id":"e704c3ed-f98b-4ca6-92be-fe66037ca54b","address":"Main St "}
+[RPC] Publishing to Ex: catalog_events, Key: query.catalog.offering.by_category, ReplyTo: amq.gen-Ttp584Z8gkSCOw2c74JFWQ, CorrID: bc936d77-c5a6-472c-9978-3d4cc5fb19e4
+2026/02/07 03:09:32 INFO RPC Call: CheckPolygon reqID=46db5522-7af0-4988-9fba-fcdfea243b40
+[RPC] Publishing to Ex: ex.domain.market, Key: query.gis.geography.check, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: 3e5de971-889c-49c2-bd2b-384e94a69cb3
+2026/02/07 03:09:32 INFO RPC Call: GetPortCapacity reqID=718a0e93-6430-4575-ac74-0d849d69d952
+[RPC] Publishing to Ex: ex.domain.market, Key: query.inventory.resource.capacity, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: da923763-4f6e-419b-a40b-6eb5e1b10ac1
+time=2026-02-07T03:09:32.195+02:00 level=INFO msg="Received Query" correlation_id=3e5de971-889c-49c2-bd2b-384e94a69cb3 reply_to=amq.gen-WEvGuZmHPETGRyK048uBmw routing_key=query.gis.geography.check exchange=ex.domain.market body="{\"address\":{\"street\":\"Main St\",\"number\":\"\",\"city\":\"Berlin\",\"zip\":\"\"},\"requestId\":\"46db5522-7af0-4988-9fba-fcdfea243b40\"}"
+time=2026-02-07T03:09:32.195+02:00 level=INFO msg="Received Query" correlation_id=da923763-4f6e-419b-a40b-6eb5e1b10ac1 reply_to=amq.gen-WEvGuZmHPETGRyK048uBmw
+time=2026-02-07T03:09:32.195+02:00 level=INFO msg="[DEBUG] Message received on queue" queue=catalog_rpc_queue routingKey=query.catalog.offering.by_category replyTo=amq.gen-Ttp584Z8gkSCOw2c74JFWQ correlationId=bc936d77-c5a6-472c-9978-3d4cc5fb19e4
+time=2026-02-07T03:09:32.195+02:00 level=INFO msg="Getting offers by category" category=Internet
+time=2026-02-07T03:09:32.195+02:00 level=INFO msg="Unknown query routing key: query.catalog.offering.by_category"
+{"time":"2026-02-07T03:09:32.19817669+02:00","level":"INFO","msg":"Eligibility determined","correlation_id":"e704c3ed-f98b-4ca6-92be-fe66037ca54b","address":"Main St ","status":"Qualified","reason":""}
+[RPC] Publishing to Ex: ex.domain.market, Key: query.catalog.offering.get, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: ee5a664e-4a63-4ac9-8c7e-cfdb90ea435f
+{"time":"2026-02-07T03:09:42.196576276+02:00","level":"WARN","msg":"Failed to calculate price","correlation_id":"e704c3ed-f98b-4ca6-92be-fe66037ca54b","address":"Main St ","offeringId":"2c33e757-7b9b-429e-93e5-ede574623254","error":"failed to get offering: context deadline exceeded"}
+[RPC] Publishing to Ex: ex.domain.market, Key: query.catalog.offering.get, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: 19bf0516-96c0-43bd-9877-a18ca8ec004d
+{"time":"2026-02-07T03:09:42.196774629+02:00","level":"WARN","msg":"Failed to calculate price","correlation_id":"e704c3ed-f98b-4ca6-92be-fe66037ca54b","address":"Main St ","offeringId":"55b88b7c-29d1-454f-8be6-e00e8de8b682","error":"failed to get offering: context deadline exceeded"}
+{"time":"2026-02-07T03:09:42.196794685+02:00","level":"ERROR","msg":"Failed to create session","correlation_id":"e704c3ed-f98b-4ca6-92be-fe66037ca54b","address":"Main St ","error":"failed to create session: context deadline exceeded"}
+    e2e_test.go:510: 
+        	Error Trace:	/home/raino/IdeaProject/tmf/tests/e2e/e2e_test.go:510
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestE2ESuite/Test5_QualificationSession_PremiumDiscount
+        	Messages:   	Session ID should be present in qualification response
+[RPC] Publishing to Ex: ex.domain.market, Key: query.qual.session.get, ReplyTo: amq.gen-du5UJ32e6bjmeCZbIL5Olg, CorrID: 83fc8792-a130-463f-b6be-ea7566ab026f
+2026/02/07 03:09:42 INFO [DEBUG] Message received on queue queue=q.qual.rpc routingKey=query.qual.session.get replyTo=amq.gen-du5UJ32e6bjmeCZbIL5Olg correlationId=83fc8792-a130-463f-b6be-ea7566ab026f
+{"time":"2026-02-07T03:09:42.212865644+02:00","level":"INFO","msg":"Getting qualification session","sessionId":""}
+2026/02/07 03:09:42 ERROR Failed to process message error="session not found: failed to get session: pq: invalid input syntax for type uuid: \"\"" topic=query.qual.session.get
+{"time":"2026-02-07T03:09:42.214428176+02:00","level":"ERROR","msg":"Failed to get session","sessionId":"","error":"failed to get session: pq: invalid input syntax for type uuid: \"\""}
+    e2e_test.go:520: 
+        	Error Trace:	/home/raino/IdeaProject/tmf/tests/e2e/e2e_test.go:520
+        	            				/usr/local/go/src/runtime/asm_amd64.s:1700
+        	Error:      	Received unexpected error:
+        	            	rpc timeout
+        	Test:       	TestE2ESuite/Test5_QualificationSession_PremiumDiscount
+=== RUN   TestE2ESuite/Test6_QualificationSession_StandardPricing
+✅ Seeded customer a10a0913-181c-46a5-9146-6b864d371d61 with tier Standard
+✅ Seeded product offering 4fe308d3-cdd1-44a4-ae18-97c9d38d5d6e with base price 100.00 EUR
+2026/02/07 03:10:15 INFO [DEBUG] Message received on queue queue=q.qual.command routingKey=cmd.qual.eligibility.check replyTo="" correlationId=77d71ed4-2d1b-4ac0-a13c-1b8306205e55
+{"time":"2026-02-07T03:10:15.030436188+02:00","level":"INFO","msg":"Received Check Command","address_street":"Main St","address_city":"Berlin"}
+{"time":"2026-02-07T03:10:15.030482461+02:00","level":"INFO","msg":"Starting eligibility check","correlation_id":"77d71ed4-2d1b-4ac0-a13c-1b8306205e55","address":"Main St "}
+[RPC] Publishing to Ex: catalog_events, Key: query.catalog.offering.by_category, ReplyTo: amq.gen-Ttp584Z8gkSCOw2c74JFWQ, CorrID: 8961e887-a671-4d4c-9df7-933e02ef17c1
+2026/02/07 03:10:15 INFO RPC Call: GetPortCapacity reqID=97086503-bda5-4800-b791-d01c5a0c8745
+2026/02/07 03:10:15 INFO RPC Call: CheckPolygon reqID=94452c8a-2727-4d8c-a811-234feabe720f
+[RPC] Publishing to Ex: ex.domain.market, Key: query.inventory.resource.capacity, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: 4fb12cf5-939d-44a2-b331-b33930700d2a
+[RPC] Publishing to Ex: ex.domain.market, Key: query.gis.geography.check, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: a64480ba-8a7a-491c-8bce-7c700ad5b158
+time=2026-02-07T03:10:15.031+02:00 level=INFO msg="Unknown query routing key: query.catalog.offering.by_category"
+time=2026-02-07T03:10:15.031+02:00 level=INFO msg="[DEBUG] Message received on queue" queue=catalog_rpc_queue routingKey=query.catalog.offering.by_category replyTo=amq.gen-Ttp584Z8gkSCOw2c74JFWQ correlationId=8961e887-a671-4d4c-9df7-933e02ef17c1
+time=2026-02-07T03:10:15.032+02:00 level=INFO msg="Getting offering for pricing" offeringId=""
+time=2026-02-07T03:10:15.032+02:00 level=INFO msg="Received Query" correlation_id=4fb12cf5-939d-44a2-b331-b33930700d2a reply_to=amq.gen-WEvGuZmHPETGRyK048uBmw
+time=2026-02-07T03:10:15.032+02:00 level=INFO msg="Received Query" correlation_id=a64480ba-8a7a-491c-8bce-7c700ad5b158 reply_to=amq.gen-WEvGuZmHPETGRyK048uBmw routing_key=query.gis.geography.check exchange=ex.domain.market body="{\"address\":{\"street\":\"Main St\",\"number\":\"\",\"city\":\"Berlin\",\"zip\":\"\"},\"requestId\":\"94452c8a-2727-4d8c-a811-234feabe720f\"}"
+
+2026/02/07 03:10:15 [31;1m/home/raino/IdeaProject/tmf/services/product-catalog-management/internal/adapter/repository/offering_repo.go:34 [35;1mrecord not found
+[0m[33m[1.467ms] [34;1m[rows:0][0m SELECT * FROM "product_offerings" WHERE id = '' ORDER BY "product_offerings"."id" LIMIT 1
+time=2026-02-07T03:10:15.033+02:00 level=ERROR msg="Failed to get offering" offeringId="" error="record not found"
+time=2026-02-07T03:10:15.033+02:00 level=ERROR msg="Failed to process message" error="offering not found: record not found" topic=query.catalog.offering.get
+{"time":"2026-02-07T03:10:25.030815555+02:00","level":"ERROR","msg":"Catalog Check failed","correlation_id":"77d71ed4-2d1b-4ac0-a13c-1b8306205e55","address":"Main St ","error":"rpc request failed: context deadline exceeded"}
+{"time":"2026-02-07T03:10:25.030916404+02:00","level":"ERROR","msg":"Scatter-Gather failed","correlation_id":"77d71ed4-2d1b-4ac0-a13c-1b8306205e55","address":"Main St ","error":"rpc request failed: context deadline exceeded"}
+    e2e_test.go:565: 
+        	Error Trace:	/home/raino/IdeaProject/tmf/tests/e2e/e2e_test.go:565
+        	Error:      	"{\"qualificationId\":\"c5f307bf-d20d-4d9b-b0d6-7ef42b5cb208\",\"correlationId\":\"77d71ed4-2d1b-4ac0-a13c-1b8306205e55\",\"status\":\"Error\",\"eligibleCategories\":null,\"unavailabilityReason\":\"System Dependency Failed: rpc request failed: context deadline exceeded\"}" does not contain "Qualified"
+        	Test:       	TestE2ESuite/Test6_QualificationSession_StandardPricing
+    e2e_test.go:572: 
+        	Error Trace:	/home/raino/IdeaProject/tmf/tests/e2e/e2e_test.go:572
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestE2ESuite/Test6_QualificationSession_StandardPricing
+        	Messages:   	Session ID should be present in qualification response
+[RPC] Publishing to Ex: ex.domain.market, Key: query.qual.session.get, ReplyTo: amq.gen-aKH2gkl3_QaQrSGbhWQEjQ, CorrID: 7a77705a-943b-4c50-a910-4044c6670b2e
+2026/02/07 03:10:25 INFO [DEBUG] Message received on queue queue=q.qual.rpc routingKey=query.qual.session.get replyTo=amq.gen-aKH2gkl3_QaQrSGbhWQEjQ correlationId=7a77705a-943b-4c50-a910-4044c6670b2e
+{"time":"2026-02-07T03:10:25.047825059+02:00","level":"INFO","msg":"Getting qualification session","sessionId":""}
+2026/02/07 03:10:25 ERROR Failed to process message error="session not found: failed to get session: pq: invalid input syntax for type uuid: \"\"" topic=query.qual.session.get
+{"time":"2026-02-07T03:10:25.049240286+02:00","level":"ERROR","msg":"Failed to get session","sessionId":"","error":"failed to get session: pq: invalid input syntax for type uuid: \"\""}
+    e2e_test.go:582: 
+        	Error Trace:	/home/raino/IdeaProject/tmf/tests/e2e/e2e_test.go:582
+        	            				/usr/local/go/src/runtime/asm_amd64.s:1700
+        	Error:      	Received unexpected error:
+        	            	rpc timeout
+        	Test:       	TestE2ESuite/Test6_QualificationSession_StandardPricing
+=== RUN   TestE2ESuite/Test7_QualificationSession_PriceConsistency
+✅ Seeded customer 5b94ca81-5076-4c34-8358-16a245639c07 with tier VIP
+✅ Seeded product offering d7422842-138a-4a74-846c-54681aa277df with base price 100.00 EUR
+2026/02/07 03:10:57 INFO [DEBUG] Message received on queue queue=q.qual.command routingKey=cmd.qual.eligibility.check replyTo="" correlationId=d298db0a-3a14-46bd-a5a9-1a1d71c0e308
+{"time":"2026-02-07T03:10:57.869761813+02:00","level":"INFO","msg":"Received Check Command","address_street":"Main St","address_city":"Berlin"}
+{"time":"2026-02-07T03:10:57.869819865+02:00","level":"INFO","msg":"Starting eligibility check","correlation_id":"d298db0a-3a14-46bd-a5a9-1a1d71c0e308","address":"Main St "}
+[RPC] Publishing to Ex: catalog_events, Key: query.catalog.offering.by_category, ReplyTo: amq.gen-Ttp584Z8gkSCOw2c74JFWQ, CorrID: b1759c39-5529-4c28-854d-28fa72e71993
+2026/02/07 03:10:57 INFO RPC Call: GetPortCapacity reqID=0e9a3549-67dc-42a4-a2a4-c7c35cc88aa9
+2026/02/07 03:10:57 INFO RPC Call: CheckPolygon reqID=5e2c5bb9-32c8-4afb-988f-d70fbe6e4550
+[RPC] Publishing to Ex: ex.domain.market, Key: query.inventory.resource.capacity, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: 97c1abb5-9e0f-4524-a43d-31531cc011f1
+[RPC] Publishing to Ex: ex.domain.market, Key: query.gis.geography.check, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: 3929f113-52bf-4ac4-ba83-8c607d80ba7a
+time=2026-02-07T03:10:57.871+02:00 level=INFO msg="Received Query" correlation_id=3929f113-52bf-4ac4-ba83-8c607d80ba7a reply_to=amq.gen-WEvGuZmHPETGRyK048uBmw routing_key=query.gis.geography.check exchange=ex.domain.market body="{\"address\":{\"street\":\"Main St\",\"number\":\"\",\"city\":\"Berlin\",\"zip\":\"\"},\"requestId\":\"5e2c5bb9-32c8-4afb-988f-d70fbe6e4550\"}"
+time=2026-02-07T03:10:57.871+02:00 level=INFO msg="Unknown query routing key: query.catalog.offering.by_category"
+time=2026-02-07T03:10:57.871+02:00 level=INFO msg="[DEBUG] Message received on queue" queue=catalog_rpc_queue routingKey=query.catalog.offering.by_category replyTo=amq.gen-Ttp584Z8gkSCOw2c74JFWQ correlationId=b1759c39-5529-4c28-854d-28fa72e71993
+time=2026-02-07T03:10:57.871+02:00 level=INFO msg="Getting offers by category" category=Internet
+time=2026-02-07T03:10:57.871+02:00 level=INFO msg="Received Query" correlation_id=97c1abb5-9e0f-4524-a43d-31531cc011f1 reply_to=amq.gen-WEvGuZmHPETGRyK048uBmw
+{"time":"2026-02-07T03:10:57.873628369+02:00","level":"INFO","msg":"Eligibility determined","correlation_id":"d298db0a-3a14-46bd-a5a9-1a1d71c0e308","address":"Main St ","status":"Qualified","reason":""}
+[RPC] Publishing to Ex: ex.domain.market, Key: query.catalog.offering.get, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: 0c142ea6-26e0-4d71-be1a-45ae46606736
+{"time":"2026-02-07T03:11:10.602660115+02:00","level":"WARN","msg":"Failed to calculate price","correlation_id":"d298db0a-3a14-46bd-a5a9-1a1d71c0e308","address":"Main St ","offeringId":"2c33e757-7b9b-429e-93e5-ede574623254","error":"failed to get offering: context deadline exceeded"}
+[RPC] Publishing to Ex: ex.domain.market, Key: query.catalog.offering.get, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: 0224ee44-9729-4c9e-9983-8664168d51ec
+{"time":"2026-02-07T03:11:10.603242002+02:00","level":"WARN","msg":"Failed to calculate price","correlation_id":"d298db0a-3a14-46bd-a5a9-1a1d71c0e308","address":"Main St ","offeringId":"55b88b7c-29d1-454f-8be6-e00e8de8b682","error":"failed to get offering: context deadline exceeded"}
+[RPC] Publishing to Ex: ex.domain.market, Key: query.catalog.offering.get, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: 4f0b8a00-1a33-47a6-88a8-ef055cd031d4
+{"time":"2026-02-07T03:11:10.60331813+02:00","level":"WARN","msg":"Failed to calculate price","correlation_id":"d298db0a-3a14-46bd-a5a9-1a1d71c0e308","address":"Main St ","offeringId":"4fe308d3-cdd1-44a4-ae18-97c9d38d5d6e","error":"failed to get offering: context deadline exceeded"}
+[RPC] Publishing to Ex: ex.domain.market, Key: query.catalog.offering.get, ReplyTo: amq.gen-WEvGuZmHPETGRyK048uBmw, CorrID: 289f0d9c-f6f9-49b4-866a-6e5319867ec1
+{"time":"2026-02-07T03:11:10.603347509+02:00","level":"WARN","msg":"Failed to calculate price","correlation_id":"d298db0a-3a14-46bd-a5a9-1a1d71c0e308","address":"Main St ","offeringId":"d7422842-138a-4a74-846c-54681aa277df","error":"failed to get offering: context deadline exceeded"}
+{"time":"2026-02-07T03:11:10.603365129+02:00","level":"ERROR","msg":"Failed to create session","correlation_id":"d298db0a-3a14-46bd-a5a9-1a1d71c0e308","address":"Main St ","error":"failed to create session: context deadline exceeded"}
+    e2e_test.go:634: 
+        	Error Trace:	/home/raino/IdeaProject/tmf/tests/e2e/e2e_test.go:634
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestE2ESuite/Test7_QualificationSession_PriceConsistency
+        	Messages:   	Session ID should be present in qualification response
+[RPC] Publishing to Ex: ex.domain.market, Key: query.qual.session.get, ReplyTo: amq.gen-Hc0JOpQsXh1Bv-zTfyf-nw, CorrID: c01051ab-63eb-4c0b-90cd-7c9895666637
+2026/02/07 03:11:10 INFO [DEBUG] Message received on queue queue=q.qual.rpc routingKey=query.qual.session.get replyTo=amq.gen-Hc0JOpQsXh1Bv-zTfyf-nw correlationId=c01051ab-63eb-4c0b-90cd-7c9895666637
+{"time":"2026-02-07T03:11:10.621171106+02:00","level":"INFO","msg":"Getting qualification session","sessionId":""}
+2026/02/07 03:11:10 ERROR Failed to process message error="session not found: failed to get session: pq: invalid input syntax for type uuid: \"\"" topic=query.qual.session.get
+{"time":"2026-02-07T03:11:10.622886688+02:00","level":"ERROR","msg":"Failed to get session","sessionId":"","error":"failed to get session: pq: invalid input syntax for type uuid: \"\""}
+    e2e_test.go:644: 
+        	Error Trace:	/home/raino/IdeaProject/tmf/tests/e2e/e2e_test.go:644
+        	            				/usr/local/go/src/runtime/asm_amd64.s:1700
+        	Error:      	Received unexpected error:
+        	            	rpc timeout
+        	Test:       	TestE2ESuite/Test7_QualificationSession_PriceConsistency
+Stopped product-catalog-management
+Stopped mock-inventory
+Stopped mock-gis
+Stopped mock-billing
+Stopped qualification
+Stopped shopping-cart
+Stopped pocv
+Stopped customer-management
+2026/02/07 03:11:41 🐳 Stopping container: 3ae5b5c6b2da
+2026/02/07 03:11:42 ✅ Container stopped: 3ae5b5c6b2da
+2026/02/07 03:11:42 🐳 Terminating container: 3ae5b5c6b2da
+2026/02/07 03:11:42 🚫 Container terminated: 3ae5b5c6b2da
+2026/02/07 03:11:42 🐳 Stopping container: a3507d0df14a
+2026/02/07 03:11:50 ✅ Container stopped: a3507d0df14a
+2026/02/07 03:11:50 🐳 Terminating container: a3507d0df14a
+2026/02/07 03:11:50 🚫 Container terminated: a3507d0df14a
+--- FAIL: TestE2ESuite (208.74s)
+    --- FAIL: TestE2ESuite/Test1_HappyPath_FiberOrder (10.98s)
+    --- PASS: TestE2ESuite/Test2_UnhappyPath_QualificationFailed (0.02s)
+    --- PASS: TestE2ESuite/Test3_UnhappyPath_PaymentDeclined (1.57s)
+    --- FAIL: TestE2ESuite/Test4_QualificationSession_VIPDiscount (40.10s)
+    --- FAIL: TestE2ESuite/Test5_QualificationSession_PremiumDiscount (40.10s)
+    --- FAIL: TestE2ESuite/Test6_QualificationSession_StandardPricing (40.11s)
+    --- FAIL: TestE2ESuite/Test7_QualificationSession_PriceConsistency (40.12s)
+FAIL
+exit status 1
+FAIL	tmf/tests/e2e	208.768s

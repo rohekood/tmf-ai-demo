@@ -89,7 +89,7 @@ func main() {
 		// For now, generate a temporary ID or use a query param
 		clientID := req.URL.Query().Get("id")
 		if clientID == "" {
-			clientID = "unknown-" + time.Now().String()
+			clientID = "unknown-" + time.Now().UTC().String()
 		}
 
 		// Register with Global Event Hub

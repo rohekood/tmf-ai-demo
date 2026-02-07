@@ -193,8 +193,8 @@ func (c *Client) readPump() {
 	}()
 
 	c.conn.SetReadLimit(512)
-	_ = c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-	c.conn.SetPongHandler(func(string) error { _ = c.conn.SetReadDeadline(time.Now().Add(60 * time.Second)); return nil })
+	_ = c.conn.SetReadDeadline(time.Now().UTC().Add(60 * time.Second))
+	c.conn.SetPongHandler(func(string) error { _ = c.conn.SetReadDeadline(time.Now().UTC().Add(60 * time.Second)); return nil })
 
 	for {
 		_, _, err := c.conn.ReadMessage()
@@ -218,7 +218,7 @@ func (c *Client) writePump() {
 	for {
 		select {
 		case message, ok := <-c.send:
-			_ = c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			_ = c.conn.SetWriteDeadline(time.Now().UTC().Add(10 * time.Second))
 			if !ok {
 				// The hub closed the channel.
 				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
@@ -238,7 +238,7 @@ func (c *Client) writePump() {
 				}
 			}
 		case <-ticker.C:
-			_ = c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			_ = c.conn.SetWriteDeadline(time.Now().UTC().Add(10 * time.Second))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}

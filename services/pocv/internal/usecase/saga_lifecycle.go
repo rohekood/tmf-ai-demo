@@ -56,7 +56,7 @@ func (u *sagaUseCase) StartSaga(ctx context.Context, cartID string) error {
 		Topic:     rabbitmq.CmdInventoryResourceReserve,
 		Payload:   cmdJSON,
 		Status:    "PENDING",
-		CreatedAt: time.Now(),
+		CreatedAt: time.Now().UTC(),
 	}}
 
 	saga := &domain.SagaInstance{
@@ -65,8 +65,8 @@ func (u *sagaUseCase) StartSaga(ctx context.Context, cartID string) error {
 		Status:      domain.SagaStatusInProgress,
 		CurrentStep: domain.StepInventory,
 		Payload:     cartJSON,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
 	}
 
 	return u.repo.Create(ctx, saga, events)
@@ -84,7 +84,7 @@ func (u *sagaUseCase) HandleInventoryReserved(ctx context.Context, sagaID string
 
 	// Transition to Payment
 	saga.CurrentStep = domain.StepPayment
-	saga.UpdatedAt = time.Now()
+	saga.UpdatedAt = time.Now().UTC()
 
 	// Command: Auth Payment
 	// Calculate total from Payload (Cart)
@@ -116,7 +116,7 @@ func (u *sagaUseCase) HandleInventoryFailed(ctx context.Context, sagaID string) 
 	}
 
 	saga.Status = domain.SagaStatusFailed
-	saga.UpdatedAt = time.Now()
+	saga.UpdatedAt = time.Now().UTC()
 
 	// No compensation needed for Inventory Fail (nothing reserved)
 	return u.repo.Update(ctx, saga, nil)
@@ -134,7 +134,7 @@ func (u *sagaUseCase) HandlePaymentAuthorized(ctx context.Context, sagaID string
 
 	// Transition to Order Creation
 	saga.CurrentStep = domain.StepOrderCreation
-	saga.UpdatedAt = time.Now()
+	saga.UpdatedAt = time.Now().UTC()
 
 	// Command: Create Order
 	// Pass full cart payload to Ordering Service
@@ -143,7 +143,7 @@ func (u *sagaUseCase) HandlePaymentAuthorized(ctx context.Context, sagaID string
 		Topic:     rabbitmq.CmdOrderManagementCreate,
 		Payload:   saga.Payload, // Cart is the order payload
 		Status:    "PENDING",
-		CreatedAt: time.Now(),
+		CreatedAt: time.Now().UTC(),
 	}}
 
 	return u.repo.Update(ctx, saga, events)
@@ -156,7 +156,7 @@ func (u *sagaUseCase) HandlePaymentDeclined(ctx context.Context, sagaID string) 
 	}
 
 	saga.Status = domain.SagaStatusCompensating
-	saga.UpdatedAt = time.Now()
+	saga.UpdatedAt = time.Now().UTC()
 
 	// Compensation: Release Inventory
 	cmdPayload := map[string]interface{}{
@@ -183,7 +183,7 @@ func (u *sagaUseCase) HandleOrderCreated(ctx context.Context, sagaID string) err
 	}
 
 	saga.Status = domain.SagaStatusCompleted
-	saga.UpdatedAt = time.Now()
+	saga.UpdatedAt = time.Now().UTC()
 
 	return u.repo.Update(ctx, saga, nil)
 }

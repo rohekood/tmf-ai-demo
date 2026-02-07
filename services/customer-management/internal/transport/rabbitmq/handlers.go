@@ -445,7 +445,7 @@ func (h *Handlers) HandleLogInteraction(ctx context.Context, d amqp.Delivery) er
 	if payload.InteractionDate != "" {
 		interactionDate, _ = time.Parse(time.RFC3339, payload.InteractionDate)
 	} else {
-		interactionDate = time.Now()
+		interactionDate = time.Now().UTC()
 	}
 
 	interaction := &domain.CustomerInteraction{

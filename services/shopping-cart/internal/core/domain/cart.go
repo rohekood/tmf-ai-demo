@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -33,6 +34,20 @@ type CartItem struct {
 	UnitAmount    float64           `json:"unitAmount"`
 	Currency      string            `json:"currency"`
 	ProductConfig map[string]string `json:"productConfig" gorm:"serializer:json"`
+}
+
+func (c CartItem) MarshalJSON() ([]byte, error) {
+	type Alias CartItem
+	return json.Marshal(&struct {
+		Alias
+		Price map[string]interface{} `json:"price"`
+	}{
+		Alias: (Alias)(c),
+		Price: map[string]interface{}{
+			"amount":   c.UnitAmount,
+			"currency": c.Currency,
+		},
+	})
 }
 
 // Events

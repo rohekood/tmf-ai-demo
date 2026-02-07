@@ -31,7 +31,7 @@ func (uc *CreateCatalog) Execute(ctx context.Context, input ports.CreateCatalogI
 		Name:            input.Name,
 		Description:     input.Description,
 		ValidFor:        input.ValidFor,
-		LastUpdate:      time.Now(),
+		LastUpdate:      time.Now().UTC(),
 		LifecycleStatus: "Active", // Default to Active for now, or "Draft"
 	}
 

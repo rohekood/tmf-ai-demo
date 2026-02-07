@@ -65,7 +65,7 @@ func (u *updatePriceUseCase) UpdatePrice(ctx context.Context, cmd ports.UpdateCa
 			Topic:     rabbitmq.EvtCartSessionPriced,
 			Payload:   eventPayload,
 			Status:    "PENDING",
-			CreatedAt: time.Now(),
+			CreatedAt: time.Now().UTC(),
 		},
 	}
 

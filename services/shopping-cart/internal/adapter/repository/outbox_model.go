@@ -45,6 +45,6 @@ func NewOutboxEvent(routingKey string, payload interface{}, headers map[string]s
 		Payload:    data,
 		Headers:    headerBytes,
 		Status:     StatusPending,
-		CreatedAt:  time.Now(),
+		CreatedAt:  time.Now().UTC(),
 	}, nil
 }

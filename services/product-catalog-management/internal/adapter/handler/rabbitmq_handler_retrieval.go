@@ -140,8 +140,9 @@ func (h *RabbitMQHandler) handleListProductOfferings(d amqp.Delivery) {
 
 func (h *RabbitMQHandler) handleGetProductOffering(d amqp.Delivery) {
 	type GetPayload struct {
-		ID     string `json:"id"`
-		Enrich bool   `json:"enrich"`
+		ID         string `json:"id"`
+		OfferingID string `json:"offeringId"` // Support alternate key
+		Enrich     bool   `json:"enrich"`
 	}
 	var payload GetPayload
 	if err := json.Unmarshal(d.Body, &payload); err != nil {
@@ -149,10 +150,15 @@ func (h *RabbitMQHandler) handleGetProductOffering(d amqp.Delivery) {
 		return
 	}
 
+	id := payload.ID
+	if id == "" {
+		id = payload.OfferingID
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	result, err := h.getProductOfferingUC.Execute(ctx, ports.GetProductOfferingInput{ID: payload.ID, Enrich: payload.Enrich})
+	result, err := h.getProductOfferingUC.Execute(ctx, ports.GetProductOfferingInput{ID: id, Enrich: payload.Enrich})
 	if err != nil {
 		log.Printf("Error executing GetProductOffering: %v", err)
 		return

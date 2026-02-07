@@ -146,6 +146,16 @@ func (c *RPCClient) RequestWithHeaders(ctx context.Context, exchange, routingKey
 
 	select {
 	case response := <-responseChan:
+		// Workaround for double-marshaling/Base64 issue
+		if len(response) > 0 && response[0] == '"' {
+			var decoded string
+			if err := json.Unmarshal(response, &decoded); err == nil {
+				// If it was a valid JSON string, use the decoded content (which is the actual JSON object)
+				// If it wasn't a JSON string (e.g. just quote), Unmarshal would fail or return string.
+				// We assume it's the double-marshaled JSON.
+				return []byte(decoded), nil
+			}
+		}
 		return response, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
