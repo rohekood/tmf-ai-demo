@@ -24,7 +24,7 @@ func Chain(h http.Handler, middlewares ...Middleware) http.Handler {
 // LoggerMiddleware logs incoming requests
 func LoggerMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
+		start := time.Now().UTC()
 
 		// Wrap ResponseWriter to capture status code
 		ww := &responseWriterWrapper{ResponseWriter: w, statusCode: http.StatusOK}

@@ -30,9 +30,9 @@ func (r *sessionRepository) Create(ctx context.Context, session *domain.Qualific
 	}
 
 	// Set timestamps
-	session.CreatedAt = time.Now()
+	session.CreatedAt = time.Now().UTC()
 	if session.ExpiresAt.IsZero() {
-		session.ExpiresAt = time.Now().Add(24 * time.Hour)
+		session.ExpiresAt = time.Now().UTC().Add(24 * time.Hour)
 	}
 
 	// Marshal address and qualified offers to JSON
@@ -72,10 +72,10 @@ func (r *sessionRepository) Create(ctx context.Context, session *domain.Qualific
 // Get retrieves a qualification session by ID
 func (r *sessionRepository) Get(ctx context.Context, sessionID string) (*domain.QualificationSession, error) {
 	query := `
-		SELECT id, customer_id, address, qualified_offers, status, created_at, expires_at
-		FROM qualification_sessions
-		WHERE id = $1
-	`
+			SELECT id, customer_id, address, qualified_offers, status, created_at, expires_at
+			FROM qualification_sessions
+			WHERE id = $1
+		`
 
 	var session domain.QualificationSession
 	var addressJSON, offersJSON []byte
@@ -96,6 +96,10 @@ func (r *sessionRepository) Get(ctx context.Context, sessionID string) (*domain.
 	if err != nil {
 		return nil, fmt.Errorf("failed to get session: %w", err)
 	}
+
+	// Use UTC for time comparison
+	session.ExpiresAt = session.ExpiresAt.UTC()
+	session.CreatedAt = session.CreatedAt.UTC()
 
 	// Unmarshal JSON fields
 	if err := json.Unmarshal(addressJSON, &session.Address); err != nil {
@@ -178,11 +182,11 @@ func (r *sessionRepository) FindExpired(ctx context.Context) ([]*domain.Qualific
 	query := `
 		SELECT id, customer_id, address, qualified_offers, status, created_at, expires_at
 		FROM qualification_sessions
-		WHERE expires_at < NOW()
+		WHERE expires_at < $1
 		ORDER BY expires_at ASC
 	`
 
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.db.QueryContext(ctx, query, time.Now().UTC())
 	if err != nil {
 		return nil, fmt.Errorf("failed to query expired sessions: %w", err)
 	}

@@ -44,6 +44,6 @@ func NewOutboxEvent(topic string, payload interface{}, headers map[string]string
 		Payload:   data,
 		Headers:   headerBytes,
 		Status:    StatusPending,
-		CreatedAt: time.Now(),
+		CreatedAt: time.Now().UTC(),
 	}, nil
 }

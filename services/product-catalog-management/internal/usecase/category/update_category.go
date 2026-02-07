@@ -50,7 +50,7 @@ func (uc *UpdateCategoryUseCase) Execute(ctx context.Context, input ports.Update
 		category.LifecycleStatus = *input.LifecycleStatus
 	}
 
-	category.LastUpdate = time.Now()
+	category.LastUpdate = time.Now().UTC()
 
 	if err := category.Validate(); err != nil {
 		return nil, err

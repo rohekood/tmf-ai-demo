@@ -43,7 +43,7 @@ func (uc *UpdateCatalogUseCase) Execute(ctx context.Context, input ports.UpdateC
 		catalog.LifecycleStatus = *input.LifecycleStatus
 	}
 
-	catalog.LastUpdate = time.Now()
+	catalog.LastUpdate = time.Now().UTC()
 
 	// 3. Validate
 	if err := catalog.Validate(); err != nil {

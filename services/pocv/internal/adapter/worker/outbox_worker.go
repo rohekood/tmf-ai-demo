@@ -72,7 +72,7 @@ func (w *OutboxWorker) publishEvent(ctx context.Context, evt *repository.OutboxE
 
 	err := w.publisher.Publish(pubCtx, w.exchangeName, evt.Topic, json.RawMessage(evt.Payload))
 
-	now := time.Now()
+	now := time.Now().UTC()
 	if err != nil {
 		log.Printf("POCV: Failed to publish event %s: %v", evt.ID, err)
 		evt.Status = repository.StatusFailed

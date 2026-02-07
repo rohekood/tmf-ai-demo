@@ -50,7 +50,7 @@ func (uc *UpdateProductSpecificationUseCase) Execute(ctx context.Context, input 
 		spec.Characteristics = input.Characteristics
 	}
 
-	spec.LastUpdate = time.Now()
+	spec.LastUpdate = time.Now().UTC()
 
 	if err := spec.Validate(); err != nil {
 		return nil, err

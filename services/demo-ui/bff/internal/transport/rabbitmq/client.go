@@ -90,7 +90,7 @@ func (c *Client) broadcastRequest(exchange, routingKey string, payload interface
 
 	debugMsg := DebugMessage{
 		ID:        fmt.Sprintf("req-%s-%d", routingKey, time.Now().UnixNano()),
-		Timestamp: time.Now(),
+		Timestamp: time.Now().UTC(),
 		Type:      "request",
 		Topic:     routingKey,
 		Exchange:  exchange,
@@ -111,7 +111,7 @@ func (c *Client) broadcastReply(routingKey string, body []byte) {
 
 	debugMsg := DebugMessage{
 		ID:        fmt.Sprintf("reply-%s-%d", routingKey, time.Now().UnixNano()),
-		Timestamp: time.Now(),
+		Timestamp: time.Now().UTC(),
 		Type:      "reply",
 		Topic:     "rpc.reply",
 		Payload:   payload,

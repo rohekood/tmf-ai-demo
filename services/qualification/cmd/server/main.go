@@ -54,6 +54,16 @@ func main() {
 		logger.Error("Failed to declare exchange", "error", err)
 		os.Exit(1)
 	}
+	// Declare dependency exchanges to ensure they exist before RPC clients use them
+	if err := rmqPub.DeclareTopicExchange("catalog_events", true, false, false, false); err != nil {
+		logger.Error("Failed to declare catalog_events", "error", err)
+		os.Exit(1)
+	}
+	if err := rmqPub.DeclareTopicExchange("customer.events", true, false, false, false); err != nil {
+		logger.Error("Failed to declare customer.events", "error", err)
+		os.Exit(1)
+	}
+
 	eventPub := publisher.NewEventPublisher(rmqPub, "ex.domain.market")
 
 	// 2. Database Migrations
@@ -132,9 +142,33 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Create dedicated RPC client for Catalog Pricing (must use catalog_events exchange)
+	catalogPricingRPCClient, err := rabbitmq.NewRPCClient(rabbitURL, rabbitmq.WithExchange("catalog_events"))
+	if err != nil {
+		logger.Error("Failed to create catalog pricing RPC client", "error", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if err := catalogPricingRPCClient.Close(); err != nil {
+			logger.Error("Failed to close catalog pricing RPC client", "error", err)
+		}
+	}()
+
+	// Create dedicated RPC client for Customer Pricing (must use customer.events exchange)
+	customerPricingRPCClient, err := rabbitmq.NewRPCClient(rabbitURL, rabbitmq.WithExchange("customer.events"))
+	if err != nil {
+		logger.Error("Failed to create customer pricing RPC client", "error", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if err := customerPricingRPCClient.Close(); err != nil {
+			logger.Error("Failed to close customer pricing RPC client", "error", err)
+		}
+	}()
+
 	// Pricing clients for session creation
-	catalogPricingClient := rpc.NewCatalogPricingClient(rpcClient)
-	customerPricingClient := rpc.NewCustomerPricingClient(rpcClient)
+	catalogPricingClient := rpc.NewCatalogPricingClient(catalogPricingRPCClient)
+	customerPricingClient := rpc.NewCustomerPricingClient(customerPricingRPCClient)
 
 	// 5. Initialize UseCase
 	checkUC := usecase.NewCheckEligibility(

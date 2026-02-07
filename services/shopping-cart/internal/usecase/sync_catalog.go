@@ -21,7 +21,7 @@ func (u *syncCatalogUseCase) SyncOffering(ctx context.Context, offeringID string
 		ID:         offeringID,
 		UnitAmount: price,
 		Currency:   currency,
-		UpdatedAt:  time.Now(),
+		UpdatedAt:  time.Now().UTC(),
 	}
 	return u.repo.UpsertPrice(ctx, p)
 }

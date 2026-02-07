@@ -37,12 +37,14 @@ func (h *RPCHandler) HandleGetCustomer(ctx context.Context, payload []byte) erro
 	}
 
 	h.logger.InfoContext(ctx, "Getting customer for pricing", "customerId", req.CustomerID)
+	// fmt.Printf("DEBUG: HandleGetCustomer called with id='%s'\n", req.CustomerID)
 
 	// Get customer from repository
 	customer, err := h.repo.GetCustomer(ctx, req.CustomerID)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "Failed to get customer", "customerId", req.CustomerID, "error", err)
-		return fmt.Errorf("customer not found: %w", err)
+		// Reply with error to avoid client timeout
+		return h.replyError(ctx, err)
 	}
 
 	// Extract tier from customer characteristics
@@ -57,11 +59,7 @@ func (h *RPCHandler) HandleGetCustomer(ctx context.Context, payload []byte) erro
 		"status":  customer.Status,
 	}
 
-	// Marshal response
-	respBytes, err := json.Marshal(response)
-	if err != nil {
-		return fmt.Errorf("failed to marshal response: %w", err)
-	}
+	// fmt.Printf("DEBUG: Sending response object: %v\n", response)
 
 	// Send RPC reply
 	replyTo := ctx.Value(rabbitmq.ContextKeyReplyTo)
@@ -71,7 +69,21 @@ func (h *RPCHandler) HandleGetCustomer(ctx context.Context, payload []byte) erro
 		return fmt.Errorf("missing replyTo or correlationId in context")
 	}
 
-	return h.publisher.PublishToQueue(ctx, replyTo.(string), correlationID.(string), respBytes)
+	return h.publisher.PublishToQueue(ctx, replyTo.(string), correlationID.(string), response)
+}
+
+// replyError sends an error response
+func (h *RPCHandler) replyError(ctx context.Context, err error) error {
+	replyTo := ctx.Value(rabbitmq.ContextKeyReplyTo)
+	correlationID := ctx.Value(rabbitmq.ContextKeyAMQPCorrelationID)
+
+	if replyTo == nil || correlationID == nil {
+		return fmt.Errorf("missing replyTo or correlationId in context")
+	}
+
+	errResponse := map[string]string{"error": err.Error()}
+	// Publisher marshals the body
+	return h.publisher.PublishToQueue(ctx, replyTo.(string), correlationID.(string), errResponse)
 }
 
 // extractTier extracts tier from customer characteristics

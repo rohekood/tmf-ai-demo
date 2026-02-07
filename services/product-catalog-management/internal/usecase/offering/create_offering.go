@@ -40,7 +40,7 @@ func (uc *CreateProductOffering) Execute(ctx context.Context, input ports.Create
 		IsSellable:             input.IsSellable,
 		LifecycleStatus:        input.LifecycleStatus,
 		ValidFor:               input.ValidFor,
-		LastUpdate:             time.Now(),
+		LastUpdate:             time.Now().UTC(),
 		ProductSpecificationID: input.ProductSpecID,
 		CategoryIDs:            input.CategoryIDs,
 		ProductOfferingPrice:   input.Prices,

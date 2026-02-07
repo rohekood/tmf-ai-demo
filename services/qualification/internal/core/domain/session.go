@@ -11,7 +11,7 @@ type QualificationSession struct {
 	QualifiedOffers []QualifiedOffer `json:"qualifiedOffers"`
 	Status          string           `json:"status"` // "QUALIFIED", "UNQUALIFIED", "EXPIRED"
 	CreatedAt       time.Time        `json:"createdAt"`
-	ExpiresAt       time.Time        `json:"-"`
+	ExpiresAt       time.Time        `json:"expiresAt"`
 }
 
 // QualifiedOffer represents an offering that passed qualification

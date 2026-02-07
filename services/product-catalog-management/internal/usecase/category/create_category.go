@@ -33,7 +33,7 @@ func (uc *CreateCategory) Execute(ctx context.Context, input ports.CreateCategor
 		IsRoot:          input.IsRoot,
 		CatalogID:       input.CatalogID,
 		ValidFor:        input.ValidFor,
-		LastUpdate:      time.Now(),
+		LastUpdate:      time.Now().UTC(),
 		LifecycleStatus: "Active",
 	}
 

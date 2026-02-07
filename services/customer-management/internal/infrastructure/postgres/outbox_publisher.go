@@ -41,7 +41,7 @@ func (p *OutboxPublisher) Publish(ctx context.Context, routingKey string, payloa
 		Payload:    bytes,
 		Headers:    headerBytes,
 		Status:     "PENDING",
-		CreatedAt:  time.Now(),
+		CreatedAt:  time.Now().UTC(),
 	}
 
 	return p.repo.Save(ctx, event)

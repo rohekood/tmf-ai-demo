@@ -46,7 +46,7 @@ func main() {
 
 	// Configuration (using defaults or env vars)
 	dbURL := getEnv("POSTGRES_URL", "postgres://postgres:password@localhost:5432/tmf_customer_db?sslmode=disable")
-	rabbitURL := getEnv("RABBIT_URL", "amqp://guest:guest@localhost:5672/")
+	rabbitURL := getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 
 	// 1. Database Migrations
 	runMigrations(dbURL)

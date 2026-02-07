@@ -88,7 +88,7 @@ func (w *OutboxWorker) processEvent(ctx context.Context, event *repository.Outbo
 	}
 
 	err := w.rabbitPublisher.PublishRaw(publishCtx, event.RoutingKey, event.Payload)
-	now := time.Now()
+	now := time.Now().UTC()
 
 	if err != nil {
 		log.Printf("Failed to publish outbox event %s: %v", event.ID, err)
