@@ -95,6 +95,24 @@ func (r *CustomerRepository) PatchCustomer(ctx context.Context, id string, updat
 		}
 		delete(updates, "credit_profiles")
 	}
+	if contacts, ok := updates["contact_mediums"]; ok {
+		if err := tx.Delete(&domain.ContactMedium{}, "customer_id = ?", id).Error; err != nil {
+			return fmt.Errorf("failed to delete old contact mediums: %w", err)
+		}
+		if err := tx.Model(&domain.Customer{ID: id}).Association("ContactMediums").Replace(contacts); err != nil {
+			return fmt.Errorf("failed to replace contact mediums: %w", err)
+		}
+		delete(updates, "contact_mediums")
+	}
+	if chars, ok := updates["characteristics"]; ok {
+		if err := tx.Delete(&domain.CustomerCharacteristic{}, "customer_id = ?", id).Error; err != nil {
+			return fmt.Errorf("failed to delete old characteristics: %w", err)
+		}
+		if err := tx.Model(&domain.Customer{ID: id}).Association("Characteristics").Replace(chars); err != nil {
+			return fmt.Errorf("failed to replace characteristics: %w", err)
+		}
+		delete(updates, "characteristics")
+	}
 	if related, ok := updates["related_parties"]; ok {
 		if err := tx.Delete(&domain.RelatedParty{}, "customer_id = ?", id).Error; err != nil {
 			return fmt.Errorf("failed to delete old related parties: %w", err)

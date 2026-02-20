@@ -1,6 +1,7 @@
 package rabbitmq
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -34,4 +35,31 @@ func TestListener_GetHandler(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestListener_Start(t *testing.T) {
+	if sharedConn == nil {
+		t.Skip("Skipping integration test: sharedConn not initialized")
+	}
+
+	l, err := NewListener(sharedConn)
+	assert.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Start in background
+	errChan := make(chan error)
+	go func() {
+		// Mock handlers
+		h := &Handlers{}
+		errChan <- l.Start(ctx, h)
+	}()
+
+	// Give it a moment to start
+	// In real test we might want to check if queue exists
+
+	// Stop
+	cancel()
+	err = <-errChan
+	assert.NoError(t, err)
 }
