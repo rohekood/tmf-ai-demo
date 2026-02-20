@@ -76,6 +76,7 @@ func JWTMiddleware() Middleware {
 			if !ok || authHeader == "" {
 				return fmt.Errorf("missing Authorization header")
 			}
+			ctx = context.WithValue(ctx, "authorization", authHeader)
 			return next(ctx, d)
 		}
 	}

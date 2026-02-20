@@ -336,8 +336,26 @@ func TestUseCase_UpdateCustomerProfile(t *testing.T) {
 		CreditProfiles: []CreditProfileDTO{
 			{ID: "cp-new", CreditScore: 800, CreditRiskScore: 5},
 		},
-		// Update Tax Exemption (New list)
-
+		// Update Contact Mediums
+		ContactMediums: []ContactMediumDTO{
+			{ID: "cm-new", MediumType: "email", Value: "new@example.com"},
+		},
+		// Update Characteristics
+		Characteristics: []CharacteristicDTO{
+			{ID: "char-new", Name: "Level", Value: "Pro"},
+		},
+		// Update Related Parties
+		RelatedParties: []RelatedPartyDTO{
+			{ID: "rp-new", Name: "Sibling", Role: "Family"},
+		},
+		// Update Payment Methods
+		PaymentMethods: []PaymentMethodDTO{
+			{ID: "pm-new", Type: "Debit", Token: "tok_new"},
+		},
+		// Update Market Segments
+		MarketSegments: []MarketSegmentDTO{
+			{ID: "ms-new", Name: "SME", Category: "Biz"},
+		},
 		// Update Privacy Consent (New list)
 		PrivacyConsents: []PrivacyConsentDTO{
 			{ConsentType: "Marketing", Status: "withdrawn", ValidForStart: time.Now().Format(time.RFC3339)},
