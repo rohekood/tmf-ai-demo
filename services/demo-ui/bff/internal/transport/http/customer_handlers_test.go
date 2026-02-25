@@ -166,3 +166,46 @@ func TestHandler_GetCustomer_EnrichesPartyDetails(t *testing.T) {
 		t.Errorf("Expected partyType 'Individual', got %v", response["partyType"])
 	}
 }
+
+func TestCustomerHandler_PartyEnrichmentErrors(t *testing.T) {
+	mockClient := &MockRPCClient{}
+	handler := NewHandler(mockClient, nil)
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	t.Run("GetCustomer_PartyErr", func(t *testing.T) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+			if routingKey == "query.customer.get" {
+				return []byte(`{"id":"c1", "partyId":"p1"}`), nil
+			}
+			if routingKey == "query.party.get" {
+				return nil, errors.New("party rpc error")
+			}
+			return nil, nil
+		}
+		req := httptest.NewRequest("GET", "/api/customers/c1", nil)
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Errorf("expected 200 got %d", w.Code)
+		}
+	})
+
+	t.Run("CreateCustomer_PartyErr", func(t *testing.T) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+			if routingKey == "cmd.customer.onboard" {
+				return []byte(`{"id":"c1", "partyId":"p1"}`), nil
+			}
+			if routingKey == "query.party.get" {
+				return nil, errors.New("party rpc error")
+			}
+			return nil, nil
+		}
+		req := httptest.NewRequest("POST", "/api/customers", strings.NewReader(`{"partyId":"p1"}`))
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+		if w.Code != http.StatusCreated {
+			t.Errorf("expected 201 got %d", w.Code)
+		}
+	})
+}

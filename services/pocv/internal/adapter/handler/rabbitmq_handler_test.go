@@ -1,0 +1,257 @@
+package handler
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"tmf/pkg/rabbitmq"
+)
+
+type mockSagaUseCase struct {
+	startSaga               func(ctx context.Context, cartID string) error
+	handleInventoryReserved func(ctx context.Context, sagaID string) error
+	handleInventoryFailed   func(ctx context.Context, sagaID string) error
+	handlePaymentAuthorized func(ctx context.Context, sagaID string) error
+	handlePaymentDeclined   func(ctx context.Context, sagaID string) error
+	handleOrderCreated      func(ctx context.Context, sagaID string) error
+}
+
+func (m *mockSagaUseCase) StartSaga(ctx context.Context, cartID string) error {
+	if m.startSaga != nil {
+		return m.startSaga(ctx, cartID)
+	}
+	return nil
+}
+
+func (m *mockSagaUseCase) HandleInventoryReserved(ctx context.Context, sagaID string) error {
+	if m.handleInventoryReserved != nil {
+		return m.handleInventoryReserved(ctx, sagaID)
+	}
+	return nil
+}
+
+func (m *mockSagaUseCase) HandleInventoryFailed(ctx context.Context, sagaID string) error {
+	if m.handleInventoryFailed != nil {
+		return m.handleInventoryFailed(ctx, sagaID)
+	}
+	return nil
+}
+
+func (m *mockSagaUseCase) HandlePaymentAuthorized(ctx context.Context, sagaID string) error {
+	if m.handlePaymentAuthorized != nil {
+		return m.handlePaymentAuthorized(ctx, sagaID)
+	}
+	return nil
+}
+
+func (m *mockSagaUseCase) HandlePaymentDeclined(ctx context.Context, sagaID string) error {
+	if m.handlePaymentDeclined != nil {
+		return m.handlePaymentDeclined(ctx, sagaID)
+	}
+	return nil
+}
+
+func (m *mockSagaUseCase) HandleOrderCreated(ctx context.Context, sagaID string) error {
+	if m.handleOrderCreated != nil {
+		return m.handleOrderCreated(ctx, sagaID)
+	}
+	return nil
+}
+
+func TestHandleSagaEvent(t *testing.T) {
+	uc := &mockSagaUseCase{}
+	h := NewRabbitMQHandler(uc)
+
+	tests := []struct {
+		name       string
+		routingKey string
+		payload    []byte
+	}{
+		{"OrderCheckoutSubmit", rabbitmq.CmdOrderCheckoutSubmit, []byte(`{"cartId": "c1"}`)},
+		{"InventoryReserved", rabbitmq.EvtInventoryResourceReserved, []byte(`{"orderId": "o1"}`)},
+		{"InventoryFailed", rabbitmq.EvtInventoryResourceFailed, []byte(`{"orderId": "o1"}`)},
+		{"PaymentAuthorized", rabbitmq.EvtPaymentTransactionAuthorized, []byte(`{"sagaId": "s1"}`)},
+		{"PaymentDeclined", rabbitmq.EvtPaymentTransactionDeclined, []byte(`{"sagaId": "s1"}`)},
+		{"OrderCreated", rabbitmq.EvtOrderManagementCreated, []byte(`{"orderId": "o1"}`)},
+		{"Unknown", "unknown.key", []byte(`{}`)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), rabbitmq.ContextKeyRoutingKey, tt.routingKey)
+			err := h.HandleSagaEvent(ctx, tt.payload)
+			if err != nil {
+				t.Errorf("HandleSagaEvent() unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestHandleSubmitOrder(t *testing.T) {
+	tests := []struct {
+		name        string
+		payload     []byte
+		mockErr     error
+		expectError bool
+	}{
+		{"Success", []byte(`{"cartId": "c1"}`), nil, false},
+		{"UnmarshalError", []byte(`invalid`), nil, false}, // Returns nil on unmarshal err
+		{"UseCaseError", []byte(`{"cartId": "c1"}`), errors.New("err"), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uc := &mockSagaUseCase{
+				startSaga: func(ctx context.Context, cartID string) error {
+					return tt.mockErr
+				},
+			}
+			h := NewRabbitMQHandler(uc)
+			err := h.HandleSubmitOrder(context.Background(), tt.payload)
+			if (err != nil) != tt.expectError {
+				t.Errorf("HandleSubmitOrder() error = %v, expectError %v", err, tt.expectError)
+			}
+		})
+	}
+}
+
+func TestHandleInventoryReserved(t *testing.T) {
+	tests := []struct {
+		name        string
+		payload     []byte
+		mockErr     error
+		expectError bool
+	}{
+		{"Success", []byte(`{"orderId": "o1"}`), nil, false},
+		{"UnmarshalError", []byte(`invalid`), nil, false},
+		{"UseCaseError", []byte(`{"orderId": "o1"}`), errors.New("err"), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uc := &mockSagaUseCase{
+				handleInventoryReserved: func(ctx context.Context, sagaID string) error {
+					return tt.mockErr
+				},
+			}
+			h := NewRabbitMQHandler(uc)
+			err := h.HandleInventoryReserved(context.Background(), tt.payload)
+			if (err != nil) != tt.expectError {
+				t.Errorf("HandleInventoryReserved() error = %v, expectError %v", err, tt.expectError)
+			}
+		})
+	}
+}
+
+func TestHandleInventoryFailed(t *testing.T) {
+	tests := []struct {
+		name        string
+		payload     []byte
+		mockErr     error
+		expectError bool
+	}{
+		{"Success", []byte(`{"orderId": "o1"}`), nil, false},
+		{"UnmarshalError", []byte(`invalid`), nil, false},
+		{"UseCaseError", []byte(`{"orderId": "o1"}`), errors.New("err"), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uc := &mockSagaUseCase{
+				handleInventoryFailed: func(ctx context.Context, sagaID string) error {
+					return tt.mockErr
+				},
+			}
+			h := NewRabbitMQHandler(uc)
+			err := h.HandleInventoryFailed(context.Background(), tt.payload)
+			if (err != nil) != tt.expectError {
+				t.Errorf("HandleInventoryFailed() error = %v, expectError %v", err, tt.expectError)
+			}
+		})
+	}
+}
+
+func TestHandlePaymentAuthorized(t *testing.T) {
+	tests := []struct {
+		name        string
+		payload     []byte
+		mockErr     error
+		expectError bool
+	}{
+		{"Success", []byte(`{"sagaId": "s1"}`), nil, false},
+		{"UnmarshalError", []byte(`invalid`), nil, false},
+		{"UseCaseError", []byte(`{"sagaId": "s1"}`), errors.New("err"), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uc := &mockSagaUseCase{
+				handlePaymentAuthorized: func(ctx context.Context, sagaID string) error {
+					return tt.mockErr
+				},
+			}
+			h := NewRabbitMQHandler(uc)
+			err := h.HandlePaymentAuthorized(context.Background(), tt.payload)
+			if (err != nil) != tt.expectError {
+				t.Errorf("HandlePaymentAuthorized() error = %v, expectError %v", err, tt.expectError)
+			}
+		})
+	}
+}
+
+func TestHandlePaymentDeclined(t *testing.T) {
+	tests := []struct {
+		name        string
+		payload     []byte
+		mockErr     error
+		expectError bool
+	}{
+		{"Success", []byte(`{"sagaId": "s1"}`), nil, false},
+		{"UnmarshalError", []byte(`invalid`), nil, false},
+		{"UseCaseError", []byte(`{"sagaId": "s1"}`), errors.New("err"), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uc := &mockSagaUseCase{
+				handlePaymentDeclined: func(ctx context.Context, sagaID string) error {
+					return tt.mockErr
+				},
+			}
+			h := NewRabbitMQHandler(uc)
+			err := h.HandlePaymentDeclined(context.Background(), tt.payload)
+			if (err != nil) != tt.expectError {
+				t.Errorf("HandlePaymentDeclined() error = %v, expectError %v", err, tt.expectError)
+			}
+		})
+	}
+}
+
+func TestHandleOrderCreated(t *testing.T) {
+	tests := []struct {
+		name        string
+		payload     []byte
+		mockErr     error
+		expectError bool
+	}{
+		{"Success", []byte(`{"orderId": "o1"}`), nil, false},
+		{"UnmarshalError", []byte(`invalid`), nil, false},
+		{"UseCaseError", []byte(`{"orderId": "o1"}`), errors.New("err"), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uc := &mockSagaUseCase{
+				handleOrderCreated: func(ctx context.Context, sagaID string) error {
+					return tt.mockErr
+				},
+			}
+			h := NewRabbitMQHandler(uc)
+			err := h.HandleOrderCreated(context.Background(), tt.payload)
+			if (err != nil) != tt.expectError {
+				t.Errorf("HandleOrderCreated() error = %v, expectError %v", err, tt.expectError)
+			}
+		})
+	}
+}

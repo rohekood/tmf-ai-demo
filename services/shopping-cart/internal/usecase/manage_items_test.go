@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"context"
 	"testing"
+	"errors"
 
 	"tmf/services/shopping-cart/internal/core/domain"
 	"tmf/services/shopping-cart/internal/usecase"
@@ -141,5 +142,40 @@ func TestManageItemsUseCase_AddItem(t *testing.T) {
 		// Assert
 		assert.NoError(t, err)
 		mockRepo.AssertExpectations(t)
+	})
+	t.Run("Should handle Get Cart error", func(t *testing.T) {
+		mockRepo := new(MockCartRepository)
+		mockQual := new(MockQualificationClient)
+		uc := usecase.NewManageItemsUseCase(mockRepo, mockQual)
+		mockRepo.On("Get", ctx, "cart-1").Return((*domain.Cart)(nil), errors.New("db error"))
+		err := uc.AddItem(ctx, "cart-1", "off-1", "", 1)
+		assert.Error(t, err)
+	})
+
+	t.Run("Should handle Get Qualification error", func(t *testing.T) {
+		mockRepo := new(MockCartRepository)
+		mockQual := new(MockQualificationClient)
+		uc := usecase.NewManageItemsUseCase(mockRepo, mockQual)
+		
+		cart := &domain.Cart{ID: "cart-1", Status: "Active"}
+		mockRepo.On("Get", ctx, "cart-1").Return(cart, nil)
+		mockQual.On("GetSession", ctx, "sess-1").Return((usecase.QualificationSession)(nil), errors.New("rpc error"))
+		
+		err := uc.AddItem(ctx, "cart-1", "off-1", "sess-1", 1)
+		assert.Error(t, err)
+	})
+
+	t.Run("Should handle Save error", func(t *testing.T) {
+		mockRepo := new(MockCartRepository)
+		mockQual := new(MockQualificationClient)
+		uc := usecase.NewManageItemsUseCase(mockRepo, mockQual)
+		
+		cart := &domain.Cart{ID: "cart-1", Status: "Active"}
+		mockRepo.On("Get", ctx, "cart-1").Return(cart, nil)
+		mockRepo.On("GetPrice", ctx, "off-1").Return(&domain.ProductPrice{UnitAmount: 10.0, Currency: "USD"}, nil)
+		mockRepo.On("Save", ctx, mock.Anything, mock.Anything).Return(errors.New("db error"))
+		
+		err := uc.AddItem(ctx, "cart-1", "off-1", "", 1)
+		assert.Error(t, err)
 	})
 }

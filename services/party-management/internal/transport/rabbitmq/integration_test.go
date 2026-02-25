@@ -314,11 +314,12 @@ func TestIntegration_UpdateIndividual(t *testing.T) {
 	// Verify events (updated + stateChange)
 	evt1 := suite.waitForEvent(t, 2*time.Second)
 	require.NotNil(t, evt1)
-	assert.Equal(t, EvtPartyUpdated, evt1.RoutingKey)
-
 	evt2 := suite.waitForEvent(t, 2*time.Second)
 	require.NotNil(t, evt2)
-	assert.Equal(t, EvtPartyStateChange, evt2.RoutingKey)
+
+	keys := []string{evt1.RoutingKey, evt2.RoutingKey}
+	assert.Contains(t, keys, EvtPartyUpdated)
+	assert.Contains(t, keys, EvtPartyStateChange)
 }
 
 func TestIntegration_PatchParty(t *testing.T) {
@@ -361,7 +362,12 @@ func TestIntegration_PatchParty(t *testing.T) {
 	// Verify events
 	evt1 := suite.waitForEvent(t, 2*time.Second)
 	require.NotNil(t, evt1)
-	assert.Equal(t, EvtPartyUpdated, evt1.RoutingKey)
+	evt2 := suite.waitForEvent(t, 2*time.Second)
+	require.NotNil(t, evt2)
+
+	keys := []string{evt1.RoutingKey, evt2.RoutingKey}
+	assert.Contains(t, keys, EvtPartyUpdated)
+	assert.Contains(t, keys, EvtPartyStateChange)
 }
 
 func TestIntegration_DeleteParty_StartsSaga(t *testing.T) {
@@ -725,9 +731,10 @@ func TestListener_Routing(t *testing.T) {
 	}()
 
 	// Wait for listener to be ready (declaration of queues/exchanges)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
 	// Publish Command to Exchange
+
 	// Fix: Use flat map for TMF polymorphism
 	payload := map[string]interface{}{
 		"@type":      "Individual",

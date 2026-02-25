@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -22,25 +23,33 @@ import (
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx, os.Getenv); err != nil {
+		slog.Error("Fatal error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context, getEnv func(string) string) error {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
 	// 1. Config
-	rabbitURL := os.Getenv("RABBITMQ_URL")
+	rabbitURL := getEnv("RABBITMQ_URL")
 	if rabbitURL == "" {
 		rabbitURL = "amqp://guest:guest@localhost:5672/"
 	}
-	dbURL := os.Getenv("DB_URL")
+	dbURL := getEnv("DB_URL")
 	if dbURL == "" {
-		slog.Error("DB_URL environment variable is required")
-		os.Exit(1)
+		return fmt.Errorf("DB_URL environment variable is required")
 	}
 
 	// 2. Database Connection
 	db, err := gorm.Open(gormPostgres.Open(dbURL), &gorm.Config{})
 	if err != nil {
-		slog.Error("Failed to connect to database", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
 	// 3. Database Migrations
@@ -49,33 +58,25 @@ func main() {
 		dbURL,
 	)
 	if err != nil {
-		slog.Error("failed to initialize migrations", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to initialize migrations: %w", err)
 	}
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		slog.Error("failed to run migrations", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 	slog.Info("database migrations applied successfully")
 
 	// 4. Infrastructure (RabbitMQ)
 	pub, err := rabbitmq.NewPublisher(rabbitURL)
 	if err != nil {
-		slog.Error("Failed to create publisher", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create publisher: %w", err)
 	}
-	defer func() {
-		if err := pub.Close(); err != nil {
-			slog.Error("Failed to close publisher", "error", err)
-		}
-	}()
+	defer func() { _ = pub.Close() }()
+
 	if err := pub.DeclareTopicExchange("ex.domain.commerce", true, false, false, false); err != nil {
-		slog.Error("Failed to declare exchange", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to declare exchange: %w", err)
 	}
 	if err := pub.DeclareTopicExchange("ex.domain.market", true, false, false, false); err != nil {
-		slog.Error("Failed to declare market exchange", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to declare market exchange: %w", err)
 	}
 
 	// 5. Layers
@@ -84,8 +85,7 @@ func main() {
 	// 5.1 Create RPC client for qualification service
 	rpcClient, err := rabbitmq.NewRPCClient(rabbitURL)
 	if err != nil {
-		slog.Error("Failed to create RPC client", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create RPC client: %w", err)
 	}
 	defer func() { _ = rpcClient.Close() }()
 
@@ -105,65 +105,41 @@ func main() {
 	// 7. Listener (Commands)
 	consumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.commerce", "q.cart.commands")
 	if err != nil {
-		slog.Error("Failed to create consumer", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create consumer: %w", err)
 	}
-	defer func() {
-		if err := consumer.Close(); err != nil {
-			slog.Error("Failed to close consumer", "error", err)
-		}
-	}()
+	defer func() { _ = consumer.Close() }()
 
-	// Bindings
 	if err := consumer.Subscribe(rabbitmq.CmdCartItemAdd, h.HandleAddItem); err != nil {
-		slog.Error("Failed to subscribe", "topic", rabbitmq.CmdCartItemAdd, "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to subscribe cmds: %w", err)
 	}
 
 	// 8. Listener (Catalog Replication)
 	catalogConsumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.catalog", "q.cart.catalog.sync")
 	if err != nil {
-		slog.Error("Failed to create catalog consumer", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create catalog consumer: %w", err)
 	}
-	defer func() {
-		if err := catalogConsumer.Close(); err != nil {
-			slog.Error("Failed to close catalogConsumer", "error", err)
-		}
-	}()
+	defer func() { _ = catalogConsumer.Close() }()
 
 	if err := catalogConsumer.Subscribe("evt.catalog.offering.#", h.HandleCatalogEvent); err != nil {
-		slog.Error("Failed to subscribe catalog events", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to subscribe catalog events: %w", err)
 	}
 
 	// 9. Listener (RPC Queries)
-	// We use the same Exchange but different queue for RPC queries
 	rpcConsumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.commerce", "q.cart.rpc.v2")
 	if err != nil {
-		slog.Error("Failed to create rpc consumer", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create rpc consumer: %w", err)
 	}
-	defer func() {
-		if err := rpcConsumer.Close(); err != nil {
-			slog.Error("Failed to close rpcConsumer", "error", err)
-		}
-	}()
+	defer func() { _ = rpcConsumer.Close() }()
 
-	// Bind Query Topic (Assuming defined in pkg or string literal)
-	// "query.cart.session.get"
 	if err := rpcConsumer.Subscribe("query.cart.session.get", h.HandleGetCart); err != nil {
-		slog.Error("Failed to subscribe rpc", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to subscribe rpc: %w", err)
 	}
 
 	// 10. Start
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
 	go outboxWorker.Start(ctx)
 
 	slog.Info("Shopping Cart Service Started")
 	<-ctx.Done()
 	slog.Info("Shutting down...")
+	return nil
 }

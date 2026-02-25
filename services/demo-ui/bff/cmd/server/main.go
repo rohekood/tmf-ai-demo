@@ -26,12 +26,20 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+var (
+	newClientFunc = rabbitmq.NewClient
+	newConsumerFunc = rabbitmqpkg.NewConsumer
+	listenAndServeFunc = func(srv *http.Server) error { return srv.ListenAndServe() }
+	newAuthValidatorFunc = auth.NewAuth0Validator
+	startDebugConsumerFunc = func(dc *rabbitmq.DebugConsumer, exchange string) error { return dc.StartSubscribing(exchange) }
+)
+
 func main() {
 	// 0. Load Config
 	cfg := config.Load()
 
 	// 1. Initialize RabbitMQ RPC Client
-	rpcClient, err := rabbitmq.NewClient(cfg.RabbitMQURL)
+	rpcClient, err := newClientFunc(cfg.RabbitMQURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
 	}
@@ -41,7 +49,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	// 3. Initialize Auth Validator (used by both WebSocket and API routes)
-	authValidator, err := auth.NewAuth0Validator(cfg.Auth0Domain, cfg.Auth0Audience)
+	authValidator, err := newAuthValidatorFunc(cfg.Auth0Domain, cfg.Auth0Audience)
 	if err != nil {
 		log.Fatalf("Failed to initialize auth validator: %v", err)
 	}
@@ -55,7 +63,7 @@ func main() {
 	eventHub := events.NewHub()
 
 	// 4c. Start RabbitMQ Consumer for Events
-	eventConsumer, err := rabbitmqpkg.NewConsumer(cfg.RabbitMQURL, "catalog_events", "q.bff.events")
+	eventConsumer, err := newConsumerFunc(cfg.RabbitMQURL, "catalog_events", "q.bff.events")
 	if err != nil {
 		log.Fatalf("Failed to create Event Consumer: %v", err)
 	}
@@ -67,7 +75,7 @@ func main() {
 	// 6. Initialize Debug Consumer
 	debugConsumer := rabbitmq.NewDebugConsumer(rpcClient, hub)
 	go func() {
-		if err := debugConsumer.StartSubscribing("tmf.events"); err != nil {
+		if err := startDebugConsumerFunc(debugConsumer, "tmf.events"); err != nil {
 			log.Printf("Failed to start debug subscriber: %v", err)
 		}
 	}()
@@ -140,7 +148,7 @@ func main() {
 	// it won't block the graceful shutdown handling below
 	go func() {
 		log.Printf("BFF Server listening on port %s", cfg.Port)
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := listenAndServeFunc(srv); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("listen: %s\n", err)
 		}
 	}()

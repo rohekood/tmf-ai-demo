@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"tmf/pkg/rabbitmq"
 	"tmf/services/qualification/internal/core/domain"
 	"tmf/services/qualification/internal/core/ports"
 
@@ -14,10 +13,10 @@ import (
 )
 
 type rabbitGISClient struct {
-	rpc *rabbitmq.RPCClient
+	rpc Requester
 }
 
-func NewGISClient(rpc *rabbitmq.RPCClient) ports.GISClient {
+func NewGISClient(rpc Requester) ports.GISClient {
 	return &rabbitGISClient{rpc: rpc}
 }
 

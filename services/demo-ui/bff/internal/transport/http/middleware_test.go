@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"log/slog"
 	"net/http"
+	"bufio"
+	"net"
 	"net/http/httptest"
 	"testing"
 )
@@ -200,4 +202,31 @@ func searchString(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+type mockHijacker struct {
+	http.ResponseWriter
+	hijacked bool
+}
+
+func (m *mockHijacker) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	m.hijacked = true
+	return nil, nil, nil
+}
+
+func TestResponseWriter_Hijack(t *testing.T) {
+	mockWriter := &mockHijacker{}
+	w := &responseWriterWrapper{ResponseWriter: mockWriter}
+	_, _, _ = w.Hijack()
+	if !mockWriter.hijacked {
+		t.Error("expected Hijack to be called")
+	}
+}
+
+func TestResponseWriter_Hijack_NotSupported(t *testing.T) {
+	w := &responseWriterWrapper{ResponseWriter: httptest.NewRecorder()}
+	_, _, err := w.Hijack()
+	if err == nil {
+		t.Error("expected error for unsupported Hijack")
+	}
 }

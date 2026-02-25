@@ -5,16 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"tmf/pkg/rabbitmq"
 	"tmf/services/qualification/internal/core/ports"
 )
 
 type catalogPricingClient struct {
-	rpc *rabbitmq.RPCClient
+	rpc Requester
 }
 
 // NewCatalogPricingClient creates a new RPC client for product catalog pricing
-func NewCatalogPricingClient(rpc *rabbitmq.RPCClient) ports.CatalogPricingClient {
+func NewCatalogPricingClient(rpc Requester) ports.CatalogPricingClient {
 	return &catalogPricingClient{rpc: rpc}
 }
 

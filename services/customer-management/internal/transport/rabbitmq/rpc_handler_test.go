@@ -78,3 +78,42 @@ func TestRPCHandler_ExtractHelpers(t *testing.T) {
 	c4 := &domain.Customer{}
 	assert.Equal(t, "Residential", extractSegment(c4)) // Default
 }
+
+type MockConsumer struct {
+	mock.Mock
+}
+
+func (m *MockConsumer) Subscribe(routingKey string, handler rabbitmq.ConsumerHandler) error {
+	args := m.Called(routingKey, handler)
+	return args.Error(0)
+}
+
+func (m *MockConsumer) Start(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockConsumer) Close() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+func TestRPCHandler_BindRPCHandlers(t *testing.T) {
+	mockRepo := new(MockRepository)
+	mockPub := new(MockPublisher)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	h := NewRPCHandler(mockRepo, mockPub, logger)
+
+	mockConsumer := new(MockConsumer)
+	mockConsumer.On("Subscribe", "query.customer.get", mock.Anything).Return(errors.New("sub error")).Once()
+	err := h.BindRPCHandlers(mockConsumer)
+	assert.Error(t, err)
+
+	mockConsumer2 := new(MockConsumer)
+	mockConsumer2.On("Subscribe", "query.customer.get", mock.Anything).Return(nil)
+	err = h.BindRPCHandlers(mockConsumer2)
+	assert.NoError(t, err)
+
+	mockConsumer.AssertExpectations(t)
+}

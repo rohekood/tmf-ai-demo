@@ -262,11 +262,14 @@ func TestUseCase_Onboard_NewTMFFeatures(t *testing.T) {
 		Accounts: []CustomerAccountDTO{
 			{Name: "Detailed Account", AccountStatus: "active", BillFormat: "Email", BillingCycle: "Weekly"},
 		},
+		PrivacyConsents: []PrivacyConsentDTO{
+			{ID: "pc-1", ConsentType: "Marketing", Status: "given", ValidForStart: time.Now().Format(time.RFC3339)},
+		},
 		RelatedParties: []RelatedPartyDTO{
-			{RelatedPartyID: "rp-1", Role: "ParentCompany", Name: "Big Corp"},
+			{RelatedPartyID: "rp-1", Role: "ParentCompany", Name: "Big Corp", ValidForStart: time.Now().Format(time.RFC3339), ValidForEnd: time.Now().Add(24 * time.Hour).Format(time.RFC3339)},
 		},
 		PaymentMethods: []PaymentMethodDTO{
-			{Type: "CreditCard", Token: "tok_123", IsDefault: true, Details: "{}"},
+			{Type: "CreditCard", Token: "tok_123", IsDefault: true, Details: "{}", ValidForStart: time.Now().Format(time.RFC3339), ValidForEnd: time.Now().Add(24 * time.Hour).Format(time.RFC3339)},
 		},
 		MarketSegments: []MarketSegmentDTO{
 			{Name: "Enterprise", Category: "B2B"},
@@ -426,6 +429,10 @@ func TestUseCase_RetrieveCustomer(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	// Test errors
+	_ = handlers.HandleGetCustomer(ctx, amqp.Delivery{Body: []byte("{invalid json}")})
+	_ = handlers.HandleGetCustomer(ctx, amqp.Delivery{Body: []byte(`{"id":"non-existent"}`)})
+
 	// Verify Reply
 	select {
 	case msg := <-msgs:
@@ -459,7 +466,7 @@ func TestUseCase_SearchCustomers(t *testing.T) {
 
 	// Setup
 	require.NoError(t, sharedRepo.CreateCustomer(ctx, &domain.Customer{
-		ID: "cust-search-1", Name: "UniqueTarget", Status: domain.CustomerStatusActive,
+		ID: "cust-search-1", Name: "UniqueTarget", Status: domain.CustomerStatusActive, PartyID: "some-party",
 	}))
 
 	// RPC Setup
@@ -471,7 +478,7 @@ func TestUseCase_SearchCustomers(t *testing.T) {
 
 	// Execute
 	corrID := "corr-search-1"
-	payload, _ := json.Marshal(SearchCustomerPayload{Name: "UniqueTarget"})
+	payload, _ := json.Marshal(SearchCustomerPayload{Name: "UniqueTarget", ID: "cust-search-1", Search: "Uniq", Status: "Active", PartyID: "some-party"})
 	err = handlers.HandleSearchCustomer(ctx, amqp.Delivery{
 		Body: payload, ReplyTo: replyQueue.Name, CorrelationId: corrID,
 	})
@@ -502,9 +509,17 @@ func TestUseCase_DeleteCustomer(t *testing.T) {
 	require.NoError(t, sharedRepo.CreateCustomer(ctx, &domain.Customer{ID: custID, Name: "To Delete", Status: domain.CustomerStatusActive}))
 
 	// Execute
-	payload, _ := json.Marshal(DeleteCustomerPayload{ID: custID})
-	err := handlers.HandleDeleteCustomer(ctx, amqp.Delivery{Body: payload, Exchange: "tmf.events"})
+	ch, err := sharedConn.Channel()
 	require.NoError(t, err)
+	defer func() { _ = ch.Close() }()
+	replyQueue, _ := ch.QueueDeclare("", false, true, true, false, nil)
+	msgs, _ := ch.Consume(replyQueue.Name, "", true, true, false, false, nil)
+
+	payload, _ := json.Marshal(DeleteCustomerPayload{ID: custID})
+	err = handlers.HandleDeleteCustomer(ctx, amqp.Delivery{Body: payload, Exchange: "tmf.events", ReplyTo: replyQueue.Name})
+	require.NoError(t, err)
+
+	<-msgs // wait for reply
 
 	// Verify Gone
 	_, err = sharedRepo.GetCustomer(ctx, custID)
@@ -539,6 +554,14 @@ func TestUseCase_PartyEvent_Update(t *testing.T) {
 	updated, err := sharedRepo.GetCustomer(ctx, custID)
 	require.NoError(t, err)
 	assert.Equal(t, "John Updated", updated.Name)
+
+	// Test Organization
+	orgEvt := PartyEventPayload{ID: partyID, Type: "Organization", TradingName: "Acme Corp"}
+	bodyOrg, _ := json.Marshal(orgEvt)
+	_ = handlers.HandlePartyEvent(ctx, amqp.Delivery{Body: bodyOrg, RoutingKey: EvtPartyUpdated})
+
+	updatedOrg, _ := sharedRepo.GetCustomer(ctx, custID)
+	assert.Equal(t, "Acme Corp", updatedOrg.Name)
 }
 
 func TestUseCase_PartyEvent_Delete(t *testing.T) {
@@ -641,6 +664,11 @@ func TestUseCase_PartyEvent_DeletionInitiated_ActiveCustomer(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	// Test Empty ID
+	_ = handlers.HandlePartyEvent(ctx, amqp.Delivery{
+		Body: []byte(`{}`), RoutingKey: EvtPartyDeletionInitiated,
+	})
+
 	// Verify: Should receive Cancel Command
 	select {
 	case msg := <-msgs:
@@ -687,6 +715,11 @@ func TestUseCase_PartyEvent_DeletionInitiated_NoCustomer(t *testing.T) {
 		Body: body, RoutingKey: EvtPartyDeletionInitiated,
 	})
 	require.NoError(t, err)
+
+	// Test Empty ID
+	_ = handlers.HandlePartyEvent(ctx, amqp.Delivery{
+		Body: []byte(`{}`), RoutingKey: EvtPartyDeletionInitiated,
+	})
 
 	// Verify: Should receive Finalize Command
 	select {

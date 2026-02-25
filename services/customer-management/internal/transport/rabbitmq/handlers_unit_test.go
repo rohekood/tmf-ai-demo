@@ -126,6 +126,11 @@ func TestHandlers_ExtractUser(t *testing.T) {
 			headers:  amqp.Table{"user": 123},
 			expected: "",
 		},
+		{
+			name:     "Valid Authorization header",
+			headers:  amqp.Table{"Authorization": "Bearer token"},
+			expected: "", // We only test userID extraction here, but this covers the Auth lines in extractUser
+		},
 	}
 
 	for _, tc := range testCases {

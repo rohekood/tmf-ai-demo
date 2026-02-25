@@ -48,9 +48,9 @@ func TestQualificationClient_GetSession(t *testing.T) {
 			QualifiedOffering: []rpc.QualifiedOfferingWithPrice{
 				{
 					OfferingID: "offering-1",
-					Price:      80.0,
-					Currency:   "EUR",
-					Eligible:   true,
+					PriceInfo: rpc.PriceInfo{Amount: 80.0, Currency: "EUR"},
+					
+					Eligible:   "QUALIFIED",
 				},
 			},
 			ExpiresAt: time.Now().Add(1 * time.Hour),
@@ -149,15 +149,15 @@ func TestQualificationSession_GetOfferingPrice(t *testing.T) {
 			QualifiedOffering: []rpc.QualifiedOfferingWithPrice{
 				{
 					OfferingID: "offering-1",
-					Price:      80.0,
-					Currency:   "EUR",
-					Eligible:   true,
+					PriceInfo: rpc.PriceInfo{Amount: 80.0, Currency: "EUR"},
+					
+					Eligible:   "QUALIFIED",
 				},
 				{
 					OfferingID: "offering-2",
-					Price:      90.0,
-					Currency:   "EUR",
-					Eligible:   true,
+					PriceInfo: rpc.PriceInfo{Amount: 90.0, Currency: "EUR"},
+					
+					Eligible:   "QUALIFIED",
 				},
 			},
 		}
@@ -178,9 +178,9 @@ func TestQualificationSession_GetOfferingPrice(t *testing.T) {
 			QualifiedOffering: []rpc.QualifiedOfferingWithPrice{
 				{
 					OfferingID: "offering-1",
-					Price:      100.0,
-					Currency:   "EUR",
-					Eligible:   false,
+					PriceInfo: rpc.PriceInfo{Amount: 100.0, Currency: "EUR"},
+					
+					Eligible:   "FALSE",
 				},
 			},
 		}
@@ -201,9 +201,9 @@ func TestQualificationSession_GetOfferingPrice(t *testing.T) {
 			QualifiedOffering: []rpc.QualifiedOfferingWithPrice{
 				{
 					OfferingID: "offering-1",
-					Price:      80.0,
-					Currency:   "EUR",
-					Eligible:   true,
+					PriceInfo: rpc.PriceInfo{Amount: 80.0, Currency: "EUR"},
+					
+					Eligible:   "QUALIFIED",
 				},
 			},
 		}
@@ -256,4 +256,79 @@ func TestQualificationClientAdapter(t *testing.T) {
 
 		mockRPC.AssertExpectations(t)
 	})
+}
+
+func TestQualificationClient_GetPriceForOffering(t *testing.T) {
+	client := rpc.NewQualificationClientForTest(nil)
+	
+	t.Run("Should get price for offering", func(t *testing.T) {
+		session := &rpc.QualificationSession{
+			QualifiedOffering: []rpc.QualifiedOfferingWithPrice{
+				{
+					OfferingID: "off-1",
+					PriceInfo: rpc.PriceInfo{Amount: 50.0, Currency: "USD"},
+					Eligible: "QUALIFIED",
+				},
+			},
+		}
+
+		price, cur, err := client.GetPriceForOffering(session, "off-1")
+		assert.NoError(t, err)
+		assert.Equal(t, 50.0, price)
+		assert.Equal(t, "USD", cur)
+	})
+
+	t.Run("Should error on invalid session type", func(t *testing.T) {
+		_, _, err := client.GetPriceForOffering("invalid", "off-1")
+		assert.Error(t, err)
+	})
+
+	t.Run("Should error on not found", func(t *testing.T) {
+		session := &rpc.QualificationSession{}
+		_, _, err := client.GetPriceForOffering(session, "off-1")
+		assert.Error(t, err)
+	})
+
+	t.Run("Should error on ineligible", func(t *testing.T) {
+		session := &rpc.QualificationSession{
+			QualifiedOffering: []rpc.QualifiedOfferingWithPrice{
+				{OfferingID: "off-1", Eligible: "FALSE"},
+			},
+		}
+		_, _, err := client.GetPriceForOffering(session, "off-1")
+		assert.Error(t, err)
+	})
+}
+
+func TestQualificationClient_GetPriceForOfferingWrapper(t *testing.T) {
+	client := rpc.NewQualificationClientForTest(nil)
+	
+	t.Run("Should return map on success", func(t *testing.T) {
+		session := &rpc.QualificationSession{
+			QualifiedOffering: []rpc.QualifiedOfferingWithPrice{
+				{
+					OfferingID: "off-1",
+					PriceInfo: rpc.PriceInfo{Amount: 50.0, Currency: "USD"},
+					Eligible: "QUALIFIED",
+				},
+			},
+		}
+
+		res, err := client.GetPriceForOfferingWrapper(session, "off-1")
+		assert.NoError(t, err)
+		
+		resMap := res.(map[string]interface{})
+		assert.Equal(t, 50.0, resMap["price"])
+		assert.Equal(t, "USD", resMap["currency"])
+	})
+
+	t.Run("Should propagate error", func(t *testing.T) {
+		_, err := client.GetPriceForOfferingWrapper("invalid", "off-1")
+		assert.Error(t, err)
+	})
+}
+
+func TestQualificationClient_NewQualificationClient(t *testing.T) {
+	client := rpc.NewQualificationClient(nil)
+	assert.NotNil(t, client)
 }

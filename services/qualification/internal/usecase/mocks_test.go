@@ -32,7 +32,10 @@ type MockCatalogClient struct {
 
 func (m *MockCatalogClient) GetOffersByCategory(ctx context.Context, category string) ([]domain.EligibleCategory, error) {
 	args := m.Called(ctx, category)
-	return args.Get(0).([]domain.EligibleCategory), args.Error(1)
+	if args.Get(0) != nil {
+		return args.Get(0).([]domain.EligibleCategory), args.Error(1)
+	}
+	return nil, args.Error(1)
 }
 
 type MockEventPublisher struct {
