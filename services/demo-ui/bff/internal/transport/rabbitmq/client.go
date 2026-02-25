@@ -18,13 +18,14 @@ type Client struct {
 	broadcaster Broadcaster
 }
 
+var newRPCClientFunc = pkgrmq.NewRPCClient
 // NewClient creates a new BFF RabbitMQ client using the shared library
 func NewClient(url string) (*Client, error) {
 	if url == "" {
 		url = "amqp://guest:guest@localhost:5672/"
 	}
 
-	rpcClient, err := pkgrmq.NewRPCClient(url)
+	rpcClient, err := newRPCClientFunc(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create RPC client: %w", err)
 	}

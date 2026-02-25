@@ -10,7 +10,7 @@ type Cart struct {
 	CustomerID         string     `json:"customerId"`
 	Items              []CartItem `json:"items" gorm:"foreignKey:CartID"`
 	Status             string     `json:"status"` // Active, Closed
-	TotalPrice         float64    `json:"totalPrice"`
+	TotalPrice         float64    `json:"totalPrice" gorm:"-"`
 	TotalPriceAmount   float64    `json:"totalPriceAmount"`
 	TotalPriceCurrency string     `json:"totalPriceCurrency"`
 	Version            int        `json:"version"`
@@ -30,7 +30,7 @@ type CartItem struct {
 	CartID        string            `json:"cartId"`
 	OfferingID    string            `json:"offeringId"`
 	Quantity      int               `json:"quantity"`
-	UnitPrice     float64           `json:"unitPrice"`
+	UnitPrice     float64           `json:"unitPrice" gorm:"-"`
 	UnitAmount    float64           `json:"unitAmount"`
 	Currency      string            `json:"currency"`
 	ProductConfig map[string]string `json:"productConfig" gorm:"serializer:json"`

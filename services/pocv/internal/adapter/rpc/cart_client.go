@@ -5,15 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"tmf/pkg/rabbitmq"
 	"tmf/services/pocv/internal/core/ports"
 )
 
-type cartClient struct {
-	rpc *rabbitmq.RPCClient
+// RPCRequestor is an interface to allow mocking of rabbitmq.RPCClient
+type RPCRequestor interface {
+	Request(ctx context.Context, routingKey string, payload interface{}) ([]byte, error)
 }
 
-func NewCartClient(rpc *rabbitmq.RPCClient) ports.CartClient {
+type cartClient struct {
+	rpc RPCRequestor
+}
+
+func NewCartClient(rpc RPCRequestor) ports.CartClient {
 	return &cartClient{rpc: rpc}
 }
 

@@ -9,6 +9,7 @@ import (
 	"tmf/services/shopping-cart/internal/adapter/handler"
 	"tmf/services/shopping-cart/internal/core/domain"
 	"tmf/services/shopping-cart/internal/core/ports"
+	"tmf/pkg/rabbitmq"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -205,5 +206,159 @@ func TestCartHandler_HandleAddItem(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "expired")
 		mockManageUC.AssertExpectations(t)
+	})
+}
+
+func TestCartHandler_HandleUpdatePrice(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Should update price successfully", func(t *testing.T) {
+		mockManageUC := new(MockManageItemsUseCase)
+		mockPriceUC := new(MockUpdatePriceUseCase)
+		mockSyncUC := new(MockSyncCatalogUseCase)
+		mockRepo := new(MockCartRepository)
+		mockPub := new(MockPublisher)
+
+		h := handler.NewCartHandler(mockManageUC, mockPriceUC, mockSyncUC, mockRepo, mockPub)
+
+		payload := map[string]interface{}{
+			"cartId": "cart-1",
+			"items": []map[string]interface{}{
+				{
+					"itemId": "item-1",
+					"price":  99.99,
+				},
+			},
+		}
+		payloadBytes, _ := json.Marshal(payload)
+
+		mockPriceUC.On("UpdatePrice", ctx, mock.AnythingOfType("ports.UpdateCartPriceCommand")).Return(nil)
+
+		err := h.HandleUpdatePrice(ctx, payloadBytes)
+
+		assert.NoError(t, err)
+		mockPriceUC.AssertExpectations(t)
+	})
+
+	t.Run("Should fail on invalid JSON", func(t *testing.T) {
+		mockManageUC := new(MockManageItemsUseCase)
+		mockPriceUC := new(MockUpdatePriceUseCase)
+		mockSyncUC := new(MockSyncCatalogUseCase)
+		mockRepo := new(MockCartRepository)
+		mockPub := new(MockPublisher)
+
+		h := handler.NewCartHandler(mockManageUC, mockPriceUC, mockSyncUC, mockRepo, mockPub)
+
+		err := h.HandleUpdatePrice(ctx, []byte("invalid"))
+
+		assert.Error(t, err)
+	})
+}
+
+func TestCartHandler_HandleCatalogEvent(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Should handle catalog event successfully", func(t *testing.T) {
+		mockManageUC := new(MockManageItemsUseCase)
+		mockPriceUC := new(MockUpdatePriceUseCase)
+		mockSyncUC := new(MockSyncCatalogUseCase)
+		mockRepo := new(MockCartRepository)
+		mockPub := new(MockPublisher)
+
+		h := handler.NewCartHandler(mockManageUC, mockPriceUC, mockSyncUC, mockRepo, mockPub)
+
+		payload := map[string]interface{}{
+			"id":       "offering-1",
+			"price": map[string]interface{}{"amount": 10.0, "currency": "USD"},
+			
+		}
+		payloadBytes, _ := json.Marshal(payload)
+
+		mockSyncUC.On("SyncOffering", ctx, "offering-1", 10.0, "USD").Return(nil)
+
+		err := h.HandleCatalogEvent(ctx, payloadBytes)
+
+		assert.NoError(t, err)
+		mockSyncUC.AssertExpectations(t)
+	})
+
+	t.Run("Should fail on invalid JSON", func(t *testing.T) {
+		mockManageUC := new(MockManageItemsUseCase)
+		mockPriceUC := new(MockUpdatePriceUseCase)
+		mockSyncUC := new(MockSyncCatalogUseCase)
+		mockRepo := new(MockCartRepository)
+		mockPub := new(MockPublisher)
+
+		h := handler.NewCartHandler(mockManageUC, mockPriceUC, mockSyncUC, mockRepo, mockPub)
+
+		err := h.HandleCatalogEvent(ctx, []byte("invalid"))
+
+		assert.Error(t, err)
+	})
+}
+
+func TestCartHandler_HandleGetCart(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Should get cart successfully", func(t *testing.T) {
+		mockManageUC := new(MockManageItemsUseCase)
+		mockPriceUC := new(MockUpdatePriceUseCase)
+		mockSyncUC := new(MockSyncCatalogUseCase)
+		mockRepo := new(MockCartRepository)
+		mockPub := new(MockPublisher)
+
+		h := handler.NewCartHandler(mockManageUC, mockPriceUC, mockSyncUC, mockRepo, mockPub)
+
+		payload := map[string]interface{}{
+			"cartId": "cart-1",
+		}
+		payloadBytes, _ := json.Marshal(payload)
+
+		expectedCart := &domain.Cart{ID: "cart-1"}
+		ctx = context.WithValue(ctx, rabbitmq.ContextKeyReplyTo, "reply-queue")
+		ctx = context.WithValue(ctx, rabbitmq.ContextKeyAMQPCorrelationID, "corr-1")
+		mockRepo.On("Get", ctx, "cart-1").Return(expectedCart, nil)
+		mockPub.On("PublishToQueue", ctx, "reply-queue", "corr-1", expectedCart).Return(nil)
+
+		err := h.HandleGetCart(ctx, payloadBytes)
+
+		assert.NoError(t, err)
+		mockRepo.AssertExpectations(t)
+		mockPub.AssertExpectations(t)
+	})
+
+	t.Run("Should fail on invalid JSON", func(t *testing.T) {
+		mockManageUC := new(MockManageItemsUseCase)
+		mockPriceUC := new(MockUpdatePriceUseCase)
+		mockSyncUC := new(MockSyncCatalogUseCase)
+		mockRepo := new(MockCartRepository)
+		mockPub := new(MockPublisher)
+
+		h := handler.NewCartHandler(mockManageUC, mockPriceUC, mockSyncUC, mockRepo, mockPub)
+
+		err := h.HandleGetCart(ctx, []byte("invalid"))
+
+		assert.Error(t, err)
+	})
+
+	t.Run("Should fail if cart not found", func(t *testing.T) {
+		mockManageUC := new(MockManageItemsUseCase)
+		mockPriceUC := new(MockUpdatePriceUseCase)
+		mockSyncUC := new(MockSyncCatalogUseCase)
+		mockRepo := new(MockCartRepository)
+		mockPub := new(MockPublisher)
+
+		h := handler.NewCartHandler(mockManageUC, mockPriceUC, mockSyncUC, mockRepo, mockPub)
+
+		payload := map[string]interface{}{
+			"cartId": "cart-1",
+		}
+		payloadBytes, _ := json.Marshal(payload)
+
+		mockRepo.On("Get", ctx, "cart-1").Return(nil, errors.New("not found"))
+
+		err := h.HandleGetCart(ctx, payloadBytes)
+
+		assert.Error(t, err)
 	})
 }

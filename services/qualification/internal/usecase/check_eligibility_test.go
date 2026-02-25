@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"testing"
 	"tmf/services/qualification/internal/core/domain"
+	"tmf/services/qualification/internal/core/ports"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -162,4 +163,117 @@ func TestCheckEligibilityUseCase_Check(t *testing.T) {
 		mockGIS.AssertExpectations(t)
 		mockPub.AssertExpectations(t)
 	})
+
+	t.Run("Catalog Error", func(t *testing.T) {
+		mockGis := new(MockGISClient)
+		mockInv := new(MockInventoryClient)
+		mockCat := new(MockCatalogClient)
+		mockPub := new(MockEventPublisher)
+		mockSess := new(MockSessionRepository)
+		mockCustPricing := new(MockCustomerPricingClient)
+		mockCatPricing := new(MockCatalogPricingClient)
+
+		uc := NewCheckEligibility(mockGis, mockInv, mockCat, mockPub, mockSess, mockCustPricing, mockCatPricing, logger)
+
+		cmd := domain.CheckEligibilityCommand{
+			Address:        domain.Address{City: "Berlin"},
+			CategoryFilter: []string{"Internet"},
+		}
+
+		mockGis.On("CheckPolygon", mock.Anything, mock.Anything).Return(true, nil)
+		mockInv.On("GetPortCapacity", mock.Anything, mock.Anything).Return(10, nil)
+		mockCat.On("GetOffersByCategory", mock.Anything, "Internet").Return(nil, errors.New("catalog err"))
+
+		mockPub.On("PublishEligibilityChecked", mock.Anything, mock.Anything).Return(nil)
+
+		err := uc.Execute(context.Background(), cmd)
+		assert.NoError(t, err) // publishResult returns nil if successful
+	})
+
+	t.Run("Address outside service area", func(t *testing.T) {
+		mockGis := new(MockGISClient)
+		mockInv := new(MockInventoryClient)
+		mockCat := new(MockCatalogClient)
+		mockPub := new(MockEventPublisher)
+		mockSess := new(MockSessionRepository)
+		mockCustPricing := new(MockCustomerPricingClient)
+		mockCatPricing := new(MockCatalogPricingClient)
+
+		uc := NewCheckEligibility(mockGis, mockInv, mockCat, mockPub, mockSess, mockCustPricing, mockCatPricing, logger)
+
+		cmd := domain.CheckEligibilityCommand{
+			Address: domain.Address{City: "Nowhere"},
+		}
+
+		mockGis.On("CheckPolygon", mock.Anything, mock.Anything).Return(false, nil)
+		mockInv.On("GetPortCapacity", mock.Anything, mock.Anything).Return(10, nil)
+		mockCat.On("GetOffersByCategory", mock.Anything, mock.Anything).Return([]domain.EligibleCategory{}, nil)
+
+		mockPub.On("PublishEligibilityChecked", mock.Anything, mock.MatchedBy(func(r domain.EligibilityResult) bool {
+			return r.Status == domain.StatusUnqualified && r.UnavailabilityReason == "Address outside service area"
+		})).Return(nil)
+
+		err := uc.Execute(context.Background(), cmd)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Pricing Error and Session Error", func(t *testing.T) {
+		mockGis := new(MockGISClient)
+		mockInv := new(MockInventoryClient)
+		mockCat := new(MockCatalogClient)
+		mockPub := new(MockEventPublisher)
+
+		// Custom mock implementations for Scenario 6
+		mockSess := &mockSessErr{MockSessionRepository{}}
+		mockCustPricing := &MockCustomerPricingClient{}
+		mockCatPricing := &mockCatPricingErr{MockCatalogPricingClient{}}
+
+		uc := NewCheckEligibility(mockGis, mockInv, mockCat, mockPub, mockSess, mockCustPricing, mockCatPricing, logger)
+
+		cmd := domain.CheckEligibilityCommand{
+			Address:    domain.Address{City: "Berlin"},
+			CustomerID: "cust-1",
+		}
+
+		mockGis.On("CheckPolygon", mock.Anything, mock.Anything).Return(true, nil)
+		mockInv.On("GetPortCapacity", mock.Anything, mock.Anything).Return(10, nil)
+
+		offers := []domain.EligibleCategory{
+			{ID: "off-1", Name: "Offer 1"},
+			{ID: "off-err", Name: "Offer Err"},
+		}
+		mockCat.On("GetOffersByCategory", mock.Anything, mock.Anything).Return(offers, nil)
+
+		// We removed the invalid .On() calls. The custom classes mockCatPricingErr and
+		// mockSessErr handle returning errors automatically when called.
+		mockPub.On("PublishEligibilityChecked", mock.Anything, mock.Anything).Return(nil)
+
+		err := uc.Execute(context.Background(), cmd)
+		assert.NoError(t, err)
+	})
+}
+
+// Custom error mocks for Scenario 6
+type mockSessErr struct {
+	MockSessionRepository
+}
+
+func (m *mockSessErr) Create(ctx context.Context, session *domain.QualificationSession) (string, error) {
+	return "", errors.New("session err")
+}
+
+type mockCatPricingErr struct {
+	MockCatalogPricingClient
+}
+
+func (m *mockCatPricingErr) GetOffering(ctx context.Context, offeringID string) (*ports.Offering, error) {
+	if offeringID == "off-err" {
+		return nil, errors.New("pricing err")
+	}
+	return &ports.Offering{
+		ID:        offeringID,
+		Name:      "Offer 1",
+		BasePrice: 10.0,
+		Currency:  "EUR",
+	}, nil
 }

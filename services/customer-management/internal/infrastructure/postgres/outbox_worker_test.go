@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"os"
 	"testing"
@@ -46,6 +47,7 @@ func TestOutboxWorker_ProcessEvents(t *testing.T) {
 	repo := NewOutboxRepository(sharedDB)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	mockPub := new(MockPublisher)
+	mockPub.On("Publish", mock.Anything, "customer.events", "test.pub.error", mock.Anything).Return(errors.New("publish error"))
 	mockPub.On("Publish", mock.Anything, "customer.events", mock.Anything, mock.Anything).Return(nil)
 
 	worker := NewOutboxWorker(repo, mockPub, logger)
@@ -93,4 +95,57 @@ func TestOutboxWorker_ProcessEvents(t *testing.T) {
 	err = sharedDB.First(&updatedHeaders, "id = ?", eventHeaders.ID).Error
 	require.NoError(t, err)
 	assert.Equal(t, "PUBLISHED", updatedHeaders.Status)
+
+	// Test Publish error
+	mockPub.On("Publish", mock.Anything, "customer.events", "test.pub.error", mock.Anything).Return(errors.New("publish error"))
+	eventPubErr := &domain.OutboxEvent{
+		ID:         uuid.New().String(),
+		RoutingKey: "test.pub.error",
+		Payload:    []byte(`{"foo":"bar"}`),
+		Status:     "PENDING",
+		CreatedAt:  time.Now(),
+	}
+	require.NoError(t, repo.Save(ctx, eventPubErr))
+
+	// Test Invalid Headers JSON
+	// We can't insert invalid JSON into JSON column, but if headers is a bytea/text, we could.
+	// Actually headers is JSON column? Let's assume it is.
+	// We will skip testing invalid JSON unmarshal for Postgres since postgres enforces it.
+
+	worker.processEvents(ctx)
+
+	var updatedPubErr domain.OutboxEvent
+	sharedDB.First(&updatedPubErr, "id = ?", eventPubErr.ID)
+	assert.Equal(t, "PENDING", updatedPubErr.Status) // Publish failed
+}
+
+func TestOutboxWorker_StartStop(t *testing.T) {
+	if sharedDB == nil {
+		t.Skip("Shared DB not initialized")
+	}
+	repo := NewOutboxRepository(sharedDB)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	mockPub := new(MockPublisher)
+
+	// mockPub might be called if there are pending events from other tests, so we allow it
+	mockPub.On("Publish", mock.Anything, "customer.events", mock.Anything, mock.Anything).Return(nil)
+
+	worker := NewOutboxWorker(repo, mockPub, logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Test stopping via context
+	go worker.Start(ctx)
+	time.Sleep(100 * time.Millisecond) // Let it run a bit
+	cancel()                           // This should stop the worker
+	time.Sleep(100 * time.Millisecond) // Wait for it to stop
+
+	// Test stopping via Stop() method
+	worker2 := NewOutboxWorker(repo, mockPub, logger)
+	ctx2 := context.Background()
+
+	go worker2.Start(ctx2)
+	time.Sleep(100 * time.Millisecond)
+	worker2.Stop()
+	time.Sleep(100 * time.Millisecond)
 }

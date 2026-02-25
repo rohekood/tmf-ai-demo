@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -14,37 +13,39 @@ import (
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx, os.Getenv); err != nil {
+		slog.Error("Fatal error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context, getEnv func(string) string) error {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	url := os.Getenv("RABBITMQ_URL")
+	url := getEnv("RABBITMQ_URL")
 	if url == "" {
 		url = "amqp://guest:guest@localhost:5672/"
 	}
 
 	conn, err := amqp.Dial(url)
 	if err != nil {
-		log.Fatalf("Failed to connect: %v", err)
+		return err
 	}
-	defer func() {
-		if err := conn.Close(); err != nil {
-			log.Printf("Failed to close connection: %v", err)
-		}
-	}()
+	defer func() { _ = conn.Close() }()
 
 	ch, err := conn.Channel()
 	if err != nil {
-		log.Fatalf("Failed to open channel: %v", err)
+		return err
 	}
-	defer func() {
-		if err := ch.Close(); err != nil {
-			log.Printf("Failed to close channel: %v", err)
-		}
-	}()
+	defer func() { _ = ch.Close() }()
 
 	// Declare Exchange
 	exchange := "ex.domain.market"
 	err = ch.ExchangeDeclare(exchange, "topic", true, false, false, false, nil)
 	if err != nil {
-		log.Fatalf("Failed to declare exchange: %v", err)
+		return err
 	}
 
 	// Declare Queue
@@ -57,35 +58,25 @@ func main() {
 		nil,              // arguments
 	)
 	if err != nil {
-		log.Fatalf("Failed to declare queue: %v", err)
+		return err
 	}
 
 	// Bind
 	err = ch.QueueBind(q.Name, rabbitmq.QueryGISGeographyCheck, exchange, false, nil)
 	if err != nil {
-		log.Fatalf("Failed to bind queue: %v", err)
+		return err
 	}
 
 	msgs, err := ch.Consume(q.Name, "", false, false, false, false, nil)
 	if err != nil {
-		log.Fatalf("Failed to consume: %v", err)
+		return err
 	}
 
 	logger.Info("Mock GIS Started. Waiting for RPC queries...")
 
 	go func() {
 		for d := range msgs {
-			logger.Info("Received Query",
-				"correlation_id", d.CorrelationId,
-				"reply_to", d.ReplyTo,
-				"routing_key", d.RoutingKey,
-				"exchange", d.Exchange,
-				"body", string(d.Body))
-
-			// Logic: If City is "Nowhere", return false
 			inFootprint := true
-			// We need to parse the incoming request to check criteria
-			// Request payload: { "address": { "city": "..." }, ... }
 			var req struct {
 				Address struct {
 					City string `json:"city"`
@@ -104,7 +95,6 @@ func main() {
 			}
 			body, _ := json.Marshal(response)
 
-			// Send Reply
 			err = ch.PublishWithContext(context.Background(),
 				"",        // default exchange
 				d.ReplyTo, // routing key = reply queue
@@ -118,19 +108,13 @@ func main() {
 
 			if err != nil {
 				logger.Error("Failed to reply", "error", err)
-				if err := d.Nack(false, false); err != nil {
-					logger.Error("Failed to Nack", "error", err)
-				}
+				_ = d.Nack(false, false)
 			} else {
-				if err := d.Ack(false); err != nil {
-					logger.Error("Failed to Ack", "error", err)
-				}
+				_ = d.Ack(false)
 			}
 		}
 	}()
 
-	// Wait for signal
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-	<-sig
+	<-ctx.Done()
+	return nil
 }

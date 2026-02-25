@@ -15,12 +15,12 @@ const (
 
 type OutboxEventModel struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
-	RoutingKey  string    `gorm:"not null"`
+	Topic       string    `gorm:"column:topic;not null"`
 	Payload     []byte    `gorm:"type:bytea;not null"`
-	Headers     []byte    `gorm:"type:bytea"` // JSON map[string]string
+	Headers     []byte    `gorm:"-"` // JSON map[string]string
 	Status      string    `gorm:"index;default:'PENDING'"`
 	CreatedAt   time.Time
-	ProcessedAt *time.Time
+	ProcessedAt *time.Time `gorm:"-"`
 }
 
 func (OutboxEventModel) TableName() string {
@@ -41,7 +41,7 @@ func NewOutboxEvent(routingKey string, payload interface{}, headers map[string]s
 
 	return &OutboxEventModel{
 		ID:         uuid.New(),
-		RoutingKey: routingKey,
+		Topic: routingKey,
 		Payload:    data,
 		Headers:    headerBytes,
 		Status:     StatusPending,

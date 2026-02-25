@@ -83,6 +83,15 @@ func TestUpdateCustomer(t *testing.T) {
 
 	cust.Name = "Updated Name"
 	cust.Status = domain.CustomerStatusSuspended
+	cust.Accounts = []domain.CustomerAccount{{ID: "a2", Name: "Acc", AccountStatus: "Active"}}
+	cust.CreditProfiles = []domain.CreditProfile{{ID: "cp2", CreditScore: 800}}
+	cust.ContactMediums = []domain.ContactMedium{{ID: "cm2", MediumType: "Phone", Value: "123456"}}
+	cust.Characteristics = []domain.CustomerCharacteristic{{ID: "ch2", Name: "Type", Value: "B2B"}}
+	cust.PrivacyConsents = []domain.PrivacyConsent{{ID: "pc2", ConsentType: "Marketing", Status: "Given"}}
+	cust.RelatedParties = []domain.RelatedParty{{ID: "rp2", Name: "Partner"}}
+	cust.PaymentMethods = []domain.PaymentMethod{{ID: "pm2", Type: "BankTransfer"}}
+	cust.MarketSegments = []domain.MarketSegment{{ID: "ms2", Name: "Enterprise"}}
+
 	err := repo.UpdateCustomer(ctx, cust)
 	assert.NoError(t, err)
 
@@ -90,6 +99,14 @@ func TestUpdateCustomer(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "Updated Name", updated.Name)
 	assert.Equal(t, domain.CustomerStatusSuspended, updated.Status)
+	assert.Len(t, updated.Accounts, 1)
+	assert.Len(t, updated.CreditProfiles, 1)
+	assert.Len(t, updated.ContactMediums, 1)
+	assert.Len(t, updated.Characteristics, 1)
+	assert.Len(t, updated.PrivacyConsents, 1)
+	assert.Len(t, updated.RelatedParties, 1)
+	assert.Len(t, updated.PaymentMethods, 1)
+	assert.Len(t, updated.MarketSegments, 1)
 }
 
 func TestPatchCustomer(t *testing.T) {
@@ -307,4 +324,136 @@ func TestAuditTrail(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, userID, auditLog.UserName)
 	assert.Equal(t, "customers", auditLog.TableName)
+}
+
+func TestCreateCustomer_Error(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewCustomerRepository(db)
+	ctx := context.Background()
+
+	// Should fail with duplicate ID
+	cust1 := &domain.Customer{ID: "duplicate-id", Name: "Duplicate 1", Status: domain.CustomerStatusActive}
+	err := repo.CreateCustomer(ctx, cust1)
+	require.NoError(t, err)
+
+	cust2 := &domain.Customer{ID: "duplicate-id", Name: "Duplicate 2", Status: domain.CustomerStatusActive}
+	err = repo.CreateCustomer(ctx, cust2)
+	assert.Error(t, err)
+
+	// Should fail due to foreign key violation on interaction customer_id
+	interaction := &domain.CustomerInteraction{ID: "int-err-1", CustomerID: "non-existent-cust"}
+	err = repo.AddInteraction(ctx, interaction)
+	assert.Error(t, err)
+}
+
+func TestGetCustomer_Error(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewCustomerRepository(db)
+	ctx := context.Background()
+
+	_, err := repo.GetCustomer(ctx, "non-existent")
+	assert.ErrorIs(t, err, domain.ErrNotFound)
+}
+
+func TestUpdateCustomer_Error(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewCustomerRepository(db)
+	ctx := context.Background()
+
+	err := repo.PatchCustomer(ctx, "non-existent", map[string]interface{}{"name": "foo"})
+	assert.Error(t, err)
+}
+
+func TestDeleteCustomer_Error(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewCustomerRepository(db)
+	ctx := context.Background()
+
+	err := repo.DeleteCustomer(ctx, "non-existent")
+	assert.Error(t, err)
+}
+
+func TestUpdateSubResources_Error(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewCustomerRepository(db)
+	ctx := context.Background()
+
+	cust := &domain.Customer{ID: "cust-suberr-1", Name: "ErrTest", Status: domain.CustomerStatusActive}
+	require.NoError(t, repo.CreateCustomer(ctx, cust))
+
+	// An ID that is too long will violate varchar(255) and cause an insert error
+	badID := string(make([]byte, 300))
+	for i := range badID {
+		badID = badID[:i] + "a" + badID[i+1:]
+	}
+
+	errCust := *cust
+	errCust.Accounts = []domain.CustomerAccount{{ID: badID, Name: "A"}}
+	assert.Error(t, repo.UpdateCustomer(ctx, &errCust))
+
+	errCust = *cust
+	errCust.ContactMediums = []domain.ContactMedium{{ID: badID, MediumType: "A"}}
+	assert.Error(t, repo.UpdateCustomer(ctx, &errCust))
+
+	errCust = *cust
+	errCust.Characteristics = []domain.CustomerCharacteristic{{ID: badID, Name: "A"}}
+	assert.Error(t, repo.UpdateCustomer(ctx, &errCust))
+
+	errCust = *cust
+	errCust.PrivacyConsents = []domain.PrivacyConsent{{ID: badID, ConsentType: "A"}}
+	assert.Error(t, repo.UpdateCustomer(ctx, &errCust))
+
+	errCust = *cust
+	errCust.RelatedParties = []domain.RelatedParty{{ID: badID, Name: "A"}}
+	assert.Error(t, repo.UpdateCustomer(ctx, &errCust))
+
+	errCust = *cust
+	errCust.PaymentMethods = []domain.PaymentMethod{{ID: badID, Type: "A"}}
+	assert.Error(t, repo.UpdateCustomer(ctx, &errCust))
+
+	errCust = *cust
+	errCust.MarketSegments = []domain.MarketSegment{{ID: badID, Name: "A"}}
+	assert.Error(t, repo.UpdateCustomer(ctx, &errCust))
+
+	errCust = *cust
+	errCust.CreditProfiles = []domain.CreditProfile{{ID: badID}}
+	assert.Error(t, repo.UpdateCustomer(ctx, &errCust))
+}
+
+func TestPatchCustomer_Error(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewCustomerRepository(db)
+	ctx := context.Background()
+
+	cust := &domain.Customer{ID: "cust-patch-err", Name: "PatchErr", Status: domain.CustomerStatusActive}
+	require.NoError(t, repo.CreateCustomer(ctx, cust))
+
+	badID := string(make([]byte, 300))
+	for i := range badID {
+		badID = badID[:i] + "a" + badID[i+1:]
+	}
+
+	err := repo.PatchCustomer(ctx, cust.ID, map[string]interface{}{"accounts": []domain.CustomerAccount{{ID: badID}}})
+	assert.Error(t, err)
+
+	err = repo.PatchCustomer(ctx, cust.ID, map[string]interface{}{"credit_profiles": []domain.CreditProfile{{ID: badID}}})
+	assert.Error(t, err)
+
+	err = repo.PatchCustomer(ctx, cust.ID, map[string]interface{}{"contact_mediums": []domain.ContactMedium{{ID: badID}}})
+	assert.Error(t, err)
+
+	err = repo.PatchCustomer(ctx, cust.ID, map[string]interface{}{"characteristics": []domain.CustomerCharacteristic{{ID: badID}}})
+	assert.Error(t, err)
+
+	err = repo.PatchCustomer(ctx, cust.ID, map[string]interface{}{"privacy_consents": []domain.PrivacyConsent{{ID: badID}}})
+	assert.Error(t, err)
+
+	err = repo.PatchCustomer(ctx, cust.ID, map[string]interface{}{"related_parties": []domain.RelatedParty{{ID: badID}}})
+	assert.Error(t, err)
+
+	err = repo.PatchCustomer(ctx, cust.ID, map[string]interface{}{"payment_methods": []domain.PaymentMethod{{ID: badID}}})
+	assert.Error(t, err)
+
+	err = repo.PatchCustomer(ctx, cust.ID, map[string]interface{}{"market_segments": []domain.MarketSegment{{ID: badID}}})
+	assert.Error(t, err)
 }
