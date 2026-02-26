@@ -2,12 +2,14 @@ package rabbitmq
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestListener_GetHandler(t *testing.T) {
@@ -113,4 +115,26 @@ func TestListener_Start(t *testing.T) {
 	err = <-errChan
 	assert.NoError(t, err)
 	ch.Close()
+}
+
+func TestListener_Start_ChannelError(t *testing.T) {
+	if sharedConn == nil {
+		t.Skip("Skipping integration test: sharedConn not initialized")
+	}
+
+	// Create a new connection and immediately close it so Channel() fails
+	url := os.Getenv("RABBITMQ_URL")
+	if url == "" {
+		url = "amqp://guest:guest@localhost:5672/"
+	}
+	conn, err := amqp.Dial(url)
+	require.NoError(t, err)
+	conn.Close()
+
+	l, _ := NewListener(conn)
+	ctx := context.Background()
+
+	err = l.Start(ctx, &Handlers{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to open channel")
 }

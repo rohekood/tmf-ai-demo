@@ -117,6 +117,23 @@ func TestOutboxWorker_ProcessEvents(t *testing.T) {
 	var updatedPubErr domain.OutboxEvent
 	sharedDB.First(&updatedPubErr, "id = ?", eventPubErr.ID)
 	assert.Equal(t, "PENDING", updatedPubErr.Status) // Publish failed
+
+}
+
+func TestOutboxWorker_FetchError(t *testing.T) {
+	if sharedDB == nil {
+		t.Fatal("Shared DB not initialized")
+	}
+	repo := NewOutboxRepository(sharedDB)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	mockPub := new(MockPublisher)
+	worker := NewOutboxWorker(repo, mockPub, logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel right away to force db error in repo.FetchPending
+
+	// Should just return early and log error without panicking
+	worker.processEvents(ctx)
 }
 
 func TestOutboxWorker_StartStop(t *testing.T) {

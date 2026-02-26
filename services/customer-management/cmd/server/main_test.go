@@ -2,18 +2,61 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/testcontainers/testcontainers-go"
-	pgContainer "github.com/testcontainers/testcontainers-go/modules/postgres"
-	rabbitContainer "github.com/testcontainers/testcontainers-go/modules/rabbitmq"
-	"github.com/testcontainers/testcontainers-go/wait"
+	"github.com/rabbitmq/amqp091-go"
+	amqp "github.com/rabbitmq/amqp091-go"
+
+	"gorm.io/gorm"
+
+	"tmf/pkg/rabbitmq"
+	transportRabbit "tmf/services/customer-management/internal/transport/rabbitmq"
 )
+
+type mockPublisher struct{}
+
+func (m *mockPublisher) DeclareTopicExchange(name string, durable, autoDelete, internal, noWait bool) error {
+	return nil
+}
+
+func (m *mockPublisher) Publish(ctx context.Context, exchange, routingKey string, body interface{}) error {
+	return nil
+}
+
+func (m *mockPublisher) PublishToQueue(ctx context.Context, exchange, queue string, body interface{}) error {
+	return nil
+}
+
+func (m *mockPublisher) Close() error {
+	return nil
+}
+
+type mockConsumer struct{}
+
+func (m *mockConsumer) Consume(handler func(msg amqp091.Delivery)) error {
+	return nil
+}
+
+func (m *mockConsumer) Subscribe(routingKey string, handler rabbitmq.ConsumerHandler) error {
+	return nil
+}
+
+func (m *mockConsumer) Close() error {
+	return nil
+}
+
+func init() {
+	_, filename, _, _ := runtime.Caller(0)
+	dir := filepath.Join(filepath.Dir(filename), "../..")
+	_ = os.Chdir(dir)
+}
 
 func TestGetEnv(t *testing.T) {
 	os.Setenv("TEST_KEY", "TEST_VALUE")
@@ -28,131 +71,248 @@ func TestGetEnv(t *testing.T) {
 	}
 }
 
-func TestMainIntegration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
+func TestRun_DBError(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	envFn := func(k, f string) string {
+		if k == "POSTGRES_URL" {
+			return "invalid_dsn"
+		}
+		return f
 	}
 
-	ctx := context.Background()
-
-	// 1. Postgres Container
-	pg, err := pgContainer.Run(ctx,
-		"postgres:15",
-		pgContainer.WithDatabase("testdb"),
-		pgContainer.WithUsername("postgres"),
-		pgContainer.WithPassword("password"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).
-				WithStartupTimeout(30*time.Second)),
-	)
-	if err != nil {
-		t.Fatalf("failed to start postgres: %v", err)
-	}
-	defer pg.Terminate(ctx)
-
-	connStr, err := pg.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
-		t.Fatalf("failed to get postgres connection string: %v", err)
+	dbDialFn := func(dsn string) (*gorm.DB, error) {
+		return nil, fmt.Errorf("mock db dial error")
 	}
 
-	// 2. RabbitMQ Container
-	rabbit, err := rabbitContainer.Run(ctx,
-		"rabbitmq:3.12-management",
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("Server startup complete").
-				WithStartupTimeout(60*time.Second)),
-	)
-	if err != nil {
-		t.Fatalf("failed to start rabbitmq: %v", err)
-	}
-	defer rabbit.Terminate(ctx)
-
-	amqpURL, err := rabbit.AmqpURL(ctx)
-	if err != nil {
-		t.Fatalf("failed to get amqp url: %v", err)
+	rabbitDialFn := func(url string) (*amqp.Connection, error) {
+		return nil, nil // unreached
 	}
 
-	// Calculate absolute path for migrations
-	_, filename, _, _ := runtime.Caller(0)
-	// cmd/server/main_test.go -> cmd/server
-	serverDir := filepath.Dir(filename)
-	// tmf/services/customer-management
-	projectRoot := filepath.Dir(filepath.Dir(serverDir))
+	runMigrationsFn := func(string) error {
+		return fmt.Errorf("failed to create migration instance")
+	}
 
-	// We need to change working directory so main() can find internal/infrastructure/postgres/migrations
-	os.Chdir(projectRoot)
+	newPublisherFn := func(*amqp091.Connection) (rabbitmq.Publisher, error) { return nil, nil }
+	newListenerFn := func(*amqp091.Connection) (*transportRabbit.Listener, error) { return nil, nil }
+	newRpcConsumerFn := func(*amqp091.Connection) (rabbitmq.Consumer, error) { return nil, nil }
 
-	// Set env vars
-	os.Setenv("POSTGRES_URL", connStr)
-	os.Setenv("RABBITMQ_URL", amqpURL)
-	os.Setenv("HTTP_PORT", "0") // use ephemeral port
-
-	// Error Test 1: Invalid RabbitMQ URL (Postgres is valid)
-	cmd := exec.Command(os.Args[0], "-test.run=TestMain_CrashRabbit")
-	cmd.Env = append(os.Environ(), "CRASH_TEST=rabbit", "POSTGRES_URL="+connStr, "RABBITMQ_URL=amqp://invalid")
-	_ = cmd.Run()
-
-	// Error Test 3: Invalid HTTP Port
-	cmd = exec.Command(os.Args[0], "-test.run=TestMain_CrashHTTP")
-	cmd.Env = append(os.Environ(), "CRASH_TEST=http", "POSTGRES_URL="+connStr, "RABBITMQ_URL="+amqpURL, "HTTP_PORT=invalid_port")
-	_ = cmd.Run()
-
-	// Run main in a goroutine
-	go main()
-
-	// Wait a bit for it to start
-	time.Sleep(3 * time.Second)
-
-	// Send interrupt signal to stop it gracefully
-	p, err := os.FindProcess(os.Getpid())
+	err := run(ctx, envFn, dbDialFn, rabbitDialFn, runMigrationsFn, newPublisherFn, newListenerFn, newRpcConsumerFn, logger)
 	if err == nil {
-		p.Signal(os.Interrupt)
+		t.Fatal("expected error from invalid DB URL, got nil")
 	}
-
-	// Wait a bit for shutdown
-	time.Sleep(2 * time.Second)
-}
-
-func TestMain_DBError(t *testing.T) {
-	if os.Getenv("CRASH_TEST") == "1" {
-		os.Setenv("POSTGRES_URL", "invalid_dsn")
-		// To bypass migration error we must provide a URL that passes migration or mock migration
-		// Actually runMigrations uses the URL.
-		main()
-		return
-	}
-	cmd := exec.Command(os.Args[0], "-test.run=TestMain_DBError")
-	cmd.Env = append(os.Environ(), "CRASH_TEST=1")
-	err := cmd.Run()
-	if e, ok := err.(*exec.ExitError); ok && !e.Success() {
-		return
-	}
-	t.Fatalf("process ran with err %v, want exit status 1", err)
-}
-
-func TestMain_RabbitError(t *testing.T) {
-	if os.Getenv("CRASH_TEST") == "2" {
-		// Valid postgres so it passes migration and db connection
-		// We'll skip this if we can't easily mock postgres here, wait, testing RabbitError needs a real PG?
-		// We can just use the shared PG if we pass its URL.
-		return
+	if !strings.Contains(err.Error(), "failed to create migration instance") && !strings.Contains(err.Error(), "failed to run migrations") {
+		t.Errorf("unexpected error message: %v", err)
 	}
 }
 
-func TestMain_CrashRabbit(t *testing.T) {
-	if os.Getenv("CRASH_TEST") == "rabbit" {
-		main()
-		return
+func TestRun_DBOpenError(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	envFn := func(k, f string) string {
+		if k == "POSTGRES_URL" {
+			// This bypasses migrate parse error but fails dialing
+			return "postgres://invalid"
+		}
+		return f
+	}
+
+	dbDialFn := func(dsn string) (*gorm.DB, error) {
+		return nil, fmt.Errorf("mock db connection error")
+	}
+
+	rabbitDialFn := func(url string) (*amqp.Connection, error) {
+		return nil, nil // unreached
+	}
+
+	runMigrationsFn := func(string) error {
+		return nil
+	}
+
+	newPublisherFn := func(*amqp091.Connection) (rabbitmq.Publisher, error) { return nil, nil }
+	newListenerFn := func(*amqp091.Connection) (*transportRabbit.Listener, error) { return nil, nil }
+	newRpcConsumerFn := func(*amqp091.Connection) (rabbitmq.Consumer, error) { return nil, nil }
+
+	err := run(ctx, envFn, dbDialFn, rabbitDialFn, runMigrationsFn, newPublisherFn, newListenerFn, newRpcConsumerFn, logger)
+	if err == nil {
+		t.Fatal("expected error from DB dial, got nil")
+	}
+	if !strings.Contains(err.Error(), "mock db connection error") {
+		t.Errorf("expected mock db connection error, got %v", err)
 	}
 }
 
-func TestMain_CrashHTTP(t *testing.T) {
-	if os.Getenv("CRASH_TEST") == "http" {
-		// Wait, HTTP error won't crash the server because it runs in a goroutine and just logs.
-		// Wait, no! If srv.ListenAndServe() fails, it calls `stop()`.
-		// Then `main` exits gracefully! Wait, it will exit!
-		main()
-		return
+func TestRunMigrations_Error(t *testing.T) {
+	err := runMigrations("invalid_dsn")
+	if err == nil {
+		t.Fatal("expected error")
 	}
 }
+
+func TestRun_RabbitError(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	envFn := func(k, f string) string {
+		if k == "POSTGRES_URL" {
+			// This URL will pass migration parsing but will fail to connect,
+			// allowing the execution to reach the rabbitmq dial.
+			return "postgres://invalid"
+		}
+		return f
+	}
+
+	dbDialFn := func(dsn string) (*gorm.DB, error) {
+		return sharedDB, nil
+	}
+
+	rabbitDialFn := func(url string) (*amqp.Connection, error) {
+		return nil, fmt.Errorf("mock rabbit connection error")
+	}
+
+	runMigrationsFn := func(string) error {
+		return nil
+	}
+
+	newPublisherFn := func(*amqp091.Connection) (rabbitmq.Publisher, error) { return nil, nil }
+	newListenerFn := func(*amqp091.Connection) (*transportRabbit.Listener, error) { return nil, nil }
+	newRpcConsumerFn := func(*amqp091.Connection) (rabbitmq.Consumer, error) { return nil, nil }
+
+	err := run(ctx, envFn, dbDialFn, rabbitDialFn, runMigrationsFn, newPublisherFn, newListenerFn, newRpcConsumerFn, logger)
+	if err == nil {
+		t.Fatal("expected error from RabbitMQ dial, got nil")
+	}
+	if !strings.Contains(err.Error(), "mock rabbit connection error") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestRun_PublisherError(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	envFn := func(k, f string) string { return f }
+	dbDialFn := func(string) (*gorm.DB, error) {
+		return sharedDB, nil
+	}
+	rabbitDialFn := func(string) (*amqp091.Connection, error) { return &amqp091.Connection{}, nil }
+	runMigrationsFn := func(string) error { return nil }
+	newPublisherFn := func(*amqp091.Connection) (rabbitmq.Publisher, error) {
+		return nil, fmt.Errorf("mock publisher error")
+	}
+	newListenerFn := func(*amqp091.Connection) (*transportRabbit.Listener, error) { return nil, nil }
+	newRpcConsumerFn := func(*amqp091.Connection) (rabbitmq.Consumer, error) { return nil, nil }
+
+	err := run(ctx, envFn, dbDialFn, rabbitDialFn, runMigrationsFn, newPublisherFn, newListenerFn, newRpcConsumerFn, logger)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "mock publisher error") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestRun_ListenerError(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	envFn := func(k, f string) string { return f }
+	dbDialFn := func(string) (*gorm.DB, error) {
+		return sharedDB, nil
+	}
+	rabbitDialFn := func(string) (*amqp091.Connection, error) { return &amqp091.Connection{}, nil }
+	runMigrationsFn := func(string) error { return nil }
+	newPublisherFn := func(*amqp091.Connection) (rabbitmq.Publisher, error) { return &mockPublisher{}, nil }
+	newListenerFn := func(*amqp091.Connection) (*transportRabbit.Listener, error) {
+		return nil, fmt.Errorf("mock listener error")
+	}
+	newRpcConsumerFn := func(*amqp091.Connection) (rabbitmq.Consumer, error) { return nil, nil }
+
+	err := run(ctx, envFn, dbDialFn, rabbitDialFn, runMigrationsFn, newPublisherFn, newListenerFn, newRpcConsumerFn, logger)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "mock listener error") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestRun_RpcConsumerError(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	envFn := func(k, f string) string { return f }
+	dbDialFn := func(string) (*gorm.DB, error) {
+		return sharedDB, nil
+	}
+	rabbitDialFn := func(string) (*amqp091.Connection, error) { return &amqp091.Connection{}, nil }
+	runMigrationsFn := func(string) error { return nil }
+	newPublisherFn := func(*amqp091.Connection) (rabbitmq.Publisher, error) { return &mockPublisher{}, nil }
+	newListenerFn := func(*amqp091.Connection) (*transportRabbit.Listener, error) {
+		return &transportRabbit.Listener{}, nil
+	}
+	newRpcConsumerFn := func(*amqp091.Connection) (rabbitmq.Consumer, error) {
+		return nil, fmt.Errorf("mock rpc consumer error")
+	}
+
+	err := run(ctx, envFn, dbDialFn, rabbitDialFn, runMigrationsFn, newPublisherFn, newListenerFn, newRpcConsumerFn, logger)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "mock rpc consumer error") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestRun_Success(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	envFn := func(k, f string) string { return "0" } // port 0 for random HTTP port
+	dbDialFn := func(string) (*gorm.DB, error) {
+		return sharedDB, nil
+	}
+	rabbitDialFn := func(string) (*amqp091.Connection, error) { return &amqp091.Connection{}, nil }
+	runMigrationsFn := func(string) error { return nil }
+	newPublisherFn := func(*amqp091.Connection) (rabbitmq.Publisher, error) { return &mockPublisher{}, nil }
+	newListenerFn := func(*amqp091.Connection) (*transportRabbit.Listener, error) {
+		return nil, nil
+	}
+	newRpcConsumerFn := func(*amqp091.Connection) (rabbitmq.Consumer, error) { return &mockConsumer{}, nil }
+
+	err := run(ctx, envFn, dbDialFn, rabbitDialFn, runMigrationsFn, newPublisherFn, newListenerFn, newRpcConsumerFn, logger)
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+}
+
+func TestMain_Func(t *testing.T) {
+	// Backup original os.Exit and restore it after
+	oldOsExit := osExit
+	defer func() { osExit = oldOsExit }()
+
+	var exitCode int
+	osExit = func(code int) {
+		exitCode = code
+	}
+
+	os.Setenv("POSTGRES_URL", "invalid_dsn")
+	defer os.Unsetenv("POSTGRES_URL")
+
+	main()
+
+	if exitCode != 1 {
+		t.Errorf("expected exit code 1, got %d", exitCode)
+	}
+}
+
+var sharedDB *gorm.DB = &gorm.DB{}
