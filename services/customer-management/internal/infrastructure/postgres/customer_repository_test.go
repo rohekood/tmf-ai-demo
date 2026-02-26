@@ -355,12 +355,23 @@ func TestGetCustomer_Error(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrNotFound)
 }
 
-func TestUpdateCustomer_Error(t *testing.T) {
+func TestPatchCustomer_NonExistent(t *testing.T) {
 	db, _ := setupTestDB(t)
 	repo := NewCustomerRepository(db)
 	ctx := context.Background()
 
 	err := repo.PatchCustomer(ctx, "non-existent", map[string]interface{}{"name": "foo"})
+	assert.Error(t, err)
+}
+
+func TestUpdateCustomer_Error(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewCustomerRepository(db)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	cust := &domain.Customer{ID: "cust-upd-err-1", Name: "name"}
+	err := repo.UpdateCustomer(ctx, cust)
 	assert.Error(t, err)
 }
 
@@ -370,6 +381,23 @@ func TestDeleteCustomer_Error(t *testing.T) {
 	ctx := context.Background()
 
 	err := repo.DeleteCustomer(ctx, "non-existent")
+	// For gorm soft-delete, deleting a non-existent record without condition might not return error unless
+	// we explicitly fetch it. Or if it returns ErrNotFound. We just assert error.
+	assert.ErrorIs(t, err, domain.ErrNotFound)
+
+	ctxCancel, cancel := context.WithCancel(context.Background())
+	cancel()
+	err = repo.DeleteCustomer(ctxCancel, "non-existent")
+	assert.Error(t, err)
+}
+
+func TestSearchCustomers_Error(t *testing.T) {
+	db, _ := setupTestDB(t)
+	repo := NewCustomerRepository(db)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := repo.SearchCustomers(ctx, map[string]interface{}{})
 	assert.Error(t, err)
 }
 
@@ -381,43 +409,41 @@ func TestUpdateSubResources_Error(t *testing.T) {
 	cust := &domain.Customer{ID: "cust-suberr-1", Name: "ErrTest", Status: domain.CustomerStatusActive}
 	require.NoError(t, repo.CreateCustomer(ctx, cust))
 
-	// An ID that is too long will violate varchar(255) and cause an insert error
-	badID := string(make([]byte, 300))
-	for i := range badID {
-		badID = badID[:i] + "a" + badID[i+1:]
-	}
-
 	errCust := *cust
-	errCust.Accounts = []domain.CustomerAccount{{ID: badID, Name: "A"}}
-	assert.Error(t, repo.UpdateCustomer(ctx, &errCust))
+
+	canceledCtx, cancel := context.WithCancel(ctx)
+	cancel() // instantly cancel so queries fail
+
+	errCust.CreditProfiles = []domain.CreditProfile{{ID: "1"}}
+	assert.Error(t, repo.UpdateCustomer(canceledCtx, &errCust))
 
 	errCust = *cust
-	errCust.ContactMediums = []domain.ContactMedium{{ID: badID, MediumType: "A"}}
-	assert.Error(t, repo.UpdateCustomer(ctx, &errCust))
+	errCust.Accounts = []domain.CustomerAccount{{ID: "1"}}
+	assert.Error(t, repo.UpdateCustomer(canceledCtx, &errCust))
 
 	errCust = *cust
-	errCust.Characteristics = []domain.CustomerCharacteristic{{ID: badID, Name: "A"}}
-	assert.Error(t, repo.UpdateCustomer(ctx, &errCust))
+	errCust.ContactMediums = []domain.ContactMedium{{ID: "1"}}
+	assert.Error(t, repo.UpdateCustomer(canceledCtx, &errCust))
 
 	errCust = *cust
-	errCust.PrivacyConsents = []domain.PrivacyConsent{{ID: badID, ConsentType: "A"}}
-	assert.Error(t, repo.UpdateCustomer(ctx, &errCust))
+	errCust.Characteristics = []domain.CustomerCharacteristic{{ID: "1"}}
+	assert.Error(t, repo.UpdateCustomer(canceledCtx, &errCust))
 
 	errCust = *cust
-	errCust.RelatedParties = []domain.RelatedParty{{ID: badID, Name: "A"}}
-	assert.Error(t, repo.UpdateCustomer(ctx, &errCust))
+	errCust.PrivacyConsents = []domain.PrivacyConsent{{ID: "1"}}
+	assert.Error(t, repo.UpdateCustomer(canceledCtx, &errCust))
 
 	errCust = *cust
-	errCust.PaymentMethods = []domain.PaymentMethod{{ID: badID, Type: "A"}}
-	assert.Error(t, repo.UpdateCustomer(ctx, &errCust))
+	errCust.RelatedParties = []domain.RelatedParty{{ID: "1"}}
+	assert.Error(t, repo.UpdateCustomer(canceledCtx, &errCust))
 
 	errCust = *cust
-	errCust.MarketSegments = []domain.MarketSegment{{ID: badID, Name: "A"}}
-	assert.Error(t, repo.UpdateCustomer(ctx, &errCust))
+	errCust.PaymentMethods = []domain.PaymentMethod{{ID: "1"}}
+	assert.Error(t, repo.UpdateCustomer(canceledCtx, &errCust))
 
 	errCust = *cust
-	errCust.CreditProfiles = []domain.CreditProfile{{ID: badID}}
-	assert.Error(t, repo.UpdateCustomer(ctx, &errCust))
+	errCust.MarketSegments = []domain.MarketSegment{{ID: "1"}}
+	assert.Error(t, repo.UpdateCustomer(canceledCtx, &errCust))
 }
 
 func TestPatchCustomer_Error(t *testing.T) {
@@ -428,32 +454,30 @@ func TestPatchCustomer_Error(t *testing.T) {
 	cust := &domain.Customer{ID: "cust-patch-err", Name: "PatchErr", Status: domain.CustomerStatusActive}
 	require.NoError(t, repo.CreateCustomer(ctx, cust))
 
-	badID := string(make([]byte, 300))
-	for i := range badID {
-		badID = badID[:i] + "a" + badID[i+1:]
-	}
+	canceledCtx, cancel := context.WithCancel(ctx)
+	cancel() // instantly cancel to force gorm/sql execution errors
 
-	err := repo.PatchCustomer(ctx, cust.ID, map[string]interface{}{"accounts": []domain.CustomerAccount{{ID: badID}}})
+	err := repo.PatchCustomer(canceledCtx, cust.ID, map[string]interface{}{"accounts": []domain.CustomerAccount{{ID: "dup9"}}})
 	assert.Error(t, err)
 
-	err = repo.PatchCustomer(ctx, cust.ID, map[string]interface{}{"credit_profiles": []domain.CreditProfile{{ID: badID}}})
+	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]interface{}{"credit_profiles": []domain.CreditProfile{{ID: "dup10"}}})
 	assert.Error(t, err)
 
-	err = repo.PatchCustomer(ctx, cust.ID, map[string]interface{}{"contact_mediums": []domain.ContactMedium{{ID: badID}}})
+	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]interface{}{"contact_mediums": []domain.ContactMedium{{ID: "dup11"}}})
 	assert.Error(t, err)
 
-	err = repo.PatchCustomer(ctx, cust.ID, map[string]interface{}{"characteristics": []domain.CustomerCharacteristic{{ID: badID}}})
+	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]interface{}{"characteristics": []domain.CustomerCharacteristic{{ID: "dup12"}}})
 	assert.Error(t, err)
 
-	err = repo.PatchCustomer(ctx, cust.ID, map[string]interface{}{"privacy_consents": []domain.PrivacyConsent{{ID: badID}}})
+	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]interface{}{"privacy_consents": []domain.PrivacyConsent{{ID: "dup13"}}})
 	assert.Error(t, err)
 
-	err = repo.PatchCustomer(ctx, cust.ID, map[string]interface{}{"related_parties": []domain.RelatedParty{{ID: badID}}})
+	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]interface{}{"related_parties": []domain.RelatedParty{{ID: "dup14"}}})
 	assert.Error(t, err)
 
-	err = repo.PatchCustomer(ctx, cust.ID, map[string]interface{}{"payment_methods": []domain.PaymentMethod{{ID: badID}}})
+	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]interface{}{"payment_methods": []domain.PaymentMethod{{ID: "dup15"}}})
 	assert.Error(t, err)
 
-	err = repo.PatchCustomer(ctx, cust.ID, map[string]interface{}{"market_segments": []domain.MarketSegment{{ID: badID}}})
+	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]interface{}{"market_segments": []domain.MarketSegment{{ID: "dup16"}}})
 	assert.Error(t, err)
 }

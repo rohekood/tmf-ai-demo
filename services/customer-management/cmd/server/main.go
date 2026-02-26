@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -25,11 +26,41 @@ import (
 	"gorm.io/gorm"
 )
 
+var osExit = os.Exit
+
 func main() {
 	// Initialize structured logging
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
+	// Create a context that listens for the interrupt signal from the OS.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx, getEnv,
+		func(dsn string) (*gorm.DB, error) { return gorm.Open(gormPostgres.Open(dsn), &gorm.Config{}) },
+		amqp.Dial,
+		runMigrations,
+		rabbitmq.NewPublisherWithConnection,
+		transportRabbit.NewListener,
+		func(conn *amqp.Connection) (rabbitmq.Consumer, error) {
+			return rabbitmq.NewConsumerWithConnection(conn, "customer.events", "customer_rpc_queue")
+		},
+		logger); err != nil {
+		slog.Error("service exited with error", "error", err)
+		osExit(1)
+	}
+}
+
+func run(ctx context.Context,
+	getEnvFn func(string, string) string,
+	dbDialFn func(string) (*gorm.DB, error),
+	rabbitDialFn func(string) (*amqp.Connection, error),
+	runMigrationsFn func(string) error,
+	newPublisherFn func(*amqp.Connection) (rabbitmq.Publisher, error),
+	newListenerFn func(*amqp.Connection) (*transportRabbit.Listener, error),
+	newRpcConsumerFn func(*amqp.Connection) (rabbitmq.Consumer, error),
+	logger *slog.Logger) error {
 	slog.Info("starting customer management service")
 
 	// Initialize OpenTelemetry
@@ -39,23 +70,24 @@ func main() {
 	} else {
 		defer func() {
 			if err := shutdown(context.Background()); err != nil {
-				slog.Error("Failed to shutdown", "error", err)
+				slog.Error("Failed to shutdown trace provider", "error", err)
 			}
 		}()
 	}
 
 	// Configuration (using defaults or env vars)
-	dbURL := getEnv("POSTGRES_URL", "postgres://postgres:password@localhost:5432/tmf_customer_db?sslmode=disable")
-	rabbitURL := getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+	dbURL := getEnvFn("POSTGRES_URL", "postgres://postgres:password@localhost:5432/tmf_customer_db?sslmode=disable")
+	rabbitURL := getEnvFn("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 
 	// 1. Database Migrations
-	runMigrations(dbURL)
+	if err := runMigrationsFn(dbURL); err != nil {
+		return err
+	}
 
 	// 2. Database Connection
-	db, err := gorm.Open(gormPostgres.Open(dbURL), &gorm.Config{})
+	db, err := dbDialFn(dbURL)
 	if err != nil {
-		slog.Error("failed to connect to database", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 	repo := postgres.NewCustomerRepository(db)
 	tm := postgres.NewTransactionManager(db)
@@ -63,25 +95,25 @@ func main() {
 	eventPublisher := postgres.NewOutboxPublisher(outboxRepo)
 
 	// 3. RabbitMQ Connection
-	conn, err := amqp.Dial(rabbitURL)
+	conn, err := rabbitDialFn(rabbitURL)
 	if err != nil {
-		slog.Error("failed to connect to RabbitMQ", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to connect to RabbitMQ: %w", err)
 	}
 	defer func() {
-		if err := conn.Close(); err != nil {
-			slog.Error("Failed to close DB connection", "error", err)
+		if conn != nil {
+			defer func() { recover() }() // Catch amqp091-go panics on empty structs
+			if err := conn.Close(); err != nil {
+				slog.Error("Failed to close RabbitMQ connection", "error", err)
+			}
 		}
 	}()
 
-	publisher, err := rabbitmq.NewPublisherWithConnection(conn)
+	publisher, err := newPublisherFn(conn)
 	if err != nil {
-		slog.Error("failed to create publisher", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create publisher: %w", err)
 	}
 	if err := publisher.DeclareTopicExchange("customer.events", true, false, false, false); err != nil {
-		slog.Error("failed to declare exchange", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to declare exchange: %w", err)
 	}
 	defer func() {
 		if err := publisher.Close(); err != nil {
@@ -92,42 +124,40 @@ func main() {
 	outboxWorker := postgres.NewOutboxWorker(outboxRepo, publisher, slog.Default())
 
 	// 4. Handlers & Listener
-	// 4. Handlers & Listener
 	handlers := transportRabbit.NewHandlers(repo, publisher, tm, eventPublisher)
-	listener, err := transportRabbit.NewListener(conn)
+	listener, err := newListenerFn(conn)
 	if err != nil {
-		slog.Error("failed to create listener", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create listener: %w", err)
 	}
 
 	// 4.1 Initialize RPC Handler for pricing queries
 	rpcHandler := transportRabbit.NewRPCHandler(repo, publisher, logger)
 
 	// 4.2 Create RPC consumer
-	rpcConsumer, err := rabbitmq.NewConsumerWithConnection(conn, "customer.events", "customer_rpc_queue")
+	rpcConsumer, err := newRpcConsumerFn(conn)
 	if err != nil {
-		slog.Error("Failed to create RPC consumer", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create RPC consumer: %w", err)
 	}
 
 	// 4.3 Bind RPC handlers
 	if err := rpcHandler.BindRPCHandlers(rpcConsumer); err != nil {
-		slog.Error("Failed to bind RPC handlers", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to bind RPC handlers: %w", err)
 	}
 
 	// 5. Start Service
-	// Create a context that listens for the interrupt signal from the OS.
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	// Create another cancellable context for internal workers tied to the run lifecycle
+	workerCtx, workerCancel := context.WithCancel(ctx)
+	defer workerCancel()
 
-	go outboxWorker.Start(ctx)
+	go outboxWorker.Start(workerCtx)
 	defer outboxWorker.Stop()
 
 	go func() {
-		if err := listener.Start(ctx, handlers); err != nil {
-			slog.Error("listener stopped", "error", err)
-			stop()
+		if conn != nil && listener != nil {
+			if err := listener.Start(workerCtx, handlers); err != nil {
+				slog.Error("listener stopped", "error", err)
+				workerCancel()
+			}
 		}
 	}()
 
@@ -139,7 +169,7 @@ func main() {
 	mux.Handle("/health", healthHandler)
 	mux.Handle("/metrics", metricsHandler)
 
-	port := getEnv("HTTP_PORT", "8081")
+	port := getEnvFn("HTTP_PORT", "8081")
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: mux,
@@ -149,7 +179,9 @@ func main() {
 		slog.Info("starting health check server", "addr", ":"+port)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("health check server failed", "error", err)
-			stop()
+			if workerCancel != nil {
+				workerCancel()
+			}
 		}
 	}()
 
@@ -157,7 +189,9 @@ func main() {
 	<-ctx.Done()
 
 	slog.Info("Shutting down Customer Management service...")
-	stop()
+	if workerCancel != nil {
+		workerCancel() // Cancel background listeners
+	}
 
 	// Shutdown HTTP Server
 	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
@@ -166,27 +200,24 @@ func main() {
 		slog.Error("Health check server forced to shutdown", "error", err)
 	}
 
-	// Give some time for other cleanup if needed, essentially waiting for listener to stop
-	// The listener should stop when ctx is cancelled.
-	// We could wait for it if we had a WaitGroup, but for now we follow the pattern.
 	time.Sleep(1 * time.Second)
+	return nil
 }
 
-func runMigrations(dbURL string) {
+func runMigrations(dbURL string) error {
 	m, err := migrate.New(
 		"file://internal/infrastructure/postgres/migrations",
 		dbURL,
 	)
 	if err != nil {
-		slog.Error("failed to create migration instance", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create migration instance: %w", err)
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		slog.Error("failed to run migrations", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 	slog.Info("Migrations completed successfully.")
+	return nil
 }
 
 func getEnv(key, fallback string) string {
