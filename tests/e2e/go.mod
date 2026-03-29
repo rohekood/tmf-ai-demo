@@ -1,6 +1,6 @@
 module tmf/tests/e2e
 
-go 1.24.11
+go 1.26.1
 
 replace tmf/pkg => ../../pkg
 

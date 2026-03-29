@@ -1,6 +1,6 @@
 module tmf/services/demo-ui/bff
 
-go 1.24.11
+go 1.26.1
 
 require (
 	github.com/auth0/go-jwt-middleware/v2 v2.3.1
