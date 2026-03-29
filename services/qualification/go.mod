@@ -1,6 +1,6 @@
 module tmf/services/qualification
 
-go 1.24.11
+go 1.26.1
 
 require (
 	github.com/alicebob/miniredis/v2 v2.36.1
