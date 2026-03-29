@@ -1,0 +1,29 @@
+---
+name: Party Management CI/CD
+
+'on':
+  push:
+    branches:
+      - main
+      - 'feature/**'
+      - 'feat/**'
+      - 'fix/**'
+    paths:
+      - 'services/party-management/**'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-push:
+    uses: ./.github/workflows/_service-ci-template.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      service_name: party-management
+      service_path: services/party-management
+      image_name: party-management
+      release_title: Party Management
+    secrets: inherit

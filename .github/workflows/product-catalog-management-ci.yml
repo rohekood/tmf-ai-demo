@@ -1,0 +1,29 @@
+---
+name: Product Catalog Management CI/CD
+
+'on':
+  push:
+    branches:
+      - main
+      - 'feature/**'
+      - 'feat/**'
+      - 'fix/**'
+    paths:
+      - 'services/product-catalog-management/**'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-push:
+    uses: ./.github/workflows/_service-ci-template.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      service_name: product-catalog-management
+      service_path: services/product-catalog-management
+      image_name: product-catalog-management
+      release_title: Product Catalog Management
+    secrets: inherit
