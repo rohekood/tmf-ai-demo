@@ -9,10 +9,10 @@ import (
 	"tmf/services/shopping-cart/internal/adapter/repository"
 	"tmf/services/shopping-cart/internal/adapter/worker"
 
-	"github.com/google/uuid"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -20,7 +20,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// MockPublisher mocks the Publisher
 type MockPublisher struct {
 	mock.Mock
 }
@@ -68,7 +67,6 @@ func TestOutboxWorker(t *testing.T) {
 	w := worker.NewOutboxWorker(db, mockPub, exchangeName)
 
 	t.Run("Should process pending events", func(t *testing.T) {
-		// removed
 		evtID := uuid.New().String()
 		err := db.Create(&repository.OutboxTable{
 			ID:        evtID,
@@ -95,7 +93,6 @@ func TestOutboxWorker(t *testing.T) {
 	})
 
 	t.Run("Should handle no pending events", func(t *testing.T) {
-		// removed
 		ctx, cancel := context.WithCancel(context.Background())
 		go w.Start(ctx)
 		time.Sleep(600 * time.Millisecond)
@@ -103,7 +100,6 @@ func TestOutboxWorker(t *testing.T) {
 	})
 
 	t.Run("Should handle publish error", func(t *testing.T) {
-		// removed
 		evtID := uuid.New().String()
 		db.Create(&repository.OutboxTable{
 			ID:        evtID,
@@ -130,7 +126,7 @@ func TestOutboxWorker(t *testing.T) {
 	t.Run("Should handle DB error", func(t *testing.T) {
 		dbBad, _ := gorm.Open(gormPostgres.Open("postgres://backstage:backstage@localhost:5432/backstage?sslmode=disable"), &gorm.Config{})
 		dbSQL, _ := dbBad.DB()
-		dbSQL.Close()
+		_ = dbSQL.Close()
 
 		wBad := worker.NewOutboxWorker(dbBad, new(MockPublisher), exchangeName)
 		ctx, cancel := context.WithCancel(context.Background())

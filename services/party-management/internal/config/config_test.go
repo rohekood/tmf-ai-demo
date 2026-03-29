@@ -19,9 +19,9 @@ func TestLoadConfig(t *testing.T) {
 		t.Errorf("Expected default HTTPPort, got %s", cfg.HTTPPort)
 	}
 
-	os.Setenv("RABBITMQ_URL", "amqp://test")
-	os.Setenv("POSTGRES_URL", "postgres://test")
-	os.Setenv("HTTP_PORT", "9090")
+	t.Setenv("RABBITMQ_URL", "amqp://test")
+	t.Setenv("POSTGRES_URL", "postgres://test")
+	t.Setenv("HTTP_PORT", "9090")
 
 	cfg = Load()
 	if cfg.RabbitMQURL != "amqp://test" {

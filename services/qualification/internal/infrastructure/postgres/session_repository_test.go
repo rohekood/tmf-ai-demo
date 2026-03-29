@@ -18,6 +18,9 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
+	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 func setupDB(t *testing.T) *sql.DB {
@@ -28,7 +31,7 @@ func setupDB(t *testing.T) *sql.DB {
 
 	m, err := migrate.New("file://../../../internal/infrastructure/postgres/migrations", dbURL)
 	require.NoError(t, err)
-	_ = m.Up() // ignore ErrNoChange
+	_ = m.Up()
 
 	db, err := sql.Open("postgres", dbURL)
 	require.NoError(t, err)
@@ -42,13 +45,39 @@ func setupDB(t *testing.T) *sql.DB {
 }
 
 func TestSessionRepository(t *testing.T) {
-	db := setupDB(t)
-	repo := postgres.NewSessionRepository(db)
 	ctx := context.Background()
 
+	pgContainer, err := tcpostgres.Run(ctx,
+		"postgres:15",
+		tcpostgres.WithDatabase("testdb"),
+		tcpostgres.WithUsername("postgres"),
+		tcpostgres.WithPassword("password"),
+		testcontainers.WithWaitStrategy(
+			wait.ForLog("database system is ready to accept connections").
+				WithOccurrence(2).
+				WithStartupTimeout(5*time.Second)),
+	)
+	if err != nil {
+		t.Skipf("Skipping integration test (testcontainers error): %v", err)
+	}
+	defer func() {
+		if err := pgContainer.Terminate(ctx); err != nil {
+			t.Logf("failed to terminate pg container: %s", err)
+		}
+	}()
+
+	connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
+	require.NoError(t, err)
+
+	_ = os.Setenv("POSTGRES_URL", connStr)
+
+	db := setupDB(t)
+	repo := postgres.NewSessionRepository(db)
+
 	t.Run("Create and Get Session", func(t *testing.T) {
+		custID := uuid.New().String()
 		session := &domain.QualificationSession{
-			CustomerID: "cust-1",
+			CustomerID: custID,
 			Address: domain.Address{
 				Street: "123 Main St",
 			},
@@ -69,19 +98,22 @@ func TestSessionRepository(t *testing.T) {
 		retrieved, err := repo.Get(ctx, id)
 		require.NoError(t, err)
 		assert.Equal(t, id, retrieved.ID)
-		assert.Equal(t, "cust-1", retrieved.CustomerID)
+		assert.Equal(t, custID, retrieved.CustomerID)
 		assert.Equal(t, "123 Main St", retrieved.Address.Street)
 		assert.Len(t, retrieved.QualifiedOffers, 1)
 		assert.Equal(t, "off-1", retrieved.QualifiedOffers[0].OfferingID)
 	})
 
 	t.Run("Update Session", func(t *testing.T) {
-		id, err := repo.Create(ctx, &domain.QualificationSession{})
+		id, err := repo.Create(ctx, &domain.QualificationSession{
+			CustomerID: uuid.New().String(),
+		})
 		require.NoError(t, err)
 
+		updateCustID := uuid.New().String()
 		updateSess := &domain.QualificationSession{
 			ID:         id,
-			CustomerID: "cust-2",
+			CustomerID: updateCustID,
 			Address:    domain.Address{Street: "456 Oak"},
 			Status:     "Expired",
 		}
@@ -90,12 +122,14 @@ func TestSessionRepository(t *testing.T) {
 		require.NoError(t, err)
 
 		retrieved, _ := repo.Get(ctx, id)
-		assert.Equal(t, "cust-2", retrieved.CustomerID)
+		assert.Equal(t, updateCustID, retrieved.CustomerID)
 		assert.Equal(t, "Expired", retrieved.Status)
 	})
 
 	t.Run("Delete Session", func(t *testing.T) {
-		id, err := repo.Create(ctx, &domain.QualificationSession{})
+		id, err := repo.Create(ctx, &domain.QualificationSession{
+			CustomerID: uuid.New().String(),
+		})
 		require.NoError(t, err)
 
 		err = repo.Delete(ctx, id)
@@ -108,13 +142,15 @@ func TestSessionRepository(t *testing.T) {
 
 	t.Run("FindExpired", func(t *testing.T) {
 		_, err := repo.Create(ctx, &domain.QualificationSession{
-			Status:    "Active",
-			ExpiresAt: time.Now().UTC().Add(-1 * time.Hour), // Expired
+			CustomerID: uuid.New().String(),
+			Status:     "Active",
+			ExpiresAt:  time.Now().UTC().Add(-1 * time.Hour),
 		})
 		require.NoError(t, err)
 		_, err = repo.Create(ctx, &domain.QualificationSession{
-			Status:    "Active",
-			ExpiresAt: time.Now().UTC().Add(1 * time.Hour), // Not expired
+			CustomerID: uuid.New().String(),
+			Status:     "Active",
+			ExpiresAt:  time.Now().UTC().Add(1 * time.Hour),
 		})
 		require.NoError(t, err)
 
@@ -136,36 +172,32 @@ func TestSessionRepository(t *testing.T) {
 	})
 
 	t.Run("Create Errors", func(t *testing.T) {
-		// Mock errors via bad JSON or db drop
 		err := repo.Update(ctx, &domain.QualificationSession{ID: ""})
-		assert.Error(t, err) // ID is empty so no rows affected
+		assert.Error(t, err)
 	})
 
 	t.Run("JSON Unmarshal Errors", func(t *testing.T) {
-		// Insert syntactically valid JSON that fails struct unmarshaling
 		badID := uuid.New().String()
+		custID := uuid.New().String()
 		_, err := db.ExecContext(ctx, "INSERT INTO qualification_sessions (id, customer_id, address, qualified_offers, status, created_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-			badID, "test-cust", "123", "[]", "Active", time.Now().UTC(), time.Now().UTC().Add(time.Hour))
+			badID, custID, "123", "[]", "Active", time.Now().UTC(), time.Now().UTC().Add(time.Hour))
 		require.NoError(t, err)
 
 		_, err = repo.Get(ctx, badID)
 		assert.ErrorContains(t, err, "failed to unmarshal address")
 
-		// Fix address, break offers
 		_, err = db.ExecContext(ctx, "UPDATE qualification_sessions SET address = '{}', qualified_offers = '123' WHERE id = $1", badID)
 		require.NoError(t, err)
 
 		_, err = repo.Get(ctx, badID)
 		assert.ErrorContains(t, err, "failed to unmarshal qualified offers")
 
-		// Make it expired to test FindExpired
 		_, err = db.ExecContext(ctx, "UPDATE qualification_sessions SET expires_at = $1 WHERE id = $2", time.Now().UTC().Add(-time.Hour), badID)
 		require.NoError(t, err)
 
 		_, err = repo.FindExpired(ctx)
 		assert.ErrorContains(t, err, "failed to unmarshal qualified offers")
 
-		// Fix offers, break address
 		_, err = db.ExecContext(ctx, "UPDATE qualification_sessions SET address = '123', qualified_offers = '[]' WHERE id = $1", badID)
 		require.NoError(t, err)
 
@@ -174,12 +206,13 @@ func TestSessionRepository(t *testing.T) {
 	})
 
 	t.Run("DB Errors", func(t *testing.T) {
-		// Create a separate db connection to test errors like closed db
 		dbBad, err := sql.Open("postgres", "postgres://user:pass@127.0.0.1:1/bad?sslmode=disable&connect_timeout=1")
 		require.NoError(t, err)
 		repoBad := postgres.NewSessionRepository(dbBad)
 
-		_, err = repoBad.Create(ctx, &domain.QualificationSession{})
+		_, err = repoBad.Create(ctx, &domain.QualificationSession{
+			CustomerID: uuid.New().String(),
+		})
 		assert.Error(t, err)
 
 		_, err = repoBad.Get(ctx, "some-id")

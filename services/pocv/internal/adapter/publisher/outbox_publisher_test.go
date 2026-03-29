@@ -23,12 +23,20 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
+type contextKey string
+
+const (
+	userKey contextKey = "user"
+	authKey contextKey = "Authorization"
+	txKey   contextKey = "tx"
+)
+
 func TestOutboxPublisher_PublishEvents(t *testing.T) {
 	db := setupTestDB(t)
 	pub := NewOutboxPublisher(db)
 
-	ctx := context.WithValue(context.Background(), "user", "test-user")
-	ctx = context.WithValue(ctx, "Authorization", "Bearer token")
+	ctx := context.WithValue(context.Background(), userKey, "test-user")
+	ctx = context.WithValue(ctx, authKey, "Bearer token")
 
 	t.Run("OrderCreated", func(t *testing.T) {
 		evt := domain.OrderCreatedEvent{
@@ -99,10 +107,9 @@ func TestOutboxPublisher_PublishEvents(t *testing.T) {
 		}
 	})
 
-	// Test transaction context
 	t.Run("WithTransaction", func(t *testing.T) {
 		tx := db.Begin()
-		ctxTx := context.WithValue(ctx, "tx", tx)
+		ctxTx := context.WithValue(ctx, txKey, tx)
 
 		evt := domain.OrderFailedEvent{
 			OrderID: "order-5",
@@ -124,7 +131,6 @@ func TestOutboxPublisher_PublishEvents(t *testing.T) {
 		}
 	})
 
-	// Test new outbox event error (invalid payload)
 	t.Run("InvalidPayload", func(t *testing.T) {
 		err := pub.saveEvent(ctx, "test", make(chan int))
 		if err == nil {

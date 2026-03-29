@@ -16,15 +16,15 @@ import (
 type mockNextGIS struct {
 	called int
 	result bool
+	err    error
 }
 
 func (m *mockNextGIS) CheckPolygon(ctx context.Context, addr domain.Address) (bool, error) {
 	m.called++
-	return m.result, nil
+	return m.result, m.err
 }
 
 func TestCachedGISClient_CheckPolygon(t *testing.T) {
-	// Setup Miniredis
 	mr, err := miniredis.Run()
 	if err != nil {
 		t.Fatalf("failed to start miniredis: %v", err)
@@ -38,14 +38,12 @@ func TestCachedGISClient_CheckPolygon(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	mock := &mockNextGIS{result: true}
 
-	// Create Cached Client
 	cachedClient := NewCachedGISClient(mock, rdb, logger)
-	cachedClient.ttl = 1 * time.Hour // Set TTL
+	cachedClient.ttl = 1 * time.Hour
 
 	ctx := context.Background()
 	addr := domain.Address{Zip: "1000", City: "Berlin", Street: "Main", Number: "1"}
 
-	// 1. First Call: Should hit Source
 	exists, err := cachedClient.CheckPolygon(ctx, addr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -57,7 +55,6 @@ func TestCachedGISClient_CheckPolygon(t *testing.T) {
 		t.Errorf("expected source called 1 time, got %d", mock.called)
 	}
 
-	// 2. Second Call: Should hit Cache
 	exists, err = cachedClient.CheckPolygon(ctx, addr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -69,7 +66,6 @@ func TestCachedGISClient_CheckPolygon(t *testing.T) {
 		t.Errorf("expected source called 1 time (cached), got %d", mock.called)
 	}
 
-	// 3. Third Call: Redis Error should Fallback to Source
 	mr.SetError("redis failure")
 	exists, err = cachedClient.CheckPolygon(ctx, addr)
 	if err != nil {
@@ -78,8 +74,27 @@ func TestCachedGISClient_CheckPolygon(t *testing.T) {
 	if !exists {
 		t.Error("expected exists=true")
 	}
-	// Should have called source again because cache read failed
 	if mock.called != 2 {
 		t.Errorf("expected source called 2 times (fallback), got %d", mock.called)
+	}
+
+	mr.SetError("")
+
+	mock.err = context.DeadlineExceeded
+	addrError := domain.Address{Zip: "error"}
+	_, err = cachedClient.CheckPolygon(ctx, addrError)
+	if err != context.DeadlineExceeded {
+		t.Errorf("expected deadline exceeded, got %v", err)
+	}
+	mock.err = nil
+
+	addrFalse := domain.Address{Zip: "false"}
+	mock.result = false
+	exists, err = cachedClient.CheckPolygon(ctx, addrFalse)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if exists {
+		t.Error("expected exists=false")
 	}
 }
