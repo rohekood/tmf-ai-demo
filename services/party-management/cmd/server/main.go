@@ -3,12 +3,15 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 
 	"tmf/pkg/rabbitmq"
 	"tmf/services/party-management/internal/config"
@@ -26,13 +29,11 @@ import (
 )
 
 func main() {
-	// Initialize structured logging
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
 	slog.Info("starting party management service")
 
-	// Initialize OpenTelemetry
 	shutdown, err := telemetry.InitTracer("party-management")
 	if err != nil {
 		slog.Error("failed to initialize tracer", "error", err)
@@ -40,49 +41,81 @@ func main() {
 		defer func() { _ = shutdown(context.Background()) }()
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	envFn := os.Getenv
+	dbDialFn := func(dsn string) (*gorm.DB, error) {
+		return gorm.Open(gormPostgres.Open(dsn), &gorm.Config{})
+	}
+	rabbitConnFn := func(url string) rmqConnManager {
+		return infraRabbit.NewConnectionManager(url)
+	}
+
+	runMigrationsFn := func(dsn string) error {
+		m, err := migrate.New("file://internal/infrastructure/postgres/migrations", dsn)
+		if err != nil {
+			return err
+		}
+		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+			return err
+		}
+		return nil
+	}
+	newPublisherFn := func(connMgr rmqConnManager) (rabbitmq.Publisher, error) {
+		return rabbitmq.NewPublisherWithConnection(connMgr.GetConnection())
+	}
+	newListenerFn := func(connMgr rmqConnManager) (*rabbitTransport.Listener, error) {
+		return rabbitTransport.NewListener(connMgr.GetConnection())
+	}
+
+	if err := run(ctx, envFn, dbDialFn, rabbitConnFn, runMigrationsFn, newPublisherFn, newListenerFn, logger); err != nil {
+		slog.Error("service exited with error", "error", err)
+		os.Exit(1)
+	}
+}
+
+type rmqConnManager interface {
+	Connect() error
+	Close() error
+	GetConnection() *amqp.Connection
+}
+
+func run(
+	ctx context.Context,
+	envFn func(string) string,
+	dbDialFn func(string) (*gorm.DB, error),
+	rabbitConnFn func(string) rmqConnManager,
+	runMigrationsFn func(string) error,
+	newPublisherFn func(rmqConnManager) (rabbitmq.Publisher, error),
+	newListenerFn func(rmqConnManager) (*rabbitTransport.Listener, error),
+	logger *slog.Logger,
+) error {
 	cfg := config.Load()
 
-	// 1. Database Connection
-	db, err := gorm.Open(gormPostgres.Open(cfg.PostgresURL), &gorm.Config{})
+	db, err := dbDialFn(cfg.PostgresURL)
 	if err != nil {
-		slog.Error("failed to connect to database", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// 2. Database Migrations
-	m, err := migrate.New(
-		"file://internal/infrastructure/postgres/migrations",
-		cfg.PostgresURL,
-	)
-	if err != nil {
-		slog.Error("failed to initialize migrations", "error", err)
-		os.Exit(1)
+	if err := runMigrationsFn(cfg.PostgresURL); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
 	}
+	logger.Info("database migrations applied successfully")
 
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		slog.Error("failed to run migrations", "error", err)
-		os.Exit(1)
-	}
-	slog.Info("database migrations applied successfully")
-
-	// 3. RabbitMQ Connection Management
-	connMgr := infraRabbit.NewConnectionManager(cfg.RabbitMQURL)
+	connMgr := rabbitConnFn(cfg.RabbitMQURL)
 	if err := connMgr.Connect(); err != nil {
-		slog.Error("failed to connect to rabbitmq", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to connect to rabbitmq: %w", err)
 	}
 	defer func() { _ = connMgr.Close() }()
 
-	// 4. Initialize Repository and Publisher
 	repo := infraPostgres.NewPartyRepository(db)
-	publisher, err := rabbitmq.NewPublisherWithConnection(connMgr.GetConnection())
+	publisher, err := newPublisherFn(connMgr)
 	if err != nil {
-		slog.Error("failed to create publisher", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create publisher: %w", err)
 	}
 	if err := publisher.DeclareTopicExchange("tmf.events", true, false, false, false); err != nil {
-		slog.Error("failed to declare exchange (tmf.events)", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to declare exchange (tmf.events): %w", err)
 	}
 
 	tm := infraPostgres.NewTransactionManager(db)
@@ -90,32 +123,31 @@ func main() {
 	outboxPublisher := infraPostgres.NewOutboxPublisher(outboxRepo)
 	outboxWorker := infraPostgres.NewOutboxWorker(outboxRepo, publisher)
 
-	// 5. Initialize Handlers and Listener
 	handlers := rabbitTransport.NewHandlers(repo, outboxPublisher, publisher, tm)
-	listener, err := rabbitTransport.NewListener(connMgr.GetConnection())
+	listener, err := newListenerFn(connMgr)
 	if err != nil {
-		slog.Error("failed to create listener", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create listener: %w", err)
 	}
 
-	// 7. Subscribe to Queues
-	// Start listener in a goroutine
-	// Create a context that listens for the interrupt signal from the OS.
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	signalCtx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Start Outbox Worker
-	go outboxWorker.Start(ctx)
+	go outboxWorker.Start(signalCtx)
 
-	go func() {
-		if err := listener.Start(ctx, handlers); err != nil {
-			slog.Error("listener stopped", "error", err)
-			stop()
-		}
-	}()
+	if listener != nil {
+		go func() {
+			if err := listener.Start(signalCtx, handlers); err != nil {
+				logger.Error("listener stopped", "error", err)
+				stop()
+			}
+		}()
+	}
 
-	// 8. Start Health Check Server
-	healthHandler := transportHttp.NewHealthHandler(db, connMgr)
+	var cMgr *infraRabbit.ConnectionManager
+	if m, ok := connMgr.(*infraRabbit.ConnectionManager); ok {
+		cMgr = m
+	}
+	healthHandler := transportHttp.NewHealthHandler(db, cMgr)
 	metricsHandler := transportHttp.MetricsHandler()
 
 	mux := http.NewServeMux()
@@ -128,30 +160,25 @@ func main() {
 	}
 
 	go func() {
-		slog.Info("starting health check server", "addr", ":"+cfg.HTTPPort)
+		logger.Info("starting health check server", "addr", ":"+cfg.HTTPPort)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			slog.Error("health check server failed", "error", err)
+			logger.Error("health check server failed", "error", err)
 			stop()
 		}
 	}()
 
-	slog.Info("party management service is running")
+	logger.Info("party management service is running")
 
-	// Wait for termination signal
-	<-ctx.Done()
-	slog.Info("shutting down gracefully...")
-	stop()
+	<-signalCtx.Done()
+	logger.Info("shutting down gracefully...")
 
-	// 9. Graceful Shutdown
-	// Shutdown HTTP Server
 	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelShutdown()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		slog.Error("Health check server forced to shutdown", "error", err)
+		logger.Error("health check server forced to shutdown", "error", err)
 	}
 
-	// Wait for listener to cleanup if needed
 	time.Sleep(1 * time.Second)
-
-	slog.Info("service stopped")
+	logger.Info("service stopped")
+	return nil
 }

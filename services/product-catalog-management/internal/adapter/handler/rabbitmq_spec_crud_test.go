@@ -20,7 +20,7 @@ import (
 
 func TestRabbitMQHandler_Spec_CRUD(t *testing.T) {
 	repo := repository.NewProductSpecificationRepo(sharedDB)
-	
+
 	sharedPub, err := rabbitmq.NewPublisherWithConnection(rabbitConn)
 	require.NoError(t, err)
 	err = sharedPub.DeclareTopicExchange("catalog_events", true, false, false, false)
@@ -59,8 +59,8 @@ func TestRabbitMQHandler_Spec_CRUD(t *testing.T) {
 
 	ch, err := rabbitConn.Channel()
 	require.NoError(t, err)
-	defer ch.Close()
-	
+	defer func() { _ = ch.Close() }()
+
 	spec := &domain.ProductSpecification{Name: "Seed Spec", LifecycleStatus: "Active", ProductNumber: "123"}
 	err = repo.Create(ctx, spec)
 	require.NoError(t, err)
@@ -87,7 +87,7 @@ func TestRabbitMQHandler_Spec_CRUD(t *testing.T) {
 	case msg := <-msgs:
 		assert.Equal(t, "get-spec", msg.CorrelationId)
 		var resp domain.ProductSpecification
-		json.Unmarshal(msg.Body, &resp)
+		_ = json.Unmarshal(msg.Body, &resp)
 		assert.Equal(t, "Updated Spec", resp.Name)
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timeout waiting for GET reply")
@@ -102,7 +102,7 @@ func TestRabbitMQHandler_Spec_CRUD(t *testing.T) {
 	case msg := <-msgs:
 		assert.Equal(t, "list-spec", msg.CorrelationId)
 		var resp []domain.ProductSpecification
-		json.Unmarshal(msg.Body, &resp)
+		_ = json.Unmarshal(msg.Body, &resp)
 		assert.GreaterOrEqual(t, len(resp), 1)
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timeout waiting for LIST reply")
@@ -122,7 +122,7 @@ func TestRabbitMQHandler_Spec_CRUD(t *testing.T) {
 func TestRabbitMQHandler_Spec_Errors(t *testing.T) {
 	repo := repository.NewProductSpecificationRepo(sharedDB)
 	sharedPub, _ := rabbitmq.NewPublisherWithConnection(rabbitConn)
-	sharedPub.DeclareTopicExchange("catalog_events", true, false, false, false)
+	_ = sharedPub.DeclareTopicExchange("catalog_events", true, false, false, false)
 	pub, _ := publisher.NewRabbitMQPublisher(sharedPub, "catalog_events")
 
 	createUC := specification.NewCreateProductSpecification(repo, pub, &repository.NoOpTransactionManager{})
@@ -141,22 +141,22 @@ func TestRabbitMQHandler_Spec_Errors(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go h.Start(ctx)
+	go func() { _ = h.Start(ctx) }()
 	time.Sleep(1 * time.Second)
 
 	ch, _ := rabbitConn.Channel()
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 
-	ch.Publish("catalog_events", "cmd.catalog.specification.create", false, false, amqp.Publishing{Body: []byte("{invalid")})
-	ch.Publish("catalog_events", "cmd.catalog.specification.update", false, false, amqp.Publishing{Body: []byte("{invalid")})
-	ch.Publish("catalog_events", "cmd.catalog.specification.delete", false, false, amqp.Publishing{Body: []byte("{invalid")})
-	ch.Publish("catalog_events", "query.catalog.specification.get", false, false, amqp.Publishing{Body: []byte("{invalid")})
-	ch.Publish("catalog_events", "query.catalog.specification.list", false, false, amqp.Publishing{Body: []byte("{invalid")})
+	_ = ch.Publish("catalog_events", "cmd.catalog.specification.create", false, false, amqp.Publishing{Body: []byte("{invalid")})
+	_ = ch.Publish("catalog_events", "cmd.catalog.specification.update", false, false, amqp.Publishing{Body: []byte("{invalid")})
+	_ = ch.Publish("catalog_events", "cmd.catalog.specification.delete", false, false, amqp.Publishing{Body: []byte("{invalid")})
+	_ = ch.Publish("catalog_events", "query.catalog.specification.get", false, false, amqp.Publishing{Body: []byte("{invalid")})
+	_ = ch.Publish("catalog_events", "query.catalog.specification.list", false, false, amqp.Publishing{Body: []byte("{invalid")})
 
-	ch.Publish("catalog_events", "cmd.catalog.specification.create", false, false, amqp.Publishing{Body: []byte("{}")})
-	ch.Publish("catalog_events", "cmd.catalog.specification.update", false, false, amqp.Publishing{Body: []byte(`{"id":"non-existent"}`)})
-	ch.Publish("catalog_events", "cmd.catalog.specification.delete", false, false, amqp.Publishing{Body: []byte(`{"id":"non-existent"}`)})
-	ch.Publish("catalog_events", "query.catalog.specification.get", false, false, amqp.Publishing{Body: []byte(`{"id":"non-existent"}`)})
-	
+	_ = ch.Publish("catalog_events", "cmd.catalog.specification.create", false, false, amqp.Publishing{Body: []byte("{}")})
+	_ = ch.Publish("catalog_events", "cmd.catalog.specification.update", false, false, amqp.Publishing{Body: []byte(`{"id":"non-existent"}`)})
+	_ = ch.Publish("catalog_events", "cmd.catalog.specification.delete", false, false, amqp.Publishing{Body: []byte(`{"id":"non-existent"}`)})
+	_ = ch.Publish("catalog_events", "query.catalog.specification.get", false, false, amqp.Publishing{Body: []byte(`{"id":"non-existent"}`)})
+
 	time.Sleep(2 * time.Second)
 }

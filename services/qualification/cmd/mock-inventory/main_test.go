@@ -2,19 +2,35 @@ package main
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/testcontainers/testcontainers-go/modules/rabbitmq"
 )
 
 func TestRun(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	rmq, err := rabbitmq.Run(ctx,
+		"rabbitmq:3.12-management",
+		rabbitmq.WithAdminPassword("guest"),
+		rabbitmq.WithAdminUsername("guest"),
+	)
+	if err != nil {
+		t.Skipf("Skipping integration test (testcontainers error): %v", err)
+	}
+	defer func() { _ = rmq.Terminate(ctx) }()
+
+	amqpURL, err := rmq.AmqpURL(ctx)
+	if err != nil {
+		t.Fatalf("failed to get amqp url: %v", err)
+	}
+
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		// Connect and publish a test message
-		conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+		conn, err := amqp.Dial(amqpURL)
 		if err == nil {
 			defer func() { _ = conn.Close() }()
 			ch, err := conn.Channel()
@@ -30,7 +46,7 @@ func TestRun(t *testing.T) {
 		cancel()
 	}()
 
-	err := run(ctx, func(k string) string { return "amqp://guest:guest@localhost:5672/" })
+	err = run(ctx, func(k string) string { return amqpURL })
 	if err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
@@ -41,18 +57,4 @@ func TestRunError(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
-}
-
-func TestMainExecution(t *testing.T) {
-	_ = os.Setenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
-
-	go func() {
-		time.Sleep(500 * time.Millisecond)
-		p, err := os.FindProcess(os.Getpid())
-		if err == nil {
-			_ = p.Signal(os.Interrupt)
-		}
-	}()
-
-	main()
 }

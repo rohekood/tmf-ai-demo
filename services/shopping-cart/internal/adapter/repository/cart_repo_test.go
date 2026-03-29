@@ -20,7 +20,6 @@ func TestLegacyCartRepository_AddItem(t *testing.T) {
 	offeringID := uuid.New().String()
 	customerID := uuid.New().String()
 
-	// Seed the cart first so FirstOrCreate finds it and doesn't try to insert with empty customer_id
 	db.Create(&domain.Cart{
 		ID:         cartID,
 		CustomerID: customerID,
@@ -36,19 +35,20 @@ func TestLegacyCartRepository_AddItem(t *testing.T) {
 		Currency:   "USD",
 	}
 
-	ctx := context.WithValue(context.Background(), "X-Correlation-ID", "corr-123")
-	ctx = context.WithValue(ctx, "user", "user-123")
+	type ctxKey string
+	var corrKey ctxKey = "X-Correlation-ID"
+	var userKey ctxKey = "user"
+	ctx := context.WithValue(context.Background(), corrKey, "corr-123")
+	ctx = context.WithValue(ctx, userKey, "user-123")
 
 	err := repo.AddItem(ctx, cartID, item)
 	require.NoError(t, err)
 
-	// Check cart exists
 	var cart domain.Cart
 	err = db.First(&cart, "id = ?", cartID).Error
 	assert.NoError(t, err)
 	assert.Equal(t, cartID, cart.ID)
 
-	// Check item exists
 	var savedItem domain.CartItem
 	err = db.First(&savedItem, "id = ?", item.ID).Error
 	assert.NoError(t, err)

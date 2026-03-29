@@ -20,7 +20,7 @@ import (
 
 func TestRabbitMQHandler_Category_CRUD(t *testing.T) {
 	repo := repository.NewCategoryRepo(sharedDB)
-	
+
 	sharedPub, err := rabbitmq.NewPublisherWithConnection(rabbitConn)
 	require.NoError(t, err)
 	err = sharedPub.DeclareTopicExchange("catalog_events", true, false, false, false)
@@ -35,7 +35,6 @@ func TestRabbitMQHandler_Category_CRUD(t *testing.T) {
 	getUC := category.NewGetCategory(repo)
 	listUC := category.NewListCategories(repo)
 
-	// Init Handler
 	h, err := handler.NewRabbitMQHandler(
 		rabbitConn,
 		nil, nil, nil, nil, nil,
@@ -52,7 +51,6 @@ func TestRabbitMQHandler_Category_CRUD(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Start Handler in background
 	go func() {
 		_ = h.Start(ctx)
 	}()
@@ -61,15 +59,14 @@ func TestRabbitMQHandler_Category_CRUD(t *testing.T) {
 
 	ch, err := rabbitConn.Channel()
 	require.NoError(t, err)
-	defer ch.Close()
-	
+	defer func() { _ = ch.Close() }()
+
 	cat := &domain.Category{Name: "Seed Category", IsRoot: true}
 	err = repo.Create(ctx, cat)
 	require.NoError(t, err)
 
-	// 1. UPDATE
 	updateMsg := map[string]interface{}{
-		"id": cat.ID,
+		"id":   cat.ID,
 		"name": "Updated Category",
 	}
 	body, _ := json.Marshal(updateMsg)
@@ -84,7 +81,6 @@ func TestRabbitMQHandler_Category_CRUD(t *testing.T) {
 	replyQueue, _ := ch.QueueDeclare("", false, true, true, false, nil)
 	msgs, _ := ch.Consume(replyQueue.Name, "", true, false, false, false, nil)
 
-	// 2. GET
 	getMsg := map[string]interface{}{"id": cat.ID}
 	body, _ = json.Marshal(getMsg)
 	err = ch.Publish("catalog_events", "query.catalog.category.get", false, false, amqp.Publishing{ContentType: "application/json", Body: body, ReplyTo: replyQueue.Name, CorrelationId: "get-cat"})
@@ -94,13 +90,12 @@ func TestRabbitMQHandler_Category_CRUD(t *testing.T) {
 	case msg := <-msgs:
 		assert.Equal(t, "get-cat", msg.CorrelationId)
 		var resp domain.Category
-		json.Unmarshal(msg.Body, &resp)
+		_ = json.Unmarshal(msg.Body, &resp)
 		assert.Equal(t, "Updated Category", resp.Name)
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timeout waiting for GET reply")
 	}
 
-	// 3. LIST
 	listMsg := map[string]interface{}{"name": "Updated Category"}
 	body, _ = json.Marshal(listMsg)
 	err = ch.Publish("catalog_events", "query.catalog.category.list", false, false, amqp.Publishing{ContentType: "application/json", Body: body, ReplyTo: replyQueue.Name, CorrelationId: "list-cat"})
@@ -110,13 +105,12 @@ func TestRabbitMQHandler_Category_CRUD(t *testing.T) {
 	case msg := <-msgs:
 		assert.Equal(t, "list-cat", msg.CorrelationId)
 		var resp []domain.Category
-		json.Unmarshal(msg.Body, &resp)
+		_ = json.Unmarshal(msg.Body, &resp)
 		assert.GreaterOrEqual(t, len(resp), 1)
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timeout waiting for LIST reply")
 	}
 
-	// 4. DELETE
 	deleteMsg := map[string]interface{}{"id": cat.ID}
 	body, _ = json.Marshal(deleteMsg)
 	err = ch.Publish("catalog_events", "cmd.catalog.category.delete", false, false, amqp.Publishing{ContentType: "application/json", Body: body})
@@ -131,7 +125,7 @@ func TestRabbitMQHandler_Category_CRUD(t *testing.T) {
 func TestRabbitMQHandler_Category_Errors(t *testing.T) {
 	repo := repository.NewCategoryRepo(sharedDB)
 	sharedPub, _ := rabbitmq.NewPublisherWithConnection(rabbitConn)
-	sharedPub.DeclareTopicExchange("catalog_events", true, false, false, false)
+	_ = sharedPub.DeclareTopicExchange("catalog_events", true, false, false, false)
 	pub, _ := publisher.NewRabbitMQPublisher(sharedPub, "catalog_events")
 
 	createUC := category.NewCreateCategory(repo, pub, &repository.NoOpTransactionManager{})
@@ -150,24 +144,22 @@ func TestRabbitMQHandler_Category_Errors(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go h.Start(ctx)
+	go func() { _ = h.Start(ctx) }()
 	time.Sleep(1 * time.Second)
 
 	ch, _ := rabbitConn.Channel()
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 
-	// 1. Invalid JSON
-	ch.Publish("catalog_events", "cmd.catalog.category.create", false, false, amqp.Publishing{Body: []byte("{invalid")})
-	ch.Publish("catalog_events", "cmd.catalog.category.update", false, false, amqp.Publishing{Body: []byte("{invalid")})
-	ch.Publish("catalog_events", "cmd.catalog.category.delete", false, false, amqp.Publishing{Body: []byte("{invalid")})
-	ch.Publish("catalog_events", "query.catalog.category.get", false, false, amqp.Publishing{Body: []byte("{invalid")})
-	ch.Publish("catalog_events", "query.catalog.category.list", false, false, amqp.Publishing{Body: []byte("{invalid")})
+	_ = ch.Publish("catalog_events", "cmd.catalog.category.create", false, false, amqp.Publishing{Body: []byte("{invalid")})
+	_ = ch.Publish("catalog_events", "cmd.catalog.category.update", false, false, amqp.Publishing{Body: []byte("{invalid")})
+	_ = ch.Publish("catalog_events", "cmd.catalog.category.delete", false, false, amqp.Publishing{Body: []byte("{invalid")})
+	_ = ch.Publish("catalog_events", "query.catalog.category.get", false, false, amqp.Publishing{Body: []byte("{invalid")})
+	_ = ch.Publish("catalog_events", "query.catalog.category.list", false, false, amqp.Publishing{Body: []byte("{invalid")})
 
-	// 2. Valid JSON but Usecase fails
-	ch.Publish("catalog_events", "cmd.catalog.category.create", false, false, amqp.Publishing{Body: []byte("{}")})
-	ch.Publish("catalog_events", "cmd.catalog.category.update", false, false, amqp.Publishing{Body: []byte(`{"id":"non-existent"}`)})
-	ch.Publish("catalog_events", "cmd.catalog.category.delete", false, false, amqp.Publishing{Body: []byte(`{"id":"non-existent"}`)})
-	ch.Publish("catalog_events", "query.catalog.category.get", false, false, amqp.Publishing{Body: []byte(`{"id":"non-existent"}`)})
-	
+	_ = ch.Publish("catalog_events", "cmd.catalog.category.create", false, false, amqp.Publishing{Body: []byte("{}")})
+	_ = ch.Publish("catalog_events", "cmd.catalog.category.update", false, false, amqp.Publishing{Body: []byte(`{"id":"non-existent"}`)})
+	_ = ch.Publish("catalog_events", "cmd.catalog.category.delete", false, false, amqp.Publishing{Body: []byte(`{"id":"non-existent"}`)})
+	_ = ch.Publish("catalog_events", "query.catalog.category.get", false, false, amqp.Publishing{Body: []byte(`{"id":"non-existent"}`)})
+
 	time.Sleep(2 * time.Second)
 }

@@ -1,19 +1,19 @@
 package handler
 
 import (
-	"errors"
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"tmf/pkg/rabbitmq"
 	"tmf/services/product-catalog-management/internal/core/domain"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-// Mocking the ProductOfferingRepository
 type MockOfferingRepo struct {
 	mock.Mock
 }
@@ -49,7 +49,6 @@ func (m *MockOfferingRepo) Delete(ctx context.Context, id string) error {
 	return args.Error(0)
 }
 
-// Mocking the RabbitMQ Publisher
 type MockPublisher struct {
 	mock.Mock
 }
@@ -74,7 +73,6 @@ func (m *MockPublisher) Close() error {
 	return args.Error(0)
 }
 
-// Mock Consumer
 type MockConsumer struct {
 	mock.Mock
 }
@@ -171,12 +169,6 @@ func TestCatalogRPCHandler_HandleGetOffersByCategory(t *testing.T) {
 
 	repo.On("List", ctx, map[string]interface{}{"category": "cat1"}).Return(offerings, nil)
 
-	type offerResponse struct {
-		ID              string            `json:"id"`
-		Name            string            `json:"name"`
-		Characteristics map[string]string `json:"characteristics"`
-	}
-
 	pub.On("PublishToQueue", ctx, "reply_queue", "corr-123", mock.Anything).Return(nil)
 
 	err := handler.HandleGetOffersByCategory(ctx, payload)
@@ -203,7 +195,6 @@ func TestCatalogRPCHandler_HandleDispatch(t *testing.T) {
 	err := handler.HandleDispatch(ctx, payload)
 	assert.NoError(t, err)
 
-	// test unknown key
 	ctx2 := context.WithValue(context.Background(), rabbitmq.ContextKeyRoutingKey, "unknown.key")
 	err = handler.HandleDispatch(ctx2, []byte(`{}`))
 	assert.NoError(t, err)

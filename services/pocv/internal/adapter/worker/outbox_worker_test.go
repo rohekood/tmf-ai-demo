@@ -46,7 +46,6 @@ func (m *mockPublisher) Close() error {
 func TestOutboxWorker_StartAndProcessBatch(t *testing.T) {
 	db := setupTestDB(t)
 
-	// Create some events
 	now := time.Now()
 	events := []repository.OutboxEventModel{
 		{
@@ -93,7 +92,6 @@ func TestOutboxWorker_StartAndProcessBatch(t *testing.T) {
 
 	worker := NewOutboxWorker(db, pubMock, "test-exchange")
 
-	// Test processBatch
 	worker.processBatch(context.Background())
 
 	if publishCount != 3 {
@@ -108,25 +106,24 @@ func TestOutboxWorker_StartAndProcessBatch(t *testing.T) {
 	}
 
 	for _, e := range dbEvents {
-		if e.Topic == "test.topic.1" || e.Topic == "test.topic.2" {
+		switch e.Topic {
+		case "test.topic.1", "test.topic.2":
 			if e.Status != repository.StatusPublished {
 				t.Errorf("expected status PUBLISHED for %s, got %s", e.Topic, e.Status)
 			}
-		} else if e.Topic == "test.topic.3" {
+		case "test.topic.3":
 			if e.Status != repository.StatusFailed {
 				t.Errorf("expected status FAILED for %s, got %s", e.Topic, e.Status)
 			}
 		}
 	}
 
-	// Test empty batch
 	publishCount = 0
 	worker.processBatch(context.Background())
 	if publishCount != 0 {
 		t.Errorf("expected 0 publishes on empty batch, got %d", publishCount)
 	}
 
-	// Test Start loop gracefully stopping
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan bool)
 	go func() {
@@ -134,30 +131,27 @@ func TestOutboxWorker_StartAndProcessBatch(t *testing.T) {
 		done <- true
 	}()
 
-	time.Sleep(250 * time.Millisecond) // Let it run one tick
+	time.Sleep(250 * time.Millisecond)
 	cancel()
 
 	select {
 	case <-done:
-		// success
 	case <-time.After(1 * time.Second):
 		t.Errorf("Start() did not return after context canceled")
 	}
 }
 
 func TestOutboxWorker_DBError(t *testing.T) {
-	// Create a worker with a closed DB to force an error
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
 	sqlDB, _ := db.DB()
-	sqlDB.Close()
+	_ = sqlDB.Close()
 
 	pubMock := &mockPublisher{}
 	worker := NewOutboxWorker(db, pubMock, "test-exchange")
 
-	// This shouldn't panic, just return
 	worker.processBatch(context.Background())
 }
 

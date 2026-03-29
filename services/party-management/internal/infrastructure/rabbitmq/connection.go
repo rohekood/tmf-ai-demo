@@ -10,7 +10,8 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// ConnectionManager handles RabbitMQ connection and auto-reconnect
+type amqpDialFn func(url string) (*amqp.Connection, error)
+
 type ConnectionManager struct {
 	url           string
 	conn          *amqp.Connection
@@ -20,15 +21,21 @@ type ConnectionManager struct {
 	closed        bool
 	ctx           context.Context
 	cancel        context.CancelFunc
+	dialFn        amqpDialFn
 }
 
-func NewConnectionManager(url string) *ConnectionManager {
+func NewConnectionManager(url string, dialFn ...amqpDialFn) *ConnectionManager {
 	ctx, cancel := context.WithCancel(context.Background())
+	df := amqp.Dial
+	if len(dialFn) > 0 {
+		df = dialFn[0]
+	}
 	return &ConnectionManager{
 		url:           url,
 		reconnectChan: make(chan struct{}, 1),
 		ctx:           ctx,
 		cancel:        cancel,
+		dialFn:        df,
 	}
 }
 
@@ -36,7 +43,7 @@ func (m *ConnectionManager) Connect() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	conn, err := amqp.Dial(m.url)
+	conn, err := m.dialFn(m.url)
 	if err != nil {
 		return fmt.Errorf("failed to dial: %w", err)
 	}
@@ -71,7 +78,6 @@ func (m *ConnectionManager) handleReconnect() {
 				time.Sleep(5 * time.Second)
 				if err := m.Connect(); err == nil {
 					slog.Info("rabbitmq reconnected successfully")
-					// Signal reconnect to listeners
 					select {
 					case m.reconnectChan <- struct{}{}:
 					default:

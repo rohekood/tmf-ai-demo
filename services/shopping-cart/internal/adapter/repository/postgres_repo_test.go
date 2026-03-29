@@ -9,10 +9,10 @@ import (
 	"tmf/services/shopping-cart/internal/adapter/repository"
 	"tmf/services/shopping-cart/internal/core/domain"
 
-	"github.com/google/uuid"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gormPostgres "gorm.io/driver/postgres"
@@ -25,10 +25,9 @@ func setupDB(t *testing.T) *gorm.DB {
 		dbURL = "postgres://backstage:backstage@localhost:5432/backstage?sslmode=disable"
 	}
 
-	// Run migrations
 	m, err := migrate.New("file://../../../internal/infrastructure/postgres/migrations", dbURL)
 	require.NoError(t, err)
-	_ = m.Up() // ignore errNoChange
+	_ = m.Up()
 
 	db, err := gorm.Open(gormPostgres.Open(dbURL), &gorm.Config{})
 	require.NoError(t, err)
@@ -79,7 +78,6 @@ func TestPostgresRepo_SaveAndGet(t *testing.T) {
 		err := repo.Save(ctx, cart, events)
 		assert.NoError(t, err)
 
-		// Get it back
 		retrieved, err := repo.Get(ctx, cartID)
 		assert.NoError(t, err)
 		assert.NotNil(t, retrieved)
@@ -117,12 +115,10 @@ func TestPostgresRepo_UpsertAndGetPrice(t *testing.T) {
 		err := repo.UpsertPrice(ctx, price)
 		assert.NoError(t, err)
 
-		// Update it
 		price.UnitAmount = 89.99
 		err = repo.UpsertPrice(ctx, price)
 		assert.NoError(t, err)
 
-		// Get it
 		retrieved, err := repo.GetPrice(ctx, offeringID)
 		assert.NoError(t, err)
 		assert.NotNil(t, retrieved)
@@ -142,8 +138,9 @@ func TestPostgresRepo_UpsertAndGetPrice(t *testing.T) {
 func TestPostgresRepo_GetTxWithContext(t *testing.T) {
 	db := setupDB(t)
 	repo := repository.NewCartRepository(db)
-	
-	ctx := context.WithValue(context.Background(), "tx", db)
+	type ctxKey string
+	var txKey ctxKey = "tx"
+	ctx := context.WithValue(context.Background(), txKey, db)
 	retrieved, err := repo.Get(ctx, uuid.New().String())
 	assert.NoError(t, err)
 	assert.Nil(t, retrieved)
@@ -152,12 +149,12 @@ func TestPostgresRepo_GetTxWithContext(t *testing.T) {
 func TestPostgresRepo_SaveError(t *testing.T) {
 	db := setupDB(t)
 	repo := repository.NewCartRepository(db)
-	
+
 	ctx := context.Background()
 	cart := &domain.Cart{
-		ID:                 "invalid-uuid", // This should cause an error
-		CustomerID:         "cust-1",
-		Status:             domain.CartStatusActive,
+		ID:         "invalid-uuid",
+		CustomerID: "cust-1",
+		Status:     domain.CartStatusActive,
 	}
 
 	err := repo.Save(ctx, cart, nil)
@@ -167,10 +164,10 @@ func TestPostgresRepo_SaveError(t *testing.T) {
 func TestPostgresRepo_UpsertPriceError(t *testing.T) {
 	db := setupDB(t)
 	repo := repository.NewCartRepository(db)
-	
+
 	ctx := context.Background()
 	price := &domain.ProductPrice{
-		ID:         "invalid-uuid", // This should cause an error
+		ID:         "invalid-uuid",
 		UnitAmount: 99.99,
 		Currency:   "EUR",
 	}

@@ -9,10 +9,10 @@ import (
 
 func TestAddItemUseCase_Execute(t *testing.T) {
 	uc := usecase.NewAddItemUseCase(nil)
-	
+
 	defer func() {
-		recover() // Will panic on nil repo
+		_ = recover()
 	}()
-	
-	uc.Execute(context.Background(), "cart-1", "offering-1")
+
+	_ = uc.Execute(context.Background(), "cart-1", "offering-1")
 }
