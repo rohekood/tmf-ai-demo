@@ -10,6 +10,7 @@ name: Shopping Cart CI/CD
       - 'fix/**'
     paths:
       - 'services/shopping-cart/**'
+      - 'pkg/**'
 
 permissions:
   contents: write
@@ -24,6 +25,7 @@ jobs:
     with:
       service_name: shopping-cart
       service_path: services/shopping-cart
+      docker_context_path: .
       image_name: shopping-cart
       release_title: Shopping Cart
     secrets: inherit

@@ -10,6 +10,7 @@ name: Demo UI CI/CD
       - 'fix/**'
     paths:
       - 'services/demo-ui/**'
+      - 'pkg/**'
 
 permissions:
   contents: write
@@ -105,7 +106,7 @@ jobs:
       - name: Build and push BFF image
         uses: docker/build-push-action@v5
         with:
-          context: ./services/demo-ui/bff
+          context: .
           file: ./services/demo-ui/bff/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.actor != 'dependabot[bot]' }}

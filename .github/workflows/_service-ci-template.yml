@@ -25,6 +25,11 @@ name: Service CI Template
         required: false
         type: string
         default: ''
+      docker_context_path:
+        description: Relative path to Docker build context
+        required: false
+        type: string
+        default: ''
       platforms:
         description: Docker build platforms
         required: false
@@ -157,7 +162,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./${{ inputs.service_path }}
+          context: ${{ inputs.docker_context_path != '' && format('./{0}', inputs.docker_context_path) || format('./{0}', inputs.service_path) }}
           file: ${{ inputs.dockerfile_path != '' && format('./{0}', inputs.dockerfile_path) || format('./{0}/Dockerfile', inputs.service_path) }}
           platforms: ${{ inputs.platforms }}
           push: ${{ github.actor != 'dependabot[bot]' }}

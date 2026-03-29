@@ -10,6 +10,7 @@ name: POCV CI/CD
       - 'fix/**'
     paths:
       - 'services/pocv/**'
+      - 'pkg/**'
 
 permissions:
   contents: write
@@ -24,6 +25,7 @@ jobs:
     with:
       service_name: pocv
       service_path: services/pocv
+      docker_context_path: .
       image_name: pocv
       release_title: POCV
     secrets: inherit

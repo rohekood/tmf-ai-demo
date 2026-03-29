@@ -10,6 +10,7 @@ name: Qualification CI/CD
       - 'fix/**'
     paths:
       - 'services/qualification/**'
+      - 'pkg/**'
 
 permissions:
   contents: write
@@ -24,6 +25,7 @@ jobs:
     with:
       service_name: qualification
       service_path: services/qualification
+      docker_context_path: .
       image_name: qualification
       release_title: Qualification
     secrets: inherit
