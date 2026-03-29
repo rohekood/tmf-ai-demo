@@ -108,21 +108,23 @@ type mockBroadcaster struct {
 }
 
 func (m *mockBroadcaster) Broadcast(msg interface{}) {
-	if d, ok := msg.(DebugMessage); ok { m.lastMsg = d }
+	if d, ok := msg.(DebugMessage); ok {
+		m.lastMsg = d
+	}
 }
 
 func TestClient_BroadcastRequestAndReply(t *testing.T) {
 	// We can test the broadcast methods without a real connection by just calling them
 	client := &Client{}
-	
+
 	broadcaster := &mockBroadcaster{}
 	client.SetBroadcaster(broadcaster)
-	
+
 	// Test broadcastRequest
 	headers := map[string]interface{}{"h1": "v1"}
 	payload := map[string]string{"key": "value"}
 	client.broadcastRequest("exchange", "routingKey", payload, headers)
-	
+
 	if broadcaster.lastMsg.Type != "request" {
 		t.Errorf("expected request, got %v", broadcaster.lastMsg.Type)
 	}
@@ -142,28 +144,28 @@ func TestClient_BroadcastRequestAndReply(t *testing.T) {
 	// Test broadcastReply
 	validJSON := []byte(`{"result": "success"}`)
 	client.broadcastReply("routingKey", validJSON)
-	
+
 	if broadcaster.lastMsg.Type != "reply" {
 		t.Errorf("expected reply, got %v", broadcaster.lastMsg.Type)
 	}
 	if broadcaster.lastMsg.Topic != "rpc.reply" {
 		t.Errorf("expected rpc.reply, got %v", broadcaster.lastMsg.Topic)
 	}
-	
+
 	invalidJSON := []byte(`not json`)
 	client.broadcastReply("routingKey", invalidJSON)
-	
+
 	if broadcaster.lastMsg.Payload["raw"] != "not json" {
 		t.Errorf("expected raw fallback, got %v", broadcaster.lastMsg.Payload["raw"])
 	}
 }
 
 func TestClient_EmptyURL(t *testing.T) {
-    // This will attempt to connect to localhost and likely fail, but it hits the url check
-    client, err := NewClient("")
-    if err == nil {
-        client.Close()
-    }
+	// This will attempt to connect to localhost and likely fail, but it hits the url check
+	client, err := NewClient("")
+	if err == nil {
+		defer client.Close()
+	}
 }
 
 func TestLogUnknownCorrelation(t *testing.T) {
@@ -175,11 +177,13 @@ func TestClient_PublishCommand(t *testing.T) {
 	client := &Client{}
 	broadcaster := &mockBroadcaster{}
 	client.SetBroadcaster(broadcaster)
-	
-	// Because c.Publish will panic or fail on nil RPCClient, we only care about broadcast Request
-	// wait, c.Publish is c.RPCClient.Publish. If RPCClient is nil, it will panic.
-    // Let's create an RPC client but not connect. Actually pkgrmq.NewRPCClient will connect and fail.
-    // Let's see if we can recover the panic just to get coverage on the broadcast part.
-	defer func() { recover() }()
-	client.PublishCommand(context.Background(), "exchange", "routingKey", map[string]string{})
+
+	// Because c.Publish will panic on a nil RPC client, this test only verifies that
+	// the debug broadcast path is exercised before the call fails.
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("expected panic when publishing with nil RPC client")
+		}
+	}()
+	_ = client.PublishCommand(context.Background(), "exchange", "routingKey", map[string]string{})
 }

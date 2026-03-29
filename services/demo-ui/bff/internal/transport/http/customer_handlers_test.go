@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"tmf/pkg/rabbitmq"
 )
 
 func TestHandler_SearchCustomers(t *testing.T) {
@@ -208,4 +210,121 @@ func TestCustomerHandler_PartyEnrichmentErrors(t *testing.T) {
 			t.Errorf("expected 201 got %d", w.Code)
 		}
 	})
+}
+
+func TestHandler_GetHeaders_UsesTypedUserKeys(t *testing.T) {
+	t.Run("context user key", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Header.Set("Authorization", "Bearer token")
+		req = req.WithContext(context.WithValue(req.Context(), rabbitmq.ContextKeyUser, "typed-user"))
+
+		headers := getHeaders(req)
+		if headers["Authorization"] != "Bearer token" {
+			t.Fatalf("expected Authorization header to be forwarded")
+		}
+		if headers["user"] != "typed-user" {
+			t.Fatalf("expected typed user to be forwarded, got %v", headers["user"])
+		}
+	})
+
+	t.Run("header user key", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		req = req.WithContext(context.WithValue(req.Context(), rabbitmq.Key(rabbitmq.HeaderUser), "header-user"))
+
+		headers := getHeaders(req)
+		if headers["user"] != "header-user" {
+			t.Fatalf("expected header user to be forwarded, got %v", headers["user"])
+		}
+	})
+}
+
+func TestHandler_GetHeaders_WithoutContextValues(t *testing.T) {
+	req := httptest.NewRequest("GET", "/", nil)
+
+	headers := getHeaders(req)
+	if len(headers) != 0 {
+		t.Fatalf("expected no forwarded headers, got %v", headers)
+	}
+}
+
+func TestHandler_CustomerIDRequired(t *testing.T) {
+	handler := NewHandler(&MockRPCClient{}, nil)
+
+	tests := []struct {
+		name string
+		call func(http.ResponseWriter, *http.Request)
+	}{
+		{name: "GetCustomer", call: handler.GetCustomer},
+		{name: "UpdateCustomer", call: handler.UpdateCustomer},
+		{name: "DeleteCustomer", call: handler.DeleteCustomer},
+		{name: "LogInteraction", call: handler.LogInteraction},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			w := httptest.NewRecorder()
+			tc.call(w, req)
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("expected 400, got %d", w.Code)
+			}
+		})
+	}
+}
+
+func TestHandler_CustomerMutationSuccess(t *testing.T) {
+	mockClient := &MockRPCClient{}
+	handler := NewHandler(mockClient, nil)
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		if exchange != customerExchange {
+			return nil, errors.New("unexpected exchange")
+		}
+		switch routingKey {
+		case cmdCustomerUpdate:
+			if payload.(map[string]interface{})["id"] != "c1" {
+				t.Fatalf("expected update payload to include id c1")
+			}
+			if headers["user"] != "user-1" {
+				t.Fatalf("expected user header to be forwarded")
+			}
+			return []byte(`{"id":"c1","status":"updated"}`), nil
+		case cmdCustomerDelete:
+			if payload.(map[string]string)["id"] != "c1" {
+				t.Fatalf("expected delete payload to include id c1")
+			}
+			return []byte(`{}`), nil
+		case cmdCustomerLogInteraction:
+			if payload.(map[string]interface{})["customerId"] != "c1" {
+				t.Fatalf("expected interaction payload to include customerId c1")
+			}
+			return []byte(`{"id":"i1"}`), nil
+		default:
+			return nil, errors.New("unexpected routing key: " + routingKey)
+		}
+	}
+
+	updateReq := httptest.NewRequest(http.MethodPut, "/api/customers/c1", strings.NewReader(`{"status":"active"}`))
+	updateReq = updateReq.WithContext(context.WithValue(updateReq.Context(), rabbitmq.ContextKeyUser, "user-1"))
+	updateResp := httptest.NewRecorder()
+	mux.ServeHTTP(updateResp, updateReq)
+	if updateResp.Code != http.StatusOK {
+		t.Fatalf("expected update status 200, got %d", updateResp.Code)
+	}
+
+	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/customers/c1", nil)
+	deleteResp := httptest.NewRecorder()
+	mux.ServeHTTP(deleteResp, deleteReq)
+	if deleteResp.Code != http.StatusNoContent {
+		t.Fatalf("expected delete status 204, got %d", deleteResp.Code)
+	}
+
+	interactionReq := httptest.NewRequest(http.MethodPost, "/api/customers/c1/interactions", strings.NewReader(`{"type":"note"}`))
+	interactionResp := httptest.NewRecorder()
+	mux.ServeHTTP(interactionResp, interactionReq)
+	if interactionResp.Code != http.StatusCreated {
+		t.Fatalf("expected interaction status 201, got %d", interactionResp.Code)
+	}
 }

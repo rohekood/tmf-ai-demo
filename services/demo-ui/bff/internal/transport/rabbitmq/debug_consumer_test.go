@@ -125,19 +125,21 @@ func TestDebugConsumer_NewDebugConsumer(t *testing.T) {
 
 func TestDebugConsumer_StartSubscribing_ErrorNoClient(t *testing.T) {
 	mockBroadcaster := &MockBroadcaster{}
-	
+
 	// Create client with no connection will fail
-    // But since `StartSubscribing` calls `dc.client.Connection().Channel()`, it will panic if client is nil.
-    // Let's create a dummy client or just recover.
+	// But since `StartSubscribing` calls `dc.client.Connection().Channel()`, it will panic if client is nil.
+	// Let's create a dummy client or just recover.
 	consumer := &DebugConsumer{
 		client:      &Client{},
 		broadcaster: mockBroadcaster,
 	}
-	
+
 	defer func() {
 		if r := recover(); r == nil {
 			t.Errorf("Expected panic due to nil connection in dummy client")
 		}
 	}()
-	consumer.StartSubscribing("test-exchange")
+	if err := consumer.StartSubscribing("test-exchange"); err == nil {
+		t.Fatal("expected panic before nil client could return an error")
+	}
 }

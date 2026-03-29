@@ -51,10 +51,8 @@ func TestCatalogHandler_Success(t *testing.T) {
 			}
 			w := httptest.NewRecorder()
 			mux.ServeHTTP(w, req)
-			if w.Code != tc.code && (w.Code != 200 && tc.code == 201) && (w.Code != 204 && tc.code == 200) && (w.Code != 200 && tc.code == 204) && (w.Code != 201 && tc.code == 200) && (w.Code != 202 && tc.code == 200) && (w.Code != 202 && tc.code == 204) && (w.Code != 202 && tc.code == 201) {
-				if w.Code >= 400 {
-					t.Errorf("expected %d got %d", tc.code, w.Code)
-				}
+			if w.Code != tc.code {
+				t.Errorf("expected %d got %d", tc.code, w.Code)
 			}
 		})
 	}

@@ -16,6 +16,8 @@ type Hub struct {
 	mu      sync.RWMutex
 }
 
+var fatalf = log.Fatalf
+
 func NewHub() *Hub {
 	return &Hub{
 		clients: make(map[string]*websocket.Conn),
@@ -43,21 +45,25 @@ func (h *Hub) StartConsumer(rmq rabbitmq.Consumer) {
 	// In production, might need specific queues. wildcards on topic exchange.
 	err := rmq.Subscribe("evt.#", h.HandleEvent)
 	if err != nil {
-		log.Fatalf("Failed to start BFF consumer: %v", err)
+		fatalf("Failed to start BFF consumer: %v", err)
 	}
 }
 
 func (h *Hub) HandleEvent(ctx context.Context, payload []byte) error {
 	// 1. Extract CorrelationID from Context
 	var correlationID string
-	if val, ok := ctx.Value("X-Correlation-ID").(string); ok {
+	if val, ok := ctx.Value(rabbitmq.ContextKeyCorrelationID).(string); ok {
+		correlationID = val
+	} else if val, ok := ctx.Value(rabbitmq.Key(rabbitmq.HeaderCorrelationID)).(string); ok {
 		correlationID = val
 	} else {
 		// Fallback: Try to parse payload if ID is inside body (not ideal but fallback)
 		// Or if headers missing.
 		// For now, if no correlation ID, we can't route to specific user. Broadcast? No.
 		// Check "user" header?
-		if user, ok := ctx.Value("user").(string); ok {
+		if user, ok := ctx.Value(rabbitmq.ContextKeyUser).(string); ok {
+			correlationID = user // Strategy: Route by UserID if CorrelationID missing
+		} else if user, ok := ctx.Value(rabbitmq.Key(rabbitmq.HeaderUser)).(string); ok {
 			correlationID = user // Strategy: Route by UserID if CorrelationID missing
 		} else {
 			return nil // Drop unroutable message

@@ -104,17 +104,18 @@ func TestHub_ServeWs(t *testing.T) {
 	header := http.Header{}
 	header.Add("Sec-WebSocket-Protocol", "access_token.valid-token")
 	conn, _, err := websocket.DefaultDialer.Dial(url, header)
-	
 	if err != nil {
 		t.Fatalf("Failed to dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	time.Sleep(50 * time.Millisecond)
 
 	hub.Broadcast("test-msg")
-	
-	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+
+	if err := conn.SetReadDeadline(time.Now().Add(1 * time.Second)); err != nil {
+		t.Fatalf("set read deadline: %v", err)
+	}
 	_, msg, err := conn.ReadMessage()
 	if err != nil {
 		t.Fatalf("Failed to read broadcast msg: %v", err)
@@ -131,7 +132,6 @@ func TestHub_ServeWs(t *testing.T) {
 
 	time.Sleep(50 * time.Millisecond)
 }
-
 
 func TestHub_Run_WithBuffer(t *testing.T) {
 	hub := NewHub()

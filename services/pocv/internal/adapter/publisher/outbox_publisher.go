@@ -2,6 +2,7 @@ package publisher
 
 import (
 	"context"
+	"tmf/pkg/rabbitmq"
 	"tmf/services/pocv/internal/adapter/repository"
 	"tmf/services/pocv/internal/core/domain"
 
@@ -17,7 +18,7 @@ func NewOutboxPublisher(db *gorm.DB) *OutboxPublisher {
 }
 
 func (p *OutboxPublisher) getDB(ctx context.Context) *gorm.DB {
-	tx, ok := ctx.Value("tx").(*gorm.DB)
+	tx, ok := repository.DBFromContext(ctx)
 	if ok {
 		return tx
 	}
@@ -27,10 +28,12 @@ func (p *OutboxPublisher) getDB(ctx context.Context) *gorm.DB {
 func (p *OutboxPublisher) saveEvent(ctx context.Context, routingKey string, payload interface{}) error {
 	// Add Standard Headers if needed (e.g., from context)
 	headers := make(map[string]string)
-	if user, ok := ctx.Value("user").(string); ok {
+	if user, ok := ctx.Value(rabbitmq.ContextKeyUser).(string); ok {
+		headers["user"] = user
+	} else if user, ok := ctx.Value(rabbitmq.Key(rabbitmq.HeaderUser)).(string); ok {
 		headers["user"] = user
 	}
-	if auth, ok := ctx.Value("Authorization").(string); ok {
+	if auth, ok := ctx.Value(rabbitmq.Key(rabbitmq.HeaderAuthorization)).(string); ok {
 		headers["Authorization"] = auth
 	}
 

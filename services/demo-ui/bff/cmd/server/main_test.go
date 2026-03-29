@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 	"os"
-	
+
 	"testing"
 	"time"
 
@@ -29,8 +29,8 @@ func (m *mockConsumer) Close() error {
 }
 
 func TestMain_Success(t *testing.T) {
-	os.Setenv("PORT", "0") // use random port
-	
+	t.Setenv("PORT", "0") // use random port
+
 	// Mock the external dependencies
 	newClientFunc = func(url string) (*bffrmq.Client, error) {
 		// Return a client with a nil RPCClient. It will panic if used, but we don't use it.
@@ -42,7 +42,7 @@ func TestMain_Success(t *testing.T) {
 	newAuthValidatorFunc = func(domain, audience string) (auth.TokenValidator, error) {
 		return &mockTokenValidator{}, nil
 	}
-	
+
 	startDebugConsumerFunc = func(dc *bffrmq.DebugConsumer, exchange string) error {
 		return nil
 	}
@@ -65,7 +65,11 @@ func TestMain_Success(t *testing.T) {
 	}
 
 	// Send an interrupt signal to stop main
-	p, _ := os.FindProcess(os.Getpid())
-	p.Signal(os.Interrupt)
-
+	p, err := os.FindProcess(os.Getpid())
+	if err != nil {
+		t.Fatalf("find process: %v", err)
+	}
+	if err := p.Signal(os.Interrupt); err != nil {
+		t.Fatalf("signal interrupt: %v", err)
+	}
 }

@@ -2,11 +2,13 @@ package http
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"errors"
+
+	"tmf/pkg/rabbitmq"
 )
 
 func TestCustomerHandler_Errors(t *testing.T) {
@@ -33,7 +35,7 @@ func TestCustomerHandler_Errors(t *testing.T) {
 		{"DelCustErr", "DELETE", "/api/customers/1", "", errors.New("rpc"), 500},
 		{"LogIntBad", "POST", "/api/customers/1/interactions", "{", nil, 400},
 		{"LogIntErr", "POST", "/api/customers/1/interactions", `{"type":"A"}`, errors.New("rpc"), 500},
-		
+
 		// Party errors
 		{"SearchPartiesErr", "GET", "/api/parties", "", errors.New("rpc"), 500},
 		{"SearchPartiesParams", "GET", "/api/parties?search=a&givenName=a&familyName=a&tradingName=a&type=a", "", nil, 200},
@@ -69,10 +71,10 @@ func TestCustomerHandler_Errors(t *testing.T) {
 					return
 				}
 				if (w.Code == 201 || w.Code == 200) && tc.code == 202 {
-				    return
+					return
 				}
 				if (w.Code == 200 || w.Code == 201 || w.Code == 202 || w.Code == 204) && tc.code == 200 {
-				    return
+					return
 				}
 				t.Errorf("expected %d got %d", tc.code, w.Code)
 			}
@@ -83,7 +85,7 @@ func TestCustomerHandler_Errors(t *testing.T) {
 func TestGetHeaders(t *testing.T) {
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Authorization", "Bearer token")
-	ctx := context.WithValue(req.Context(), "user", "test-user")
+	ctx := context.WithValue(req.Context(), rabbitmq.ContextKeyUser, "test-user")
 	req = req.WithContext(ctx)
 
 	headers := getHeaders(req)

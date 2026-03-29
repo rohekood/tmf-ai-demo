@@ -65,7 +65,7 @@ func TestSagaRepository_GetByCartID(t *testing.T) {
 
 	// Inject custom context with tx
 	tx := db.Begin()
-	ctxTx := context.WithValue(ctx, "tx", tx)
+	ctxTx := WithTx(ctx, tx)
 	t.Run("with transaction context", func(t *testing.T) {
 		res, err := repo.GetByCartID(ctxTx, "cart-1")
 		if err != nil {
@@ -157,6 +157,25 @@ func TestSagaRepository_Get(t *testing.T) {
 	}
 }
 
+func TestDBFromContext(t *testing.T) {
+	db := setupTestDB(t)
+	tx := db.Begin()
+	defer tx.Rollback()
+
+	if got, ok := DBFromContext(context.Background()); ok || got != nil {
+		t.Fatalf("expected no transaction in background context, got %v, %v", got, ok)
+	}
+
+	ctx := WithTx(context.Background(), tx)
+	got, ok := DBFromContext(ctx)
+	if !ok {
+		t.Fatal("expected transaction in typed context")
+	}
+	if got != tx {
+		t.Fatalf("expected same transaction pointer")
+	}
+}
+
 func TestSagaRepository_Update(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewSagaRepository(db)
@@ -211,5 +230,67 @@ func TestSagaRepository_Update(t *testing.T) {
 	var dbOutbox OutboxTable
 	if err := db.First(&dbOutbox, "id = ?", "evt-2").Error; err != nil {
 		t.Fatalf("failed to find created outbox event: %v", err)
+	}
+}
+
+func TestSagaRepository_CreateAndUpdate_WithoutOutbox(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewSagaRepository(db)
+	ctx := context.Background()
+
+	var initialOutboxCount int64
+	if err := db.Model(&OutboxTable{}).Count(&initialOutboxCount).Error; err != nil {
+		t.Fatalf("failed to count initial outbox rows: %v", err)
+	}
+
+	saga := &domain.SagaInstance{
+		ID:          "saga-no-outbox",
+		CartID:      "cart-no-outbox",
+		CurrentStep: domain.StepInventory,
+		Status:      domain.SagaStatusInProgress,
+		Payload:     []byte(`{}`),
+		History:     []byte(`[]`),
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	if err := repo.Create(ctx, saga, nil); err != nil {
+		t.Fatalf("unexpected create error without outbox: %v", err)
+	}
+
+	var created SagaTable
+	if err := db.First(&created, "id = ?", saga.ID).Error; err != nil {
+		t.Fatalf("failed to load created saga: %v", err)
+	}
+
+	var outboxCount int64
+	if err := db.Model(&OutboxTable{}).Count(&outboxCount).Error; err != nil {
+		t.Fatalf("failed to count outbox rows: %v", err)
+	}
+	if outboxCount != initialOutboxCount {
+		t.Fatalf("expected outbox count to remain %d, got %d", initialOutboxCount, outboxCount)
+	}
+
+	saga.CurrentStep = domain.StepPayment
+	saga.Status = domain.SagaStatusCompleted
+	saga.UpdatedAt = time.Now()
+
+	if err := repo.Update(ctx, saga, nil); err != nil {
+		t.Fatalf("unexpected update error without outbox: %v", err)
+	}
+
+	var updated SagaTable
+	if err := db.First(&updated, "id = ?", saga.ID).Error; err != nil {
+		t.Fatalf("failed to load updated saga: %v", err)
+	}
+	if updated.CurrentStep != string(domain.StepPayment) || updated.Status != string(domain.SagaStatusCompleted) {
+		t.Fatalf("expected updated saga state, got step=%s status=%s", updated.CurrentStep, updated.Status)
+	}
+
+	if err := db.Model(&OutboxTable{}).Count(&outboxCount).Error; err != nil {
+		t.Fatalf("failed to count outbox rows after update: %v", err)
+	}
+	if outboxCount != initialOutboxCount {
+		t.Fatalf("expected outbox count to remain %d after update, got %d", initialOutboxCount, outboxCount)
 	}
 }

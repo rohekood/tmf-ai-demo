@@ -20,7 +20,11 @@ func TestClient_PumpsManual(t *testing.T) {
 	defer s.Close()
 
 	url := "ws" + strings.TrimPrefix(s.URL, "http")
-	dummyConn, _, _ := websocket.DefaultDialer.Dial(url, nil)
+	dummyConn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		t.Fatalf("dial err: %v", err)
+	}
+	defer func() { _ = dummyConn.Close() }()
 
 	client := &Client{
 		hub:  hub,
@@ -37,7 +41,6 @@ func TestClient_PumpsManual(t *testing.T) {
 	close(client.send)
 	time.Sleep(10 * time.Millisecond)
 
-	dummyConn.Close()
 	go client.readPump()
 	time.Sleep(50 * time.Millisecond)
 }

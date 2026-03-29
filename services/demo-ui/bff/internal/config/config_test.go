@@ -6,11 +6,32 @@ import (
 )
 
 func TestLoad(t *testing.T) {
-	// Unset to test default values
-	os.Unsetenv("RABBITMQ_URL")
-	os.Unsetenv("AUTH0_DOMAIN")
-	os.Unsetenv("AUTH0_AUDIENCE")
-	os.Unsetenv("PORT")
+	keys := []string{"RABBITMQ_URL", "AUTH0_DOMAIN", "AUTH0_AUDIENCE", "PORT"}
+	originalValues := make(map[string]string, len(keys))
+	originalPresence := make(map[string]bool, len(keys))
+	for _, key := range keys {
+		value, ok := os.LookupEnv(key)
+		originalPresence[key] = ok
+		if ok {
+			originalValues[key] = value
+		}
+		if err := os.Unsetenv(key); err != nil {
+			t.Fatalf("unset %s: %v", key, err)
+		}
+	}
+	t.Cleanup(func() {
+		for _, key := range keys {
+			if !originalPresence[key] {
+				if err := os.Unsetenv(key); err != nil {
+					t.Fatalf("cleanup unset %s: %v", key, err)
+				}
+				continue
+			}
+			if err := os.Setenv(key, originalValues[key]); err != nil {
+				t.Fatalf("cleanup restore %s: %v", key, err)
+			}
+		}
+	})
 
 	cfg := Load()
 
@@ -27,11 +48,16 @@ func TestLoad(t *testing.T) {
 		t.Errorf("expected 8080, got %s", cfg.Port)
 	}
 
-	// Set env vars
-	os.Setenv("RABBITMQ_URL", "amqp://test:5672")
-	os.Setenv("AUTH0_DOMAIN", "test.auth0.com")
-	os.Setenv("AUTH0_AUDIENCE", "test-audience")
-	os.Setenv("PORT", "9090")
+	for key, value := range map[string]string{
+		"RABBITMQ_URL":   "amqp://test:5672",
+		"AUTH0_DOMAIN":   "test.auth0.com",
+		"AUTH0_AUDIENCE": "test-audience",
+		"PORT":           "9090",
+	} {
+		if err := os.Setenv(key, value); err != nil {
+			t.Fatalf("set %s: %v", key, err)
+		}
+	}
 
 	cfg2 := Load()
 

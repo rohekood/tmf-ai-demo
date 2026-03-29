@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"tmf/pkg/rabbitmq"
 )
 
 const (
@@ -63,7 +65,9 @@ func getHeaders(r *http.Request) map[string]interface{} {
 		headers["Authorization"] = auth
 	}
 	// Extract user from context if available (set by Auth middleware)
-	if user, ok := r.Context().Value("user").(string); ok {
+	if user, ok := r.Context().Value(rabbitmq.ContextKeyUser).(string); ok {
+		headers["user"] = user
+	} else if user, ok := r.Context().Value(rabbitmq.Key(rabbitmq.HeaderUser)).(string); ok {
 		headers["user"] = user
 	}
 	return headers

@@ -2,8 +2,10 @@ package publisher
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
+	"tmf/pkg/rabbitmq"
 	"tmf/services/pocv/internal/adapter/repository"
 	"tmf/services/pocv/internal/core/domain"
 
@@ -23,20 +25,12 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-type contextKey string
-
-const (
-	userKey contextKey = "user"
-	authKey contextKey = "Authorization"
-	txKey   contextKey = "tx"
-)
-
 func TestOutboxPublisher_PublishEvents(t *testing.T) {
 	db := setupTestDB(t)
 	pub := NewOutboxPublisher(db)
 
-	ctx := context.WithValue(context.Background(), userKey, "test-user")
-	ctx = context.WithValue(ctx, authKey, "Bearer token")
+	ctx := context.WithValue(context.Background(), rabbitmq.ContextKeyUser, "test-user")
+	ctx = context.WithValue(ctx, rabbitmq.Key(rabbitmq.HeaderAuthorization), "Bearer token")
 
 	t.Run("OrderCreated", func(t *testing.T) {
 		evt := domain.OrderCreatedEvent{
@@ -109,7 +103,7 @@ func TestOutboxPublisher_PublishEvents(t *testing.T) {
 
 	t.Run("WithTransaction", func(t *testing.T) {
 		tx := db.Begin()
-		ctxTx := context.WithValue(ctx, txKey, tx)
+		ctxTx := repository.WithTx(ctx, tx)
 
 		evt := domain.OrderFailedEvent{
 			OrderID: "order-5",
@@ -135,6 +129,47 @@ func TestOutboxPublisher_PublishEvents(t *testing.T) {
 		err := pub.saveEvent(ctx, "test", make(chan int))
 		if err == nil {
 			t.Errorf("expected error for invalid payload")
+		}
+	})
+
+	t.Run("HeaderUserFallback", func(t *testing.T) {
+		ctxHeaderUser := context.WithValue(context.Background(), rabbitmq.Key(rabbitmq.HeaderUser), "header-user")
+		err := pub.PublishOrderCreated(ctxHeaderUser, domain.OrderCreatedEvent{OrderID: "order-6"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		var dbEvt repository.OutboxEventModel
+		if err := db.Order("created_at desc").First(&dbEvt).Error; err != nil {
+			t.Fatalf("failed to find created outbox event: %v", err)
+		}
+
+		headers := map[string]string{}
+		if err := json.Unmarshal(dbEvt.Headers, &headers); err != nil {
+			t.Fatalf("failed to unmarshal headers: %v", err)
+		}
+		if headers["user"] != "header-user" {
+			t.Fatalf("expected header user to be persisted, got %q", headers["user"])
+		}
+	})
+
+	t.Run("NoHeaders", func(t *testing.T) {
+		err := pub.PublishOrderCompleted(context.Background(), domain.OrderCompletedEvent{OrderID: "order-7"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		var dbEvt repository.OutboxEventModel
+		if err := db.Order("created_at desc").First(&dbEvt).Error; err != nil {
+			t.Fatalf("failed to find created outbox event: %v", err)
+		}
+
+		headers := map[string]string{}
+		if err := json.Unmarshal(dbEvt.Headers, &headers); err != nil {
+			t.Fatalf("failed to unmarshal headers: %v", err)
+		}
+		if len(headers) != 0 {
+			t.Fatalf("expected no headers, got %v", headers)
 		}
 	})
 }
