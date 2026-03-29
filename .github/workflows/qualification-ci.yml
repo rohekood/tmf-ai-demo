@@ -1,0 +1,29 @@
+---
+name: Qualification CI/CD
+
+'on':
+  push:
+    branches:
+      - main
+      - 'feature/**'
+      - 'feat/**'
+      - 'fix/**'
+    paths:
+      - 'services/qualification/**'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-push:
+    uses: ./.github/workflows/_service-ci-template.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      service_name: qualification
+      service_path: services/qualification
+      image_name: qualification
+      release_title: Qualification
+    secrets: inherit

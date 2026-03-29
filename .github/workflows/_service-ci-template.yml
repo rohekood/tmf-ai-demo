@@ -1,0 +1,178 @@
+---
+name: Service CI Template
+
+'on':
+  workflow_call:
+    inputs:
+      service_name:
+        description: Service folder name under services/
+        required: true
+        type: string
+      service_path:
+        description: Relative path to service directory
+        required: true
+        type: string
+      image_name:
+        description: GHCR image name
+        required: true
+        type: string
+      release_title:
+        description: Human-readable release title prefix
+        required: true
+        type: string
+      dockerfile_path:
+        description: Relative path to Dockerfile
+        required: false
+        type: string
+        default: ''
+      platforms:
+        description: Docker build platforms
+        required: false
+        type: string
+        default: linux/amd64,linux/arm64
+      create_tag:
+        description: Whether this workflow call should push git tags on release builds
+        required: false
+        type: boolean
+        default: true
+      create_release:
+        description: Whether this workflow call should create GitHub release on release builds
+        required: false
+        type: boolean
+        default: true
+      forced_tag:
+        description: Optional precomputed tag to reuse
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      next_tag: ${{ steps.version.outputs.next_tag }}
+      is_release: ${{ steps.version.outputs.is_release }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        if: github.actor != 'dependabot[bot]'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine Version
+        id: version
+        shell: bash
+        run: |
+          SERVICE_PREFIX="${{ inputs.service_name }}-v"
+
+          if [ -n "${{ inputs.forced_tag }}" ]; then
+            NEW_TAG="${{ inputs.forced_tag }}"
+            if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+              IS_RELEASE=true
+            else
+              IS_RELEASE=false
+            fi
+            echo "NEXT_TAG=${NEW_TAG}" >> "$GITHUB_ENV"
+            echo "IS_RELEASE=${IS_RELEASE}" >> "$GITHUB_ENV"
+            echo "next_tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
+            echo "is_release=${IS_RELEASE}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          LATEST_TAG=$(git tag -l "${SERVICE_PREFIX}*" | sort -V | tail -n1)
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No existing tag found. Defaulting to ${SERVICE_PREFIX}0.0.0"
+            LATEST_TAG="${SERVICE_PREFIX}0.0.0"
+          fi
+
+          VERSION=${LATEST_TAG#$SERVICE_PREFIX}
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            NEW_PATCH=$((PATCH + 1))
+            NEW_TAG="${SERVICE_PREFIX}${MAJOR}.${MINOR}.${NEW_PATCH}"
+            IS_RELEASE=true
+          else
+            BRANCH_CLEAN=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9._-]/-/g')
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+            NEW_TAG="${LATEST_TAG}-${BRANCH_CLEAN}-${SHORT_SHA}"
+            IS_RELEASE=false
+          fi
+
+          echo "NEXT_TAG=${NEW_TAG}" >> "$GITHUB_ENV"
+          echo "IS_RELEASE=${IS_RELEASE}" >> "$GITHUB_ENV"
+          echo "next_tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
+          echo "is_release=${IS_RELEASE}" >> "$GITHUB_OUTPUT"
+
+      - name: Push Git Tag
+        if: env.IS_RELEASE == 'true' && inputs.create_tag
+        env:
+          NEXT_TAG: ${{ env.NEXT_TAG }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          TAG_REF="refs/tags/$NEXT_TAG"
+
+          if git rev-parse "$NEXT_TAG" >/dev/null 2>&1; then
+            echo "Tag $NEXT_TAG already exists locally. Skipping creation."
+          else
+            git tag "$NEXT_TAG"
+          fi
+
+          if git ls-remote --tags origin "$TAG_REF" | grep -q "$NEXT_TAG"; then
+            echo "Tag $NEXT_TAG already exists on origin. Skipping push."
+          else
+            git push origin "$NEXT_TAG"
+          fi
+
+      - name: Calculate Docker Tags
+        id: meta
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          SERVICE="${{ inputs.image_name }}"
+          DOCKER_IMAGE_BASE="ghcr.io/${OWNER}/${SERVICE}"
+
+          if [ "${{ env.IS_RELEASE }}" == "true" ]; then
+            DOCKER_TAGS="${DOCKER_IMAGE_BASE}:latest,${DOCKER_IMAGE_BASE}:${{ env.NEXT_TAG }}"
+          else
+            DOCKER_TAGS="${DOCKER_IMAGE_BASE}:${{ env.NEXT_TAG }}"
+          fi
+
+          echo "DOCKER_TAGS=${DOCKER_TAGS}" >> "$GITHUB_ENV"
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ inputs.service_path }}
+          file: ${{ inputs.dockerfile_path != '' && format('./{0}', inputs.dockerfile_path) || format('./{0}/Dockerfile', inputs.service_path) }}
+          platforms: ${{ inputs.platforms }}
+          push: ${{ github.actor != 'dependabot[bot]' }}
+          tags: ${{ env.DOCKER_TAGS }}
+
+      - name: Create Release
+        if: env.IS_RELEASE == 'true' && inputs.create_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEXT_TAG: ${{ env.NEXT_TAG }}
+        run: |
+          if gh release view "$NEXT_TAG" >/dev/null 2>&1; then
+            echo "Release $NEXT_TAG already exists. Skipping creation."
+          else
+            gh release create "$NEXT_TAG" \
+              --title "${{ inputs.release_title }} $NEXT_TAG" \
+              --generate-notes
+          fi

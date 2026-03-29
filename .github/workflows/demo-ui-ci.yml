@@ -1,6 +1,7 @@
-name: Party Management CI/CD
+---
+name: Demo UI CI/CD
 
-on:
+'on':
   push:
     branches:
       - main
@@ -8,7 +9,7 @@ on:
       - 'feat/**'
       - 'fix/**'
     paths:
-      - 'services/party-management/**'
+      - 'services/demo-ui/**'
 
 permissions:
   contents: write
@@ -41,70 +42,94 @@ jobs:
         id: version
         shell: bash
         run: |
-          SERVICE_PREFIX="party-management-v"
-          
-          # Get the latest tag matching the prefix
+          SERVICE_PREFIX="demo-ui-v"
+
           LATEST_TAG=$(git tag -l "${SERVICE_PREFIX}*" | sort -V | tail -n1)
-          
+
           if [ -z "$LATEST_TAG" ]; then
             echo "No existing tag found. Defaulting to ${SERVICE_PREFIX}0.0.0"
             LATEST_TAG="${SERVICE_PREFIX}0.0.0"
           fi
-          
-          # Extract version number
+
           VERSION=${LATEST_TAG#$SERVICE_PREFIX}
           IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-          
-          # Logic for Next Version
+
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            # Bump patch on main
             NEW_PATCH=$((PATCH + 1))
             NEW_TAG="${SERVICE_PREFIX}${MAJOR}.${MINOR}.${NEW_PATCH}"
-            echo "NEXT_TAG=${NEW_TAG}" >> $GITHUB_ENV
-            echo "IS_RELEASE=true" >> $GITHUB_ENV
+            echo "NEXT_TAG=${NEW_TAG}" >> "$GITHUB_ENV"
+            echo "IS_RELEASE=true" >> "$GITHUB_ENV"
           else
-            # Feature branch
             BRANCH_CLEAN=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9._-]/-/g')
             SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
             NEW_TAG="${LATEST_TAG}-${BRANCH_CLEAN}-${SHORT_SHA}"
-            echo "NEXT_TAG=${NEW_TAG}" >> $GITHUB_ENV
-            echo "IS_RELEASE=false" >> $GITHUB_ENV
+            echo "NEXT_TAG=${NEW_TAG}" >> "$GITHUB_ENV"
+            echo "IS_RELEASE=false" >> "$GITHUB_ENV"
           fi
 
       - name: Push Git Tag
         if: env.IS_RELEASE == 'true'
+        env:
+          NEXT_TAG: ${{ env.NEXT_TAG }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag ${{ env.NEXT_TAG }}
-          git push origin ${{ env.NEXT_TAG }}
+          TAG_REF="refs/tags/$NEXT_TAG"
+
+          if git rev-parse "$NEXT_TAG" >/dev/null 2>&1; then
+            echo "Tag $NEXT_TAG already exists locally. Skipping creation."
+          else
+            git tag "$NEXT_TAG"
+          fi
+
+          if git ls-remote --tags origin "$TAG_REF" | grep -q "$NEXT_TAG"; then
+            echo "Tag $NEXT_TAG already exists on origin. Skipping push."
+          else
+            git push origin "$NEXT_TAG"
+          fi
 
       - name: Calculate Docker Tags
         id: meta
         run: |
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          SERVICE="party-management"
-          
+          IMAGE_BASE="ghcr.io/${OWNER}/demo-ui"
+
           if [ "${{ env.IS_RELEASE }}" == "true" ]; then
-            echo "DOCKER_TAGS=ghcr.io/${OWNER}/${SERVICE}:latest,ghcr.io/${OWNER}/${SERVICE}:${{ env.NEXT_TAG }}" >> $GITHUB_ENV
+            echo "DOCKER_TAGS_BFF=${IMAGE_BASE}:latest-bff,${IMAGE_BASE}:${{ env.NEXT_TAG }}-bff" >> "$GITHUB_ENV"
+            echo "DOCKER_TAGS_UI=${IMAGE_BASE}:latest-ui,${IMAGE_BASE}:${{ env.NEXT_TAG }}-ui" >> "$GITHUB_ENV"
           else
-            echo "DOCKER_TAGS=ghcr.io/${OWNER}/${SERVICE}:${{ env.NEXT_TAG }}" >> $GITHUB_ENV
+            echo "DOCKER_TAGS_BFF=${IMAGE_BASE}:${{ env.NEXT_TAG }}-bff" >> "$GITHUB_ENV"
+            echo "DOCKER_TAGS_UI=${IMAGE_BASE}:${{ env.NEXT_TAG }}-ui" >> "$GITHUB_ENV"
           fi
 
-      - name: Build and push
+      - name: Build and push BFF image
         uses: docker/build-push-action@v5
         with:
-          context: ./services/party-management
-          file: ./services/party-management/Dockerfile
+          context: ./services/demo-ui/bff
+          file: ./services/demo-ui/bff/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.actor != 'dependabot[bot]' }}
-          tags: ${{ env.DOCKER_TAGS }}
+          tags: ${{ env.DOCKER_TAGS_BFF }}
+
+      - name: Build and push UI image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/demo-ui/ui
+          file: ./services/demo-ui/ui/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.actor != 'dependabot[bot]' }}
+          tags: ${{ env.DOCKER_TAGS_UI }}
 
       - name: Create Release
         if: env.IS_RELEASE == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEXT_TAG: ${{ env.NEXT_TAG }}
         run: |
-          gh release create "${{ env.NEXT_TAG }}" \
-            --title "Party Management ${{ env.NEXT_TAG }}" \
-            --generate-notes
+          if gh release view "$NEXT_TAG" >/dev/null 2>&1; then
+            echo "Release $NEXT_TAG already exists. Skipping creation."
+          else
+            gh release create "$NEXT_TAG" \
+              --title "Demo UI $NEXT_TAG" \
+              --generate-notes
+          fi

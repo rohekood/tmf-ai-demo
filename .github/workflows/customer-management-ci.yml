@@ -1,0 +1,29 @@
+---
+name: Customer Management CI/CD
+
+'on':
+  push:
+    branches:
+      - main
+      - 'feature/**'
+      - 'feat/**'
+      - 'fix/**'
+    paths:
+      - 'services/customer-management/**'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-push:
+    uses: ./.github/workflows/_service-ci-template.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      service_name: customer-management
+      service_path: services/customer-management
+      image_name: customer-management
+      release_title: Customer Management
+    secrets: inherit

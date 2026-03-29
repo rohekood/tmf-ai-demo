@@ -1,0 +1,29 @@
+---
+name: Shopping Cart CI/CD
+
+'on':
+  push:
+    branches:
+      - main
+      - 'feature/**'
+      - 'feat/**'
+      - 'fix/**'
+    paths:
+      - 'services/shopping-cart/**'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-push:
+    uses: ./.github/workflows/_service-ci-template.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      service_name: shopping-cart
+      service_path: services/shopping-cart
+      image_name: shopping-cart
+      release_title: Shopping Cart
+    secrets: inherit
