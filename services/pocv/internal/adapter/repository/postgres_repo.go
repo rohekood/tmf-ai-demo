@@ -9,6 +9,21 @@ import (
 	"gorm.io/gorm"
 )
 
+type txContextKey struct{}
+
+var transactionContextKey txContextKey
+
+func WithTx(ctx context.Context, tx *gorm.DB) context.Context {
+	return context.WithValue(ctx, transactionContextKey, tx)
+}
+
+func DBFromContext(ctx context.Context) (*gorm.DB, bool) {
+	if tx, ok := ctx.Value(transactionContextKey).(*gorm.DB); ok {
+		return tx, true
+	}
+	return nil, false
+}
+
 type SagaRepository struct {
 	db *gorm.DB
 }
@@ -19,7 +34,7 @@ func NewSagaRepository(db *gorm.DB) *SagaRepository {
 
 // Helper to retrieve TX from context or use default DB
 func (r *SagaRepository) getDB(ctx context.Context) *gorm.DB {
-	tx, ok := ctx.Value("tx").(*gorm.DB)
+	tx, ok := DBFromContext(ctx)
 	if ok {
 		return tx
 	}
