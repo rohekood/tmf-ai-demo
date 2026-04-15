@@ -39,71 +39,76 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Determine Version
+      - name: Generate semantic-release config
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          cat > .releaserc.json << 'EOF'
+          {
+            "branches": ["main"],
+            "tagFormat": "demo-ui-v${version}",
+            "plugins": [
+              "@semantic-release/commit-analyzer",
+              "@semantic-release/release-notes-generator",
+              "@semantic-release/github"
+            ]
+          }
+          EOF
+
+      - name: Semantic Release
+        id: semantic
+        if: github.ref == 'refs/heads/main'
+        uses: cycjimmy/semantic-release-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute Dev Tag
+        id: dev_tag
+        if: github.ref != 'refs/heads/main'
+        shell: bash
+        run: |
+          LATEST_TAG=$(git tag -l "demo-ui-v[0-9]*" | sort -V | tail -n1)
+          [ -z "$LATEST_TAG" ] && LATEST_TAG="demo-ui-v0.0.0"
+          BRANCH_CLEAN=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9._-]/-/g')
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "tag=${LATEST_TAG}-${BRANCH_CLEAN}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve Version
         id: version
         shell: bash
         run: |
-          SERVICE_PREFIX="demo-ui-v"
-
-          LATEST_TAG=$(git tag -l "${SERVICE_PREFIX}*" | sort -V | tail -n1)
-
-          if [ -z "$LATEST_TAG" ]; then
-            echo "No existing tag found. Defaulting to ${SERVICE_PREFIX}0.0.0"
-            LATEST_TAG="${SERVICE_PREFIX}0.0.0"
-          fi
-
-          VERSION=${LATEST_TAG#$SERVICE_PREFIX}
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            NEW_PATCH=$((PATCH + 1))
-            NEW_TAG="${SERVICE_PREFIX}${MAJOR}.${MINOR}.${NEW_PATCH}"
-            echo "NEXT_TAG=${NEW_TAG}" >> "$GITHUB_ENV"
-            echo "IS_RELEASE=true" >> "$GITHUB_ENV"
+            if [ "${{ steps.semantic.outputs.new_release_published }}" == "true" ]; then
+              echo "next_tag=demo-ui-v${{ steps.semantic.outputs.new_release_version }}" >> "$GITHUB_OUTPUT"
+              echo "is_release=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "No releasable commits found. Skipping Docker build."
+              echo "next_tag=" >> "$GITHUB_OUTPUT"
+              echo "is_release=false" >> "$GITHUB_OUTPUT"
+            fi
           else
-            BRANCH_CLEAN=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9._-]/-/g')
-            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-            NEW_TAG="${LATEST_TAG}-${BRANCH_CLEAN}-${SHORT_SHA}"
-            echo "NEXT_TAG=${NEW_TAG}" >> "$GITHUB_ENV"
-            echo "IS_RELEASE=false" >> "$GITHUB_ENV"
-          fi
-
-      - name: Push Git Tag
-        if: env.IS_RELEASE == 'true'
-        env:
-          NEXT_TAG: ${{ env.NEXT_TAG }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          TAG_REF="refs/tags/$NEXT_TAG"
-
-          if git rev-parse "$NEXT_TAG" >/dev/null 2>&1; then
-            echo "Tag $NEXT_TAG already exists locally. Skipping creation."
-          else
-            git tag "$NEXT_TAG"
-          fi
-
-          if git ls-remote --tags origin "$TAG_REF" | grep -q "$NEXT_TAG"; then
-            echo "Tag $NEXT_TAG already exists on origin. Skipping push."
-          else
-            git push origin "$NEXT_TAG"
+            echo "next_tag=${{ steps.dev_tag.outputs.tag }}" >> "$GITHUB_OUTPUT"
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Calculate Docker Tags
         id: meta
+        if: steps.version.outputs.next_tag != ''
         run: |
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           IMAGE_BASE="ghcr.io/${OWNER}/demo-ui"
+          NEXT_TAG="${{ steps.version.outputs.next_tag }}"
 
-          if [ "${{ env.IS_RELEASE }}" == "true" ]; then
-            echo "DOCKER_TAGS_BFF=${IMAGE_BASE}:latest-bff,${IMAGE_BASE}:${{ env.NEXT_TAG }}-bff" >> "$GITHUB_ENV"
-            echo "DOCKER_TAGS_UI=${IMAGE_BASE}:latest-ui,${IMAGE_BASE}:${{ env.NEXT_TAG }}-ui" >> "$GITHUB_ENV"
+          if [ "${{ steps.version.outputs.is_release }}" == "true" ]; then
+            echo "DOCKER_TAGS_BFF=${IMAGE_BASE}:latest-bff,${IMAGE_BASE}:${NEXT_TAG}-bff" >> "$GITHUB_ENV"
+            echo "DOCKER_TAGS_UI=${IMAGE_BASE}:latest-ui,${IMAGE_BASE}:${NEXT_TAG}-ui" >> "$GITHUB_ENV"
           else
-            echo "DOCKER_TAGS_BFF=${IMAGE_BASE}:${{ env.NEXT_TAG }}-bff" >> "$GITHUB_ENV"
-            echo "DOCKER_TAGS_UI=${IMAGE_BASE}:${{ env.NEXT_TAG }}-ui" >> "$GITHUB_ENV"
+            echo "DOCKER_TAGS_BFF=${IMAGE_BASE}:${NEXT_TAG}-bff" >> "$GITHUB_ENV"
+            echo "DOCKER_TAGS_UI=${IMAGE_BASE}:${NEXT_TAG}-ui" >> "$GITHUB_ENV"
           fi
 
       - name: Build and push BFF image
+        if: steps.version.outputs.next_tag != ''
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -113,6 +118,7 @@ jobs:
           tags: ${{ env.DOCKER_TAGS_BFF }}
 
       - name: Build and push UI image
+        if: steps.version.outputs.next_tag != ''
         uses: docker/build-push-action@v5
         with:
           context: ./services/demo-ui/ui
@@ -120,17 +126,3 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: ${{ github.actor != 'dependabot[bot]' }}
           tags: ${{ env.DOCKER_TAGS_UI }}
-
-      - name: Create Release
-        if: env.IS_RELEASE == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEXT_TAG: ${{ env.NEXT_TAG }}
-        run: |
-          if gh release view "$NEXT_TAG" >/dev/null 2>&1; then
-            echo "Release $NEXT_TAG already exists. Skipping creation."
-          else
-            gh release create "$NEXT_TAG" \
-              --title "Demo UI $NEXT_TAG" \
-              --generate-notes
-          fi
