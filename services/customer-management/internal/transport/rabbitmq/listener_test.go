@@ -2,7 +2,6 @@ package rabbitmq
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -123,11 +122,7 @@ func TestListener_Start_ChannelError(t *testing.T) {
 	}
 
 	// Create a new connection and immediately close it so Channel() fails
-	url := os.Getenv("RABBITMQ_URL")
-	if url == "" {
-		url = "amqp://guest:guest@localhost:5672/"
-	}
-	conn, err := amqp.Dial(url)
+	conn, err := amqp.Dial(sharedRabbitURL)
 	require.NoError(t, err)
 	conn.Close()
 

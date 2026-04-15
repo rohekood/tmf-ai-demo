@@ -36,6 +36,7 @@ var (
 	sharedPublisher      rabbitmq.Publisher
 	sharedTM             *postgres.TransactionManager
 	sharedEventPublisher *postgres.OutboxPublisher
+	sharedRabbitURL      string
 	pgInstance           testcontainers.Container
 	rabbitInstance       testcontainers.Container
 )
@@ -98,6 +99,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatalf("failed to get rabbitmq URL: %v", err)
 	}
+	sharedRabbitURL = rabbitURL
 
 	sharedConn, err = amqp.Dial(rabbitURL)
 	if err != nil {
@@ -143,10 +145,12 @@ func TestMain(m *testing.M) {
 	sharedEventPublisher = postgres.NewOutboxPublisher(outboxRepo)
 	worker := postgres.NewOutboxWorker(outboxRepo, sharedPublisher, slog.Default())
 	go worker.Start(ctx)
-	defer worker.Stop()
 
 	// Run tests
 	code := m.Run()
+
+	// Stop worker before cleanup to avoid connection errors after container shutdown
+	worker.Stop()
 
 	// Cleanup
 	_ = sharedConn.Close()
