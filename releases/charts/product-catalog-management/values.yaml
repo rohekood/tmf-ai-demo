@@ -1,0 +1,22 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/rohekood/tmf-ai-demo/product-catalog-management
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+
+# product-catalog-management is a pure consumer service (no HTTP endpoint)
+service:
+  enabled: false
+
+env:
+  secretName: tmf-secrets
+  extra: []
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

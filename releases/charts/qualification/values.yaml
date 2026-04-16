@@ -1,0 +1,24 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/rohekood/tmf-ai-demo/qualification
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+
+# qualification is a pure consumer service (no HTTP endpoint)
+service:
+  enabled: false
+
+env:
+  secretName: tmf-secrets
+  extra: []
+  # Redis address (non-secret)
+  redisAddr: "redis-master.tmf.svc.cluster.local:6379"
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

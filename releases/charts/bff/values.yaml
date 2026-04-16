@@ -1,0 +1,25 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/rohekood/tmf-ai-demo/bff
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+
+service:
+  type: ClusterIP
+  port: 8080
+
+env:
+  secretName: tmf-secrets
+  extra: []
+  # Auth0 values are non-secret; set them here or override in HelmRelease
+  auth0Domain: ""
+  auth0Audience: ""
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,22 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/rohekood/tmf-ai-demo/demo-ui
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+
+service:
+  type: ClusterIP
+  port: 80
+
+# Build-time VITE_ variables baked into the image at build time.
+# These are documented here for reference only — they are not injected at runtime.
+# VITE_AUTH0_DOMAIN, VITE_AUTH0_CLIENT_ID, VITE_AUTH0_AUDIENCE, VITE_API_URL
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

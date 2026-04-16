@@ -1,0 +1,25 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: bff
+  namespace: tmf
+spec:
+  interval: 5m
+  dependsOn:
+    - name: rabbitmq
+  chart:
+    spec:
+      chart: ./releases/charts/bff
+      sourceRef:
+        kind: GitRepository
+        name: tmf-ai-demo
+        namespace: flux-system
+  values:
+    image:
+      tag: "latest"
+    env:
+      secretName: tmf-secrets
+      # Set your Auth0 values here or override via a separate values file / Secret
+      auth0Domain: "rohekood.eu.auth0.com"
+      auth0Audience: "http://localhost/api"
