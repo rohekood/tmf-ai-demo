@@ -1,0 +1,26 @@
+# Enable/disable subcharts
+bff:
+  enabled: true
+customerManagement:
+  enabled: true
+demoUi:
+  enabled: true
+partyManagement:
+  enabled: true
+pocv:
+  enabled: true
+productCatalogManagement:
+  enabled: true
+qualification:
+  enabled: true
+shoppingCart:
+  enabled: true
+
+# Pass-through values to each child chart below these keys.
+# Example:
+# bff:
+#   enabled: true
+#   image:
+#     tag: "main-123"
+#   env:
+#     secretName: tmf-secrets

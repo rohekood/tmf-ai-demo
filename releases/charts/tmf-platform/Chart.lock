@@ -1,0 +1,27 @@
+dependencies:
+- name: bff
+  repository: file://../bff
+  version: 0.1.0
+- name: customer-management
+  repository: file://../customer-management
+  version: 0.1.0
+- name: demo-ui
+  repository: file://../demo-ui
+  version: 0.1.0
+- name: party-management
+  repository: file://../party-management
+  version: 0.1.0
+- name: pocv
+  repository: file://../pocv
+  version: 0.1.0
+- name: product-catalog-management
+  repository: file://../product-catalog-management
+  version: 0.1.0
+- name: qualification
+  repository: file://../qualification
+  version: 0.1.0
+- name: shopping-cart
+  repository: file://../shopping-cart
+  version: 0.1.0
+digest: sha256:4f398fb7c6ec75e6525d9a5c1ed08d185a4f32ab38c5b4a0fa1b2f46885d2cdd
+generated: "2026-04-16T22:01:49.993375584+03:00"

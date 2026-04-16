@@ -7,6 +7,7 @@ Helm charts and Flux CD GitOps manifests for the TMF AI Demo platform.
 ```
 releases/
 ├── charts/                          # Helm charts for all custom services
+│   ├── tmf-platform/                # Umbrella chart for one-release app deployment
 │   ├── bff/                         # Backend-for-Frontend (port 8080)
 │   ├── customer-management/         # Customer Management service (port 8081)
 │   ├── demo-ui/                     # Frontend SPA served by nginx (port 80)
@@ -74,6 +75,33 @@ kubectl apply -k releases/flux/
 ```
 
 Flux will reconcile the `GitRepository`, install infrastructure (Postgres, RabbitMQ, Redis), then deploy all application services in dependency order.
+
+## Deploy All Apps with One Helm Release (Umbrella Chart)
+
+Use the `tmf-platform` umbrella chart to install all app charts with a single Helm release:
+
+```bash
+helm dependency update releases/charts/tmf-platform
+
+helm upgrade --install tmf-platform releases/charts/tmf-platform \
+  --namespace tmf \
+  --create-namespace \
+  --set bff.env.secretName=tmf-secrets \
+  --set customerManagement.env.secretName=tmf-secrets \
+  --set partyManagement.env.secretName=tmf-secrets \
+  --set pocv.env.secretName=tmf-secrets \
+  --set productCatalogManagement.env.secretName=tmf-secrets \
+  --set qualification.env.secretName=tmf-secrets \
+  --set shoppingCart.env.secretName=tmf-secrets
+```
+
+Disable any component at install/upgrade time:
+
+```bash
+helm upgrade --install tmf-platform releases/charts/tmf-platform \
+  --namespace tmf \
+  --set demoUi.enabled=false
+```
 
 ## Secret Keys Reference
 
