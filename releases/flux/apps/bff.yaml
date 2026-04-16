@@ -16,10 +16,8 @@ spec:
         name: tmf-ai-demo
         namespace: flux-system
   values:
-    image:
-      tag: "latest"
     env:
       secretName: tmf-secrets
-      # Set your Auth0 values here or override via a separate values file / Secret
-      auth0Domain: "rohekood.eu.auth0.com"
-      auth0Audience: "http://localhost/api"
+      # Override these per-environment before applying:
+      # auth0Domain: "your-tenant.eu.auth0.com"
+      # auth0Audience: "https://your-api-identifier"

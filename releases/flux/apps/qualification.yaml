@@ -9,7 +9,6 @@ spec:
   dependsOn:
     - name: postgres
     - name: rabbitmq
-    - name: redis
   chart:
     spec:
       chart: ./releases/charts/qualification
@@ -18,8 +17,6 @@ spec:
         name: tmf-ai-demo
         namespace: flux-system
   values:
-    image:
-      tag: "latest"
     env:
       secretName: tmf-secrets
       redisAddr: "redis-master.tmf.svc.cluster.local:6379"

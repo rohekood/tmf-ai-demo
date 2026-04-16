@@ -88,9 +88,8 @@ The `tmf-secrets` Secret must contain the following keys:
 | `QUALIFICATION_DB_URL` | qualification |
 | `POCV_DB_URL` | pocv |
 | `POSTGRES_PASSWORD` | postgres HelmRelease |
-| `RABBITMQ_URL` | all backend services |
+| `RABBITMQ_URL` | all backend services (uses `tmf` user) |
 | `RABBITMQ_PASSWORD` | rabbitmq HelmRelease |
-| `REDIS_PASSWORD` | qualification (optional) |
 
 ## Customising Values
 

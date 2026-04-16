@@ -35,12 +35,6 @@ spec:
                   key: RABBITMQ_URL
             - name: REDIS_ADDR
               value: {{ .Values.env.redisAddr | quote }}
-            - name: REDIS_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.env.secretName }}
-                  key: REDIS_PASSWORD
-                  optional: true
             {{- with .Values.env.extra }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

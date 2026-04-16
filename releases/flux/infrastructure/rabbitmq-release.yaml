@@ -16,7 +16,7 @@ spec:
         namespace: flux-system
   values:
     auth:
-      username: guest
+      username: tmf
       existingPasswordSecret: tmf-secrets
       existingSecretPasswordKey: RABBITMQ_PASSWORD
     persistence:
