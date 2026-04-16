@@ -1,0 +1,12 @@
+---
+# GitRepository pointing to this repo — Flux uses this as the chart source for all local Helm charts.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: tmf-ai-demo
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/rohekood/tmf-ai-demo
+  ref:
+    branch: main

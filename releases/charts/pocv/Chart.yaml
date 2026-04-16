@@ -1,0 +1,6 @@
+apiVersion: v2
+name: pocv
+description: TMF POCV (Point of Customer Verification) Service
+type: application
+version: 0.1.0
+appVersion: "latest"

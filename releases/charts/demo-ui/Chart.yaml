@@ -1,0 +1,6 @@
+apiVersion: v2
+name: demo-ui
+description: TMF Demo UI Frontend (Nginx/Vite SPA)
+type: application
+version: 0.1.0
+appVersion: "latest"

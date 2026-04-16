@@ -1,0 +1,23 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: bff
+  namespace: tmf
+spec:
+  interval: 5m
+  dependsOn:
+    - name: rabbitmq
+  chart:
+    spec:
+      chart: ./releases/charts/bff
+      sourceRef:
+        kind: GitRepository
+        name: tmf-ai-demo
+        namespace: flux-system
+  values:
+    env:
+      secretName: tmf-secrets
+      # Override these per-environment before applying:
+      # auth0Domain: "your-tenant.eu.auth0.com"
+      # auth0Audience: "https://your-api-identifier"

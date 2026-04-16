@@ -1,0 +1,26 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/rohekood/tmf-ai-demo/customer-management
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+
+service:
+  type: ClusterIP
+  port: 8081
+
+env:
+  # Passed in from a Secret; set secretName to the name of your tmf-secrets Secret
+  secretName: tmf-secrets
+  # Non-secret env overrides (optional)
+  extra: []
+  # - name: HTTP_PORT
+  #   value: "8081"
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

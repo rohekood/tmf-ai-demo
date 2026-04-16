@@ -1,0 +1,39 @@
+---
+# PostgreSQL — single instance with multiple databases created via initdb scripts.
+# Databases required: tmf_customer_db, tmf_party_db, tmf_catalog_db,
+#                     tmf_cart_db, tmf_qualification_db, tmf_pocv_db
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: postgres
+  namespace: tmf
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: postgresql
+      version: ">=15.0.0 <16.0.0"
+      sourceRef:
+        kind: HelmRepository
+        name: bitnami
+        namespace: flux-system
+  values:
+    auth:
+      existingSecret: tmf-secrets
+      secretKeys:
+        adminPasswordKey: POSTGRES_PASSWORD
+        userPasswordKey: POSTGRES_PASSWORD
+      username: postgres
+      database: tmf_party_db
+    primary:
+      initdb:
+        scripts:
+          init.sql: |
+            CREATE DATABASE tmf_customer_db;
+            CREATE DATABASE tmf_catalog_db;
+            CREATE DATABASE tmf_cart_db;
+            CREATE DATABASE tmf_qualification_db;
+            CREATE DATABASE tmf_pocv_db;
+      persistence:
+        enabled: true
+        size: 8Gi
