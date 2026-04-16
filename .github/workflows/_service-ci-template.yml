@@ -17,9 +17,10 @@ name: Service CI Template
         required: true
         type: string
       release_title:
-        description: Human-readable release title prefix
-        required: true
+        description: Human-readable release title prefix (kept for backwards compatibility, unused)
+        required: false
         type: string
+        default: ''
       dockerfile_path:
         description: Relative path to Dockerfile
         required: false
@@ -35,21 +36,6 @@ name: Service CI Template
         required: false
         type: string
         default: linux/amd64,linux/arm64
-      create_tag:
-        description: Whether this workflow call should push git tags on release builds
-        required: false
-        type: boolean
-        default: true
-      create_release:
-        description: Whether this workflow call should create GitHub release on release builds
-        required: false
-        type: boolean
-        default: true
-      forced_tag:
-        description: Optional precomputed tag to reuse
-        required: false
-        type: string
-        default: ''
 
 jobs:
   build-and-push:
@@ -77,89 +63,79 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Determine Version
-        id: version
+      - name: Generate semantic-release config
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          SERVICE_NAME="${{ inputs.service_name }}"
+          cat > .releaserc.json << EOF
+          {
+            "branches": ["main"],
+            "tagFormat": "${SERVICE_NAME}-v\${version}",
+            "plugins": [
+              "@semantic-release/commit-analyzer",
+              "@semantic-release/release-notes-generator",
+              "@semantic-release/github"
+            ]
+          }
+          EOF
+
+      - name: Semantic Release
+        id: semantic
+        if: github.ref == 'refs/heads/main'
+        uses: cycjimmy/semantic-release-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute Dev Tag
+        id: dev_tag
+        if: github.ref != 'refs/heads/main'
         shell: bash
         run: |
           SERVICE_PREFIX="${{ inputs.service_name }}-v"
+          LATEST_TAG=$(git tag -l "${SERVICE_PREFIX}[0-9]*" | sort -V | tail -n1)
+          [ -z "$LATEST_TAG" ] && LATEST_TAG="${SERVICE_PREFIX}0.0.0"
+          BRANCH_CLEAN=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9._-]/-/g')
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "tag=${LATEST_TAG}-${BRANCH_CLEAN}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
 
-          if [ -n "${{ inputs.forced_tag }}" ]; then
-            NEW_TAG="${{ inputs.forced_tag }}"
-            if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-              IS_RELEASE=true
-            else
-              IS_RELEASE=false
-            fi
-            echo "NEXT_TAG=${NEW_TAG}" >> "$GITHUB_ENV"
-            echo "IS_RELEASE=${IS_RELEASE}" >> "$GITHUB_ENV"
-            echo "next_tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
-            echo "is_release=${IS_RELEASE}" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          LATEST_TAG=$(git tag -l "${SERVICE_PREFIX}*" | sort -V | tail -n1)
-
-          if [ -z "$LATEST_TAG" ]; then
-            echo "No existing tag found. Defaulting to ${SERVICE_PREFIX}0.0.0"
-            LATEST_TAG="${SERVICE_PREFIX}0.0.0"
-          fi
-
-          VERSION=${LATEST_TAG#$SERVICE_PREFIX}
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            NEW_PATCH=$((PATCH + 1))
-            NEW_TAG="${SERVICE_PREFIX}${MAJOR}.${MINOR}.${NEW_PATCH}"
-            IS_RELEASE=true
-          else
-            BRANCH_CLEAN=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9._-]/-/g')
-            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-            NEW_TAG="${LATEST_TAG}-${BRANCH_CLEAN}-${SHORT_SHA}"
-            IS_RELEASE=false
-          fi
-
-          echo "NEXT_TAG=${NEW_TAG}" >> "$GITHUB_ENV"
-          echo "IS_RELEASE=${IS_RELEASE}" >> "$GITHUB_ENV"
-          echo "next_tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
-          echo "is_release=${IS_RELEASE}" >> "$GITHUB_OUTPUT"
-
-      - name: Push Git Tag
-        if: env.IS_RELEASE == 'true' && inputs.create_tag
-        env:
-          NEXT_TAG: ${{ env.NEXT_TAG }}
+      - name: Resolve Version
+        id: version
+        shell: bash
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          TAG_REF="refs/tags/$NEXT_TAG"
-
-          if git rev-parse "$NEXT_TAG" >/dev/null 2>&1; then
-            echo "Tag $NEXT_TAG already exists locally. Skipping creation."
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            if [ "${{ steps.semantic.outputs.new_release_published }}" == "true" ]; then
+              echo "next_tag=${{ inputs.service_name }}-v${{ steps.semantic.outputs.new_release_version }}" >> "$GITHUB_OUTPUT"
+              echo "is_release=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "No releasable commits found. Skipping Docker build."
+              echo "next_tag=" >> "$GITHUB_OUTPUT"
+              echo "is_release=false" >> "$GITHUB_OUTPUT"
+            fi
           else
-            git tag "$NEXT_TAG"
-          fi
-
-          if git ls-remote --tags origin "$TAG_REF" | grep -q "$NEXT_TAG"; then
-            echo "Tag $NEXT_TAG already exists on origin. Skipping push."
-          else
-            git push origin "$NEXT_TAG"
+            echo "next_tag=${{ steps.dev_tag.outputs.tag }}" >> "$GITHUB_OUTPUT"
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Calculate Docker Tags
         id: meta
+        if: steps.version.outputs.next_tag != ''
         run: |
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           SERVICE="${{ inputs.image_name }}"
           DOCKER_IMAGE_BASE="ghcr.io/${OWNER}/${SERVICE}"
+          NEXT_TAG="${{ steps.version.outputs.next_tag }}"
 
-          if [ "${{ env.IS_RELEASE }}" == "true" ]; then
-            DOCKER_TAGS="${DOCKER_IMAGE_BASE}:latest,${DOCKER_IMAGE_BASE}:${{ env.NEXT_TAG }}"
+          if [ "${{ steps.version.outputs.is_release }}" == "true" ]; then
+            DOCKER_TAGS="${DOCKER_IMAGE_BASE}:latest,${DOCKER_IMAGE_BASE}:${NEXT_TAG}"
           else
-            DOCKER_TAGS="${DOCKER_IMAGE_BASE}:${{ env.NEXT_TAG }}"
+            DOCKER_TAGS="${DOCKER_IMAGE_BASE}:${NEXT_TAG}"
           fi
 
           echo "DOCKER_TAGS=${DOCKER_TAGS}" >> "$GITHUB_ENV"
 
       - name: Build and push
+        if: steps.version.outputs.next_tag != ''
         uses: docker/build-push-action@v5
         with:
           context: ${{ inputs.docker_context_path != '' && format('./{0}', inputs.docker_context_path) || format('./{0}', inputs.service_path) }}
@@ -167,17 +143,3 @@ jobs:
           platforms: ${{ inputs.platforms }}
           push: ${{ github.actor != 'dependabot[bot]' }}
           tags: ${{ env.DOCKER_TAGS }}
-
-      - name: Create Release
-        if: env.IS_RELEASE == 'true' && inputs.create_release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEXT_TAG: ${{ env.NEXT_TAG }}
-        run: |
-          if gh release view "$NEXT_TAG" >/dev/null 2>&1; then
-            echo "Release $NEXT_TAG already exists. Skipping creation."
-          else
-            gh release create "$NEXT_TAG" \
-              --title "${{ inputs.release_title }} $NEXT_TAG" \
-              --generate-notes
-          fi
