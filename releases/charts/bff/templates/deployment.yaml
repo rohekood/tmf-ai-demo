@@ -28,10 +28,14 @@ spec:
               protocol: TCP
           env:
             - name: RABBITMQ_URL
+              {{- if .Values.env.rabbitmq.value }}
+              value: {{ .Values.env.rabbitmq.value | quote }}
+              {{- else }}
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.env.secretName }}
-                  key: RABBITMQ_URL
+                  key: {{ .Values.env.rabbitmq.secretKey }}
+              {{- end }}
             - name: AUTH0_DOMAIN
               value: {{ .Values.env.auth0Domain | quote }}
             - name: AUTH0_AUDIENCE

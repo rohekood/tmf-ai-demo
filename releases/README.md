@@ -138,6 +138,38 @@ spec:
         memory: 256Mi
 ```
 
+### Connection Parameters (RabbitMQ, Postgres, Redis/Valkey)
+
+Charts now support two ways to set connection parameters:
+
+1. Keep using `env.secretName` + secret keys (default behavior).
+2. Set explicit connection values directly in chart values.
+
+Example for a backend service chart:
+
+```yaml
+env:
+  secretName: tmf-secrets
+  postgres:
+    value: "postgres://user:pass@postgres:5432/appdb?sslmode=disable"
+    secretKey: CUSTOMER_DB_URL
+  rabbitmq:
+    value: "amqp://user:pass@rabbitmq:5672/"
+    secretKey: RABBITMQ_URL
+```
+
+Qualification chart also supports Redis/Valkey parameters:
+
+```yaml
+env:
+  redis:
+    addr: "valkey-master.tmf.svc.cluster.local:6379"
+    password: ""
+    passwordSecretKey: REDIS_PASSWORD
+```
+
+If `value` is set for RabbitMQ/Postgres, the chart uses it directly. If it is empty, the chart falls back to secret references.
+
 ## Local Dry-Run
 
 ```bash

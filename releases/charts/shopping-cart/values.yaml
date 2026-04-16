@@ -13,6 +13,12 @@ service:
 
 env:
   secretName: tmf-secrets
+  rabbitmq:
+    value: ""
+    secretKey: RABBITMQ_URL
+  postgres:
+    value: ""
+    secretKey: CART_DB_URL
   extra: []
 
 resources: {}

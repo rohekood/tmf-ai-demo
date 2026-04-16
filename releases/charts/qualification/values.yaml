@@ -13,8 +13,18 @@ service:
 
 env:
   secretName: tmf-secrets
+  rabbitmq:
+    value: ""
+    secretKey: RABBITMQ_URL
+  postgres:
+    value: ""
+    secretKey: QUALIFICATION_DB_URL
+  redis:
+    addr: "redis-master.tmf.svc.cluster.local:6379"
+    password: ""
+    passwordSecretKey: ""
   extra: []
-  # Redis address (non-secret)
+  # Backward compatibility for existing overrides.
   redisAddr: "redis-master.tmf.svc.cluster.local:6379"
 
 resources: {}

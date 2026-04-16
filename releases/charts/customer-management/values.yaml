@@ -14,6 +14,12 @@ service:
 env:
   # Passed in from a Secret; set secretName to the name of your tmf-secrets Secret
   secretName: tmf-secrets
+  rabbitmq:
+    value: ""
+    secretKey: RABBITMQ_URL
+  postgres:
+    value: ""
+    secretKey: CUSTOMER_DB_URL
   # Non-secret env overrides (optional)
   extra: []
   # - name: HTTP_PORT

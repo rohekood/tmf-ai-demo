@@ -24,17 +24,36 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: POSTGRES_URL
+              {{- if .Values.env.postgres.value }}
+              value: {{ .Values.env.postgres.value | quote }}
+              {{- else }}
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.env.secretName }}
-                  key: QUALIFICATION_DB_URL
+                  key: {{ .Values.env.postgres.secretKey }}
+              {{- end }}
             - name: RABBITMQ_URL
+              {{- if .Values.env.rabbitmq.value }}
+              value: {{ .Values.env.rabbitmq.value | quote }}
+              {{- else }}
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.env.secretName }}
-                  key: RABBITMQ_URL
+                  key: {{ .Values.env.rabbitmq.secretKey }}
+              {{- end }}
             - name: REDIS_ADDR
-              value: {{ .Values.env.redisAddr | quote }}
+              value: {{ default .Values.env.redisAddr .Values.env.redis.addr | quote }}
+            {{- if or .Values.env.redis.password .Values.env.redis.passwordSecretKey }}
+            - name: REDIS_PASSWORD
+              {{- if .Values.env.redis.password }}
+              value: {{ .Values.env.redis.password | quote }}
+              {{- else }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.env.secretName }}
+                  key: {{ .Values.env.redis.passwordSecretKey }}
+              {{- end }}
+            {{- end }}
             {{- with .Values.env.extra }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
