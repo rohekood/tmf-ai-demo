@@ -86,7 +86,7 @@ func Run(ctx context.Context, cfg Config) error {
 		return fmt.Errorf("failed to subscribe: %w", err)
 	}
 
-	slog.Info("POCV Service started")
+	slog.Info("POCV Service Started")
 	<-ctx.Done()
 	slog.Info("POCV Service stopped")
 	return nil
