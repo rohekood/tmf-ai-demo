@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/rohekood/tmf-ai-demo/bff
+  repository: ghcr.io/rohekood/bff
   pullPolicy: IfNotPresent
   tag: ""
 

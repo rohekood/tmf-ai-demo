@@ -42,7 +42,7 @@ releases/
 
 1. A running Kubernetes cluster with [Flux CD v2](https://fluxcd.io/docs/installation/) bootstrapped.
 2. Helm 3 installed locally (for testing/dry-runs).
-3. Container images built and pushed to `ghcr.io/rohekood/tmf-ai-demo/<service-name>`.
+3. Container images built and pushed to `ghcr.io/rohekood/<service-name>`.
 
 ## Quick Start with Flux
 

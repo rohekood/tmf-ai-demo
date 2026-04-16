@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/rohekood/tmf-ai-demo/customer-management
+  repository: ghcr.io/rohekood/customer-management
   pullPolicy: IfNotPresent
   tag: ""
 
