@@ -14,10 +14,10 @@ service:
 env:
   secretName: tmf-secrets
   rabbitmq:
-    value: ""
+    secretName: ""
     secretKey: RABBITMQ_URL
   postgres:
-    value: ""
+    secretName: ""
     secretKey: CATALOG_DB_URL
   extra: []
 

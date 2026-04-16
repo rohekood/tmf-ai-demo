@@ -28,23 +28,15 @@ spec:
               protocol: TCP
           env:
             - name: POSTGRES_URL
-              {{- if .Values.env.postgres.value }}
-              value: {{ .Values.env.postgres.value | quote }}
-              {{- else }}
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.env.secretName }}
+                  name: {{ default .Values.env.secretName .Values.env.postgres.secretName }}
                   key: {{ .Values.env.postgres.secretKey }}
-              {{- end }}
             - name: RABBITMQ_URL
-              {{- if .Values.env.rabbitmq.value }}
-              value: {{ .Values.env.rabbitmq.value | quote }}
-              {{- else }}
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.env.secretName }}
+                  name: {{ default .Values.env.secretName .Values.env.rabbitmq.secretName }}
                   key: {{ .Values.env.rabbitmq.secretKey }}
-              {{- end }}
             - name: HTTP_PORT
               value: {{ .Values.service.port | quote }}
             {{- with .Values.env.extra }}

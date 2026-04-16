@@ -14,7 +14,7 @@ service:
 env:
   secretName: tmf-secrets
   rabbitmq:
-    value: ""
+    secretName: ""
     secretKey: RABBITMQ_URL
   extra: []
   # Auth0 values are non-secret; set them here or override in HelmRelease

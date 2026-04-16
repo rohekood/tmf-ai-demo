@@ -25,20 +25,24 @@ shoppingCart:
 #   env:
 #     secretName: tmf-secrets
 #     rabbitmq:
-#       value: "amqp://user:pass@rabbitmq:5672/"
+#       secretName: ""
+#       secretKey: RABBITMQ_URL
 #
 # partyManagement:
 #   enabled: true
 #   env:
 #     postgres:
-#       value: "postgres://user:pass@postgres:5432/tmf_party_db?sslmode=disable"
+#       secretName: ""
+#       secretKey: PARTY_DB_URL
 #     rabbitmq:
-#       value: "amqp://user:pass@rabbitmq:5672/"
+#       secretName: ""
+#       secretKey: RABBITMQ_URL
 #
 # qualification:
 #   enabled: true
 #   env:
 #     redis:
 #       addr: "valkey-master.tmf.svc.cluster.local:6379"
-#       password: ""
+#       secretName: ""
+#       addrSecretKey: ""
 #       passwordSecretKey: REDIS_PASSWORD
