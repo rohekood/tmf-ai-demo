@@ -1,19 +1,19 @@
 # Enable/disable subcharts
 bff:
   enabled: true
-customerManagement:
+customer-management:
   enabled: true
-demoUi:
+demo-ui:
   enabled: true
-partyManagement:
+party-management:
   enabled: true
 pocv:
   enabled: true
-productCatalogManagement:
+product-catalog-management:
   enabled: true
 qualification:
   enabled: true
-shoppingCart:
+shopping-cart:
   enabled: true
 
 # Pass-through values to each child chart below these keys.
@@ -28,7 +28,7 @@ shoppingCart:
 #       secretName: ""
 #       secretKey: RABBITMQ_URL
 #
-# partyManagement:
+# party-management:
 #   enabled: true
 #   env:
 #     postgres:

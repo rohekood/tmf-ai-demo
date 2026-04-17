@@ -14,18 +14,18 @@ dependencies:
   - name: customer-management
     version: 0.1.0
     repository: file://../customer-management
-    alias: customerManagement
-    condition: customerManagement.enabled
+    alias: customer-management
+    condition: customer-management.enabled
   - name: demo-ui
     version: 0.1.0
     repository: file://../demo-ui
-    alias: demoUi
-    condition: demoUi.enabled
+    alias: demo-ui
+    condition: demo-ui.enabled
   - name: party-management
     version: 0.1.0
     repository: file://../party-management
-    alias: partyManagement
-    condition: partyManagement.enabled
+    alias: party-management
+    condition: party-management.enabled
   - name: pocv
     version: 0.1.0
     repository: file://../pocv
@@ -34,8 +34,8 @@ dependencies:
   - name: product-catalog-management
     version: 0.1.0
     repository: file://../product-catalog-management
-    alias: productCatalogManagement
-    condition: productCatalogManagement.enabled
+    alias: product-catalog-management
+    condition: product-catalog-management.enabled
   - name: qualification
     version: 0.1.0
     repository: file://../qualification
@@ -44,5 +44,5 @@ dependencies:
   - name: shopping-cart
     version: 0.1.0
     repository: file://../shopping-cart
-    alias: shoppingCart
-    condition: shoppingCart.enabled
+    alias: shopping-cart
+    condition: shopping-cart.enabled
