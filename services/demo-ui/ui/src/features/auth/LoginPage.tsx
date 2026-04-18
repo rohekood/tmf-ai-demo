@@ -1,8 +1,8 @@
-import { useAuth0 } from "@auth0/auth0-react";
 import { Building2 } from "lucide-react";
+import { useAuth } from "../../auth/context";
 
 export function LoginPage() {
-    const { loginWithRedirect } = useAuth0();
+    const { loginWithRedirect, enabled } = useAuth();
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-4 font-sans">
@@ -24,13 +24,20 @@ export function LoginPage() {
                 </p>
 
                 <button
+                    disabled={!enabled}
                     onClick={() => loginWithRedirect({
                         authorizationParams: { screen_hint: 'login' }
                     })}
-                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3.5 px-6 rounded-xl transition-all duration-200 shadow-lg shadow-blue-900/40 hover:shadow-blue-600/30 hover:-translate-y-0.5 active:translate-y-0"
+                    className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-semibold py-3.5 px-6 rounded-xl transition-all duration-200 shadow-lg shadow-blue-900/40 hover:shadow-blue-600/30 hover:-translate-y-0.5 active:translate-y-0"
                 >
-                    Log In
+                    {enabled ? 'Log In' : 'Auth Requires HTTPS or localhost'}
                 </button>
+
+                {!enabled && (
+                    <p className="mt-4 text-xs text-slate-400">
+                        Auth0 browser login requires a secure origin. Open this app via HTTPS or localhost.
+                    </p>
+                )}
             </div>
         </div>
     )

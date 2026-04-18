@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
-import { useAuth0 } from '@auth0/auth0-react';
 import { Menu } from 'lucide-react';
 import { LoginPage } from '../../features/auth/LoginPage';
+import { useAuth } from '../../auth/context';
 import './Layout.css';
 
 export function Layout() {
-    const { isAuthenticated, isLoading } = useAuth0();
+    const { isAuthenticated, isLoading } = useAuth();
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 

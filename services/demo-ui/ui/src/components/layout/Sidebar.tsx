@@ -1,8 +1,8 @@
 import { NavLink } from 'react-router-dom';
 import { Users, Building2, Bug, ChevronRight, ChevronsLeft, ChevronsRight, BookOpen, Package, ShoppingCart, FolderTree } from 'lucide-react';
-import { useAuth0 } from "@auth0/auth0-react";
 import { LoginButton } from '../auth/LoginButton';
 import { LogoutButton } from '../auth/LogoutButton';
+import { useAuth } from '../../auth/context';
 import '../../design-system/components/layout/Sidebar.css';
 
 interface NavItemProps {
@@ -35,7 +35,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, mobileOpen, onToggleCollapse }: SidebarProps) {
-    const { user, isAuthenticated, isLoading } = useAuth0();
+    const { user, isAuthenticated, isLoading } = useAuth();
 
     return (
         <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''} ${mobileOpen ? 'sidebar--open' : ''}`}>

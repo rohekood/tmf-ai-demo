@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useAuth0 } from '@auth0/auth0-react';
 import type { DebugMessage } from './types';
+import { useAuth } from '../../auth/context';
 
 // Use correct WebSocket URL based on current origin
 const getWebSocketUrl = () => {
@@ -12,7 +12,7 @@ const getWebSocketUrl = () => {
 };
 
 export function useDebugWebSocket() {
-    const { getAccessTokenSilently, isAuthenticated } = useAuth0();
+    const { getAccessTokenSilently, isAuthenticated } = useAuth();
     const [messages, setMessages] = useState<DebugMessage[]>([]);
     const [isConnected, setIsConnected] = useState(false);
     const [error, setError] = useState<string | null>(null);
