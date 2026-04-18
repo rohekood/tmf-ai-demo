@@ -6,7 +6,7 @@ const isSecureOrigin = () => {
   if (typeof window === 'undefined') {
     return true;
   }
-  return window.isSecureContext || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === 'tmf.home.arpa';
+  return window.isSecureContext || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === 'tmf.home.arpa' || window.location.hostname === 'tmf.rohekood.com';
 };
 
 const isAuthConfigured = () => {
