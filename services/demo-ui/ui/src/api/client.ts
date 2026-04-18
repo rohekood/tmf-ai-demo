@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getRuntimeConfig } from '../config/runtime';
 
 // The BFF URL.
-const baseURL = getRuntimeConfig().apiUrl || '/api';
+const baseURL = getRuntimeConfig().apiUrl || '';
 
 let authToken: string | null = null;
 
@@ -20,6 +20,9 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
     (config) => {
+        if (typeof config.url === 'string' && config.url.startsWith('/api/api/')) {
+            config.url = config.url.replace('/api/api/', '/api/');
+        }
         if (authToken) {
             config.headers.Authorization = `Bearer ${authToken}`;
         }
