@@ -24,7 +24,7 @@ export const getRuntimeConfig = (): RuntimeConfig => {
     auth0Domain: cfg?.AUTH0_DOMAIN ?? import.meta.env.VITE_AUTH0_DOMAIN ?? '',
     auth0ClientId: cfg?.AUTH0_CLIENT_ID ?? import.meta.env.VITE_AUTH0_CLIENT_ID ?? '',
     auth0Audience: cfg?.AUTH0_AUDIENCE ?? import.meta.env.VITE_AUTH0_AUDIENCE ?? '',
-    apiUrl: cfg?.API_URL ?? import.meta.env.VITE_API_URL ?? '/api',
+    apiUrl: cfg?.API_URL ?? import.meta.env.VITE_API_URL ?? '',
     apiBaseUrl: cfg?.API_BASE_URL ?? import.meta.env.VITE_API_BASE_URL ?? '',
   };
 };
