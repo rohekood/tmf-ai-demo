@@ -1,0 +1,70 @@
+{{- if .Values.emissary.enabled }}
+{{- $hostname := .Values.emissary.hostname | default "" -}}
+{{- $releaseName := .Release.Name -}}
+{{- $namespace := .Release.Namespace -}}
+{{- $uiService := printf "%s-demo-ui.%s.svc.cluster.local:80" $releaseName $namespace -}}
+{{- $apiService := printf "%s-bff.%s.svc.cluster.local:8080" $releaseName $namespace -}}
+{{- $ambassadorId := .Values.emissary.ambassadorId | default "" -}}
+{{- $tlsSecretName := .Values.emissary.host.tlsSecretName | default "" -}}
+{{- $createHost := .Values.emissary.createHost | default false -}}
+{{- $apiPrefix := .Values.emissary.mapping.apiPrefix | default "/api/" -}}
+{{- $uiPrefix := .Values.emissary.mapping.uiPrefix | default "/" -}}
+{{- if and $createHost $hostname }}
+apiVersion: getambassador.io/v3alpha1
+kind: Host
+metadata:
+  name: {{ printf "%s-emissary-host" $releaseName }}
+  labels:
+    app.kubernetes.io/name: tmf-platform
+    app.kubernetes.io/instance: {{ $releaseName }}
+spec:
+  hostname: {{ $hostname | quote }}
+  requestPolicy:
+    insecure:
+      action: Route
+  acmeProvider:
+    authority: none
+  {{- if $tlsSecretName }}
+  tlsSecret:
+    name: {{ $tlsSecretName | quote }}
+  {{- end }}
+---
+{{- end }}
+apiVersion: getambassador.io/v3alpha1
+kind: Mapping
+metadata:
+  name: {{ printf "%s-bff-api" $releaseName }}
+  labels:
+    app.kubernetes.io/name: tmf-platform
+    app.kubernetes.io/instance: {{ $releaseName }}
+spec:
+  {{- if $hostname }}
+  hostname: {{ $hostname | quote }}
+  {{- end }}
+  prefix: {{ $apiPrefix | quote }}
+  service: {{ $apiService | quote }}
+  timeout_ms: 30000
+  {{- if $ambassadorId }}
+  ambassador_id:
+    - {{ $ambassadorId | quote }}
+  {{- end }}
+---
+apiVersion: getambassador.io/v3alpha1
+kind: Mapping
+metadata:
+  name: {{ printf "%s-demo-ui" $releaseName }}
+  labels:
+    app.kubernetes.io/name: tmf-platform
+    app.kubernetes.io/instance: {{ $releaseName }}
+spec:
+  {{- if $hostname }}
+  hostname: {{ $hostname | quote }}
+  {{- end }}
+  prefix: {{ $uiPrefix | quote }}
+  service: {{ $uiService | quote }}
+  timeout_ms: 30000
+  {{- if $ambassadorId }}
+  ambassador_id:
+    - {{ $ambassadorId | quote }}
+  {{- end }}
+{{- end }}

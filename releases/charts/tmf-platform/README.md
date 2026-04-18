@@ -44,3 +44,26 @@ helm upgrade --install tmf-platform releases/charts/tmf-platform \
   --set bff.image.tag=main-123 \
   --set customer-management.image.tag=main-123
 ```
+
+## Emissary ingress
+
+You can expose both UI and BFF through Emissary with one host/IP.
+
+Enable Emissary resources in this chart:
+
+```bash
+helm upgrade --install tmf-platform releases/charts/tmf-platform \
+  --namespace tmf \
+  --set emissary.enabled=true
+```
+
+This renders:
+
+- `Mapping` for `/api/` -> `tmf-platform-bff:8080`
+- `Mapping` for `/` -> `tmf-platform-demo-ui:80`
+
+Optional:
+
+- `--set emissary.hostname=<dns-or-ip>` to require a specific host header.
+- `--set emissary.createHost=true` to create an Emissary `Host` resource.
+- `--set emissary.host.tlsSecretName=<secret>` for TLS on that Host.

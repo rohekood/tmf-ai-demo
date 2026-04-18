@@ -16,6 +16,20 @@ qualification:
 shopping-cart:
   enabled: true
 
+emissary:
+  enabled: false
+  # Optional hostname (DNS name or IP) to match. Leave empty to match any host.
+  hostname: ""
+  # Optional ambassador_id if your Emissary deployment filters by ID.
+  ambassadorId: ""
+  # Create a Host resource for Host-level policy (requires hostname).
+  createHost: false
+  host:
+    tlsSecretName: ""
+  mapping:
+    uiPrefix: "/"
+    apiPrefix: "/api/"
+
 # Pass-through values to each child chart below these keys.
 # Example:
 # bff:
