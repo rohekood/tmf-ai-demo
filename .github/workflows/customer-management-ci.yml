@@ -10,6 +10,7 @@ name: Customer Management CI/CD
       - 'fix/**'
     paths:
       - 'services/customer-management/**'
+      - 'pkg/**'
 
 permissions:
   contents: write
@@ -24,6 +25,8 @@ jobs:
     with:
       service_name: customer-management
       service_path: services/customer-management
+      docker_context_path: .
+      dockerfile_path: services/customer-management/Dockerfile
       image_name: customer-management
       release_title: Customer Management
     secrets: inherit

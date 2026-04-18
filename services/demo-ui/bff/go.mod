@@ -11,8 +11,8 @@ require (
 
 require (
 	github.com/google/uuid v1.6.0 // indirect
-	golang.org/x/crypto v0.45.0 // indirect
-	golang.org/x/sync v0.18.0 // indirect
+	golang.org/x/crypto v0.46.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
 	gopkg.in/go-jose/go-jose.v2 v2.6.3 // indirect
 )
 

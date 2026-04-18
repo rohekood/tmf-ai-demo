@@ -10,6 +10,7 @@ name: Product Catalog Management CI/CD
       - 'fix/**'
     paths:
       - 'services/product-catalog-management/**'
+      - 'pkg/**'
 
 permissions:
   contents: write
@@ -24,6 +25,8 @@ jobs:
     with:
       service_name: product-catalog-management
       service_path: services/product-catalog-management
+      docker_context_path: .
+      dockerfile_path: services/product-catalog-management/Dockerfile
       image_name: product-catalog-management
       release_title: Product Catalog Management
     secrets: inherit

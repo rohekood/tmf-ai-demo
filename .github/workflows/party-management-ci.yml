@@ -10,6 +10,7 @@ name: Party Management CI/CD
       - 'fix/**'
     paths:
       - 'services/party-management/**'
+      - 'pkg/**'
 
 permissions:
   contents: write
@@ -24,6 +25,8 @@ jobs:
     with:
       service_name: party-management
       service_path: services/party-management
+      docker_context_path: .
+      dockerfile_path: services/party-management/Dockerfile
       image_name: party-management
       release_title: Party Management
     secrets: inherit
