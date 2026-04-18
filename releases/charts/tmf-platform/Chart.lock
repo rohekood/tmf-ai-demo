@@ -1,13 +1,13 @@
 dependencies:
 - name: bff
   repository: file://../bff
-  version: 0.1.0
+  version: 0.2.0
 - name: customer-management
   repository: file://../customer-management
   version: 0.1.0
 - name: demo-ui
   repository: file://../demo-ui
-  version: 0.1.0
+  version: 0.2.0
 - name: party-management
   repository: file://../party-management
   version: 0.1.0
@@ -23,5 +23,5 @@ dependencies:
 - name: shopping-cart
   repository: file://../shopping-cart
   version: 0.1.0
-digest: sha256:76f16e5b33313330d0f1b3639b3878be5bd9c3db8323b8b6d535a9f1809fcbc8
-generated: "2026-04-18T08:04:43.683821987+03:00"
+digest: sha256:81df0092c81116131e11c9dbcf471431459b212e22481931ad4b718a5f94c020
+generated: "2026-04-18T08:36:59.271856653+03:00"
