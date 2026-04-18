@@ -23,5 +23,5 @@ dependencies:
 - name: shopping-cart
   repository: file://../shopping-cart
   version: 0.1.0
-digest: sha256:4f398fb7c6ec75e6525d9a5c1ed08d185a4f32ab38c5b4a0fa1b2f46885d2cdd
-generated: "2026-04-16T22:01:49.993375584+03:00"
+digest: sha256:76f16e5b33313330d0f1b3639b3878be5bd9c3db8323b8b6d535a9f1809fcbc8
+generated: "2026-04-18T08:04:43.683821987+03:00"

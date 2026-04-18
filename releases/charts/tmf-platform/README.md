@@ -28,13 +28,13 @@ helm upgrade --install tmf-platform releases/charts/tmf-platform \
 Each child chart is configured under its alias key in `values.yaml`:
 
 - `bff`
-- `customerManagement`
-- `demoUi`
-- `partyManagement`
+- `customer-management`
+- `demo-ui`
+- `party-management`
 - `pocv`
-- `productCatalogManagement`
+- `product-catalog-management`
 - `qualification`
-- `shoppingCart`
+- `shopping-cart`
 
 Example:
 
@@ -42,5 +42,5 @@ Example:
 helm upgrade --install tmf-platform releases/charts/tmf-platform \
   --namespace tmf \
   --set bff.image.tag=main-123 \
-  --set customerManagement.image.tag=main-123
+  --set customer-management.image.tag=main-123
 ```

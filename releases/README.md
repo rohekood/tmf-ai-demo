@@ -87,12 +87,12 @@ helm upgrade --install tmf-platform releases/charts/tmf-platform \
   --namespace tmf \
   --create-namespace \
   --set bff.env.secretName=tmf-secrets \
-  --set customerManagement.env.secretName=tmf-secrets \
-  --set partyManagement.env.secretName=tmf-secrets \
+  --set customer-management.env.secretName=tmf-secrets \
+  --set party-management.env.secretName=tmf-secrets \
   --set pocv.env.secretName=tmf-secrets \
-  --set productCatalogManagement.env.secretName=tmf-secrets \
+  --set product-catalog-management.env.secretName=tmf-secrets \
   --set qualification.env.secretName=tmf-secrets \
-  --set shoppingCart.env.secretName=tmf-secrets
+  --set shopping-cart.env.secretName=tmf-secrets
 ```
 
 Disable any component at install/upgrade time:
@@ -100,7 +100,7 @@ Disable any component at install/upgrade time:
 ```bash
 helm upgrade --install tmf-platform releases/charts/tmf-platform \
   --namespace tmf \
-  --set demoUi.enabled=false
+  --set demo-ui.enabled=false
 ```
 
 ## Secret Keys Reference
