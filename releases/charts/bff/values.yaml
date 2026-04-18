@@ -16,6 +16,10 @@ env:
   rabbitmq:
     secretName: ""
     secretKey: RABBITMQ_URL
+  auth0:
+    secretName: ""
+    domainKey: AUTH0_DOMAIN
+    audienceKey: AUTH0_AUDIENCE
   extra: []
   # Auth0 values are non-secret; set them here or override in HelmRelease
   auth0Domain: ""

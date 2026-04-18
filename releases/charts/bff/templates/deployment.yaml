@@ -32,10 +32,23 @@ spec:
                 secretKeyRef:
                   name: {{ default .Values.env.secretName .Values.env.rabbitmq.secretName }}
                   key: {{ .Values.env.rabbitmq.secretKey }}
+            {{- if or .Values.env.auth0.secretName .Values.env.secretName }}
+            - name: AUTH0_DOMAIN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default .Values.env.secretName .Values.env.auth0.secretName }}
+                  key: {{ .Values.env.auth0.domainKey | quote }}
+            - name: AUTH0_AUDIENCE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default .Values.env.secretName .Values.env.auth0.secretName }}
+                  key: {{ .Values.env.auth0.audienceKey | quote }}
+            {{- else }}
             - name: AUTH0_DOMAIN
               value: {{ .Values.env.auth0Domain | quote }}
             - name: AUTH0_AUDIENCE
               value: {{ .Values.env.auth0Audience | quote }}
+            {{- end }}
             - name: PORT
               value: {{ .Values.service.port | quote }}
             {{- with .Values.env.extra }}
