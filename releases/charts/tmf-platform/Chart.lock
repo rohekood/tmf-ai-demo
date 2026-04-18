@@ -7,7 +7,7 @@ dependencies:
   version: 0.1.0
 - name: demo-ui
   repository: file://../demo-ui
-  version: 0.2.0
+  version: 0.2.1
 - name: party-management
   repository: file://../party-management
   version: 0.1.0
@@ -23,5 +23,5 @@ dependencies:
 - name: shopping-cart
   repository: file://../shopping-cart
   version: 0.1.0
-digest: sha256:81df0092c81116131e11c9dbcf471431459b212e22481931ad4b718a5f94c020
-generated: "2026-04-18T08:36:59.271856653+03:00"
+digest: sha256:cb130a3fae3ab6c51f91b504717256490aed2e243610680e04ce18fd3043f4f2
+generated: "2026-04-18T22:57:41.53670856+03:00"
