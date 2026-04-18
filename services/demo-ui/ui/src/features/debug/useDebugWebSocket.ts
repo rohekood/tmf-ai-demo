@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { DebugMessage } from './types';
 import { useAuth } from '../../auth/context';
+import { getRuntimeConfig } from '../../config/runtime';
 
 // Use correct WebSocket URL based on current origin
 const getWebSocketUrl = () => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Use BFF URL if running on different port, otherwise current origin
-    const bffUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
-    const url = new URL(bffUrl);
+    const cfg = getRuntimeConfig();
+    const base = cfg.apiBaseUrl || cfg.apiUrl || window.location.origin;
+    const url = new URL(base, window.location.origin);
     return `${protocol}//${url.host}/ws/debug`;
 };
 

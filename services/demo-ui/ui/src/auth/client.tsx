@@ -1,16 +1,19 @@
 import { useMemo, type ReactNode } from 'react';
 import { Auth0Provider, useAuth0 } from '@auth0/auth0-react';
 import { AuthContext, fallbackAuthClient, type AuthClient } from './context';
+import { getRuntimeConfig } from '../config/runtime';
 
 const isSecureOrigin = () => {
   if (typeof window === 'undefined') {
     return true;
   }
-  return window.isSecureContext || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === 'tmf.home.arpa' || window.location.hostname === 'tmf.rohekood.com';
+  const host = window.location.hostname;
+  return window.isSecureContext || host === 'localhost' || host === '127.0.0.1';
 };
 
 const isAuthConfigured = () => {
-  return Boolean(import.meta.env.VITE_AUTH0_DOMAIN && import.meta.env.VITE_AUTH0_CLIENT_ID && import.meta.env.VITE_AUTH0_AUDIENCE);
+  const cfg = getRuntimeConfig();
+  return Boolean(cfg.auth0Domain && cfg.auth0ClientId && cfg.auth0Audience);
 };
 
 const isAuthEnabled = () => isSecureOrigin() && isAuthConfigured();
@@ -32,15 +35,16 @@ function AuthBridge({ children }: { children: ReactNode }) {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const domain = import.meta.env.VITE_AUTH0_DOMAIN;
-  const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
-  const audience = import.meta.env.VITE_AUTH0_AUDIENCE;
+  const cfg = getRuntimeConfig();
+  const domain = cfg.auth0Domain;
+  const clientId = cfg.auth0ClientId;
+  const audience = cfg.auth0Audience;
 
   if (!isAuthEnabled()) {
     if (!isSecureOrigin()) {
       console.warn(`Auth0 disabled for origin ${window.location.origin}. Use HTTPS or localhost.`);
     } else if (!isAuthConfigured()) {
-      console.warn('Auth0 configuration missing, check VITE_AUTH0_* env vars.');
+      console.warn('Auth0 configuration missing, check AUTH0_* runtime env vars.');
     }
 
     return <AuthContext.Provider value={fallbackAuthClient}>{children}</AuthContext.Provider>;

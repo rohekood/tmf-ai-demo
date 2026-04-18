@@ -11,9 +11,17 @@ service:
   type: ClusterIP
   port: 80
 
-# Build-time VITE_ variables baked into the image at build time.
-# These are documented here for reference only — they are not injected at runtime.
-# VITE_AUTH0_DOMAIN, VITE_AUTH0_CLIENT_ID, VITE_AUTH0_AUDIENCE, VITE_API_URL
+env:
+  secretName: ""
+  auth0DomainKey: AUTH0_DOMAIN
+  auth0ClientIdKey: AUTH0_CLIENT_ID
+  auth0AudienceKey: AUTH0_AUDIENCE
+  apiUrl: /api
+  apiBaseUrl: ""
+
+# Runtime variables are injected from Kubernetes into the container and rendered
+# into /config.js at startup.
+# AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_AUDIENCE, API_URL, API_BASE_URL
 
 resources: {}
 

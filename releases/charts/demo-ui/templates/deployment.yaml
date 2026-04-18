@@ -22,6 +22,28 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: API_URL
+              value: {{ .Values.env.apiUrl | quote }}
+            - name: API_BASE_URL
+              value: {{ .Values.env.apiBaseUrl | quote }}
+            {{- if .Values.env.secretName }}
+            - name: AUTH0_DOMAIN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.env.secretName | quote }}
+                  key: {{ .Values.env.auth0DomainKey | quote }}
+            - name: AUTH0_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.env.secretName | quote }}
+                  key: {{ .Values.env.auth0ClientIdKey | quote }}
+            - name: AUTH0_AUDIENCE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.env.secretName | quote }}
+                  key: {{ .Values.env.auth0AudienceKey | quote }}
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}

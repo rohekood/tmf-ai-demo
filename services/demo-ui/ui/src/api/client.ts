@@ -1,7 +1,8 @@
 import axios from 'axios';
+import { getRuntimeConfig } from '../config/runtime';
 
 // The BFF URL.
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const baseURL = getRuntimeConfig().apiUrl || '/api';
 
 let authToken: string | null = null;
 

@@ -12,18 +12,6 @@ COPY . .
 
 RUN yarn install --immutable
 
-# Build Arguments
-ARG VITE_AUTH0_DOMAIN
-ARG VITE_AUTH0_CLIENT_ID
-ARG VITE_AUTH0_AUDIENCE
-ARG VITE_API_URL
-
-# Set as ENV for build process
-ENV VITE_AUTH0_DOMAIN=$VITE_AUTH0_DOMAIN
-ENV VITE_AUTH0_CLIENT_ID=$VITE_AUTH0_CLIENT_ID
-ENV VITE_AUTH0_AUDIENCE=$VITE_AUTH0_AUDIENCE
-ENV VITE_API_URL=$VITE_API_URL
-
 # Build for production
 RUN yarn build
 
@@ -35,6 +23,10 @@ RUN rm -rf /usr/share/nginx/html/*
 
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Generate runtime config.js from container environment on startup.
+COPY docker-entrypoint.d/40-generate-config.sh /docker-entrypoint.d/40-generate-config.sh
+RUN chmod +x /docker-entrypoint.d/40-generate-config.sh
 
 # Copy custom nginx config if needed (using default for now, but enabling SPA fallback)
 # Creating a simple config for SPA support
