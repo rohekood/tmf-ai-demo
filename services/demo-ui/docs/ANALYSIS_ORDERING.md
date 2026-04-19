@@ -788,9 +788,9 @@ The three use cases form a linear wizard-like flow:
 
 ```mermaid
 flowchart LR
-    A[/order/qualify\nUC-01] -->|sessionId obtained| B[/order/cart\nUC-02]
-    B -->|cart has items| C[/order/checkout\nUC-03]
-    C -->|COMPLETED| D[/order/confirmation/:orderId]
+    A["/order/qualify<br/>UC-01"] -->|sessionId obtained| B["/order/cart<br/>UC-02"]
+    B -->|cart has items| C["/order/checkout<br/>UC-03"]
+    C -->|COMPLETED| D["/order/confirmation/:orderId"]
     C -->|FAILED| B
     B --> A
 ```
