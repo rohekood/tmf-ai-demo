@@ -400,7 +400,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Start([Offering Card: "Add to Cart" clicked]) --> HasSession{sessionId in state?}
+    Start([Offering Card: 'Add to Cart' clicked]) --> HasSession{sessionId in state?}
     HasSession -->|No| PromptRequalify[Show: 'Please check availability first']
     HasSession -->|Yes| PostItem[POST /api/cart/items]
     PostItem --> ShowItemLoader[Disable button + spinner]
