@@ -101,6 +101,49 @@ func run(ctx context.Context, getEnv func(string) string) error {
 		}
 	}()
 
+	// Handle Inventory Reservation (Order Domain)
+	exchangeOrder := "ex.domain.order"
+	_ = ch.ExchangeDeclare(exchangeOrder, "topic", true, false, false, false, nil)
+
+	qOrder, _ := ch.QueueDeclare("q.mock.inventory.order", false, false, false, false, nil)
+	_ = ch.QueueBind(qOrder.Name, rabbitmq.CmdInventoryResourceReserve, exchangeOrder, false, nil)
+
+	msgsOrder, _ := ch.Consume(qOrder.Name, "", false, false, false, false, nil)
+
+	go func() {
+		for d := range msgsOrder {
+			logger.Info("Received Inventory Reserve Command", "routing_key", d.RoutingKey)
+
+			var req struct {
+				SagaID string `json:"sagaId"`
+			}
+			_ = json.Unmarshal(d.Body, &req)
+
+			// Always succeed
+			resp := map[string]string{
+				"orderId": req.SagaID,
+			}
+			body, _ := json.Marshal(resp)
+
+			err := ch.PublishWithContext(context.Background(),
+				exchangeOrder,
+				rabbitmq.EvtInventoryResourceReserved,
+				false,
+				false,
+				amqp.Publishing{
+					ContentType: "application/json",
+					Body:        body,
+				})
+
+			if err != nil {
+				logger.Error("Failed to publish reservation event", "error", err)
+			}
+			if err := d.Ack(false); err != nil {
+				logger.Error("Failed to Ack order command", "error", err)
+			}
+		}
+	}()
+
 	<-ctx.Done()
 	return nil
 }
