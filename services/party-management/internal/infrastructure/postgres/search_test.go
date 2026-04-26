@@ -53,7 +53,7 @@ func TestSearchParties_Generic(t *testing.T) {
 	require.NoError(t, repo.CreateOrganization(ctx, org1))
 	require.NoError(t, repo.CreateIndividual(ctx, ind2))
 
-	results, err := repo.SearchParties(ctx, map[string]interface{}{
+	results, err := repo.SearchParties(ctx, map[string]any{
 		"search": "Smith",
 	})
 	assert.NoError(t, err)
@@ -65,7 +65,7 @@ func TestSearchParties_Generic(t *testing.T) {
 	assert.True(t, ids["gen-ind-1"])
 	assert.True(t, ids["gen-org-1"])
 
-	results, err = repo.SearchParties(ctx, map[string]interface{}{
+	results, err = repo.SearchParties(ctx, map[string]any{
 		"search": "John",
 	})
 	assert.NoError(t, err)
@@ -76,7 +76,7 @@ func TestSearchParties_Generic(t *testing.T) {
 	}
 	assert.True(t, ids["gen-ind-1"])
 
-	results, err = repo.SearchParties(ctx, map[string]interface{}{
+	results, err = repo.SearchParties(ctx, map[string]any{
 		"search": "Enterprises",
 	})
 	assert.NoError(t, err)
@@ -87,7 +87,7 @@ func TestSearchParties_Generic(t *testing.T) {
 	}
 	assert.True(t, ids["gen-org-1"])
 
-	results, err = repo.SearchParties(ctx, map[string]interface{}{
+	results, err = repo.SearchParties(ctx, map[string]any{
 		"search": "gen-ind-2",
 	})
 	assert.NoError(t, err)
@@ -98,7 +98,7 @@ func TestSearchParties_Generic(t *testing.T) {
 	}
 	assert.True(t, ids["gen-ind-2"])
 
-	results, err = repo.SearchParties(ctx, map[string]interface{}{
+	results, err = repo.SearchParties(ctx, map[string]any{
 		"search": "Individual",
 	})
 	assert.NoError(t, err)

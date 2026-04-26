@@ -193,7 +193,7 @@ func TestRPCClient_RequestWithHeaders(t *testing.T) {
 	ctx = context.WithValue(ctx, rabbitmq.Key(rabbitmq.HeaderUser), "test-user")
 
 	// Send request with additional headers
-	customHeaders := map[string]interface{}{
+	customHeaders := map[string]any{
 		"X-Custom-Header": "custom-value",
 	}
 

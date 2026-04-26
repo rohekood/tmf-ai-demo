@@ -60,7 +60,7 @@ func (w *OutboxWorker) processBatch(ctx context.Context) {
 
 func (w *OutboxWorker) processEvent(ctx context.Context, event *domain.OutboxEvent) {
 	// Unmarshal wrapper payload to raw json bytes if needed, but it's already json
-	var payload interface{} = event.Payload
+	var payload any = event.Payload
 	exchange := "tmf.events"
 
 	publishCtx := ctx

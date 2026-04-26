@@ -76,7 +76,7 @@ func run(ctx context.Context, getEnv func(string) string) error {
 
 	go func() {
 		for d := range msgs {
-			response := map[string]interface{}{
+			response := map[string]any{
 				"free": 100, // Return 100 ports available
 			}
 			body, _ := json.Marshal(response)

@@ -6,10 +6,10 @@ import (
 	"errors"
 	"testing"
 
+	"tmf/pkg/rabbitmq"
 	"tmf/services/shopping-cart/internal/adapter/handler"
 	"tmf/services/shopping-cart/internal/core/domain"
 	"tmf/services/shopping-cart/internal/core/ports"
-	"tmf/pkg/rabbitmq"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -81,12 +81,12 @@ type MockPublisher struct {
 	mock.Mock
 }
 
-func (m *MockPublisher) Publish(ctx context.Context, exchange, routingKey string, payload interface{}) error {
+func (m *MockPublisher) Publish(ctx context.Context, exchange, routingKey string, payload any) error {
 	args := m.Called(ctx, exchange, routingKey, payload)
 	return args.Error(0)
 }
 
-func (m *MockPublisher) PublishToQueue(ctx context.Context, queueName string, correlationID string, body interface{}) error {
+func (m *MockPublisher) PublishToQueue(ctx context.Context, queueName string, correlationID string, body any) error {
 	args := m.Called(ctx, queueName, correlationID, body)
 	return args.Error(0)
 }
@@ -114,7 +114,7 @@ func TestCartHandler_HandleAddItem(t *testing.T) {
 
 		h := handler.NewCartHandler(mockManageUC, mockPriceUC, mockSyncUC, mockRepo, mockPub)
 
-		payload := map[string]interface{}{
+		payload := map[string]any{
 			"cartId":                 "cart-123",
 			"offeringId":             "offering-abc",
 			"quantity":               2,
@@ -143,7 +143,7 @@ func TestCartHandler_HandleAddItem(t *testing.T) {
 
 		h := handler.NewCartHandler(mockManageUC, mockPriceUC, mockSyncUC, mockRepo, mockPub)
 
-		payload := map[string]interface{}{
+		payload := map[string]any{
 			"cartId":     "cart-123",
 			"offeringId": "offering-abc",
 			"quantity":   1,
@@ -188,7 +188,7 @@ func TestCartHandler_HandleAddItem(t *testing.T) {
 
 		h := handler.NewCartHandler(mockManageUC, mockPriceUC, mockSyncUC, mockRepo, mockPub)
 
-		payload := map[string]interface{}{
+		payload := map[string]any{
 			"cartId":                 "cart-123",
 			"offeringId":             "offering-abc",
 			"quantity":               1,
@@ -221,9 +221,9 @@ func TestCartHandler_HandleUpdatePrice(t *testing.T) {
 
 		h := handler.NewCartHandler(mockManageUC, mockPriceUC, mockSyncUC, mockRepo, mockPub)
 
-		payload := map[string]interface{}{
+		payload := map[string]any{
 			"cartId": "cart-1",
-			"items": []map[string]interface{}{
+			"items": []map[string]any{
 				{
 					"itemId": "item-1",
 					"price":  99.99,
@@ -267,10 +267,9 @@ func TestCartHandler_HandleCatalogEvent(t *testing.T) {
 
 		h := handler.NewCartHandler(mockManageUC, mockPriceUC, mockSyncUC, mockRepo, mockPub)
 
-		payload := map[string]interface{}{
-			"id":       "offering-1",
-			"price": map[string]interface{}{"amount": 10.0, "currency": "USD"},
-			
+		payload := map[string]any{
+			"id":    "offering-1",
+			"price": map[string]any{"amount": 10.0, "currency": "USD"},
 		}
 		payloadBytes, _ := json.Marshal(payload)
 
@@ -309,7 +308,7 @@ func TestCartHandler_HandleGetCart(t *testing.T) {
 
 		h := handler.NewCartHandler(mockManageUC, mockPriceUC, mockSyncUC, mockRepo, mockPub)
 
-		payload := map[string]interface{}{
+		payload := map[string]any{
 			"cartId": "cart-1",
 		}
 		payloadBytes, _ := json.Marshal(payload)
@@ -350,7 +349,7 @@ func TestCartHandler_HandleGetCart(t *testing.T) {
 
 		h := handler.NewCartHandler(mockManageUC, mockPriceUC, mockSyncUC, mockRepo, mockPub)
 
-		payload := map[string]interface{}{
+		payload := map[string]any{
 			"cartId": "cart-1",
 		}
 		payloadBytes, _ := json.Marshal(payload)

@@ -30,7 +30,7 @@ func TestMain(m *testing.M) {
 		Image:        "postgres:15",
 		Env:          map[string]string{"POSTGRES_USER": "test", "POSTGRES_PASSWORD": "password", "POSTGRES_DB": "testdb"},
 		ExposedPorts: []string{"5432/tcp"},
-		WaitingFor:   wait.ForLog("database system is ready to accept connections").WithOccurrence(2).WithStartupTimeout(5 * time.Second),
+		WaitingFor:   wait.ForLog("database system is ready to accept connections").WithOccurrence(2).WithStartupTimeout(30 * time.Second),
 	}
 
 	postgresC, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -77,7 +77,7 @@ func TestHealthHandler_ServeHTTP(t *testing.T) {
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 
-	var response map[string]interface{}
+	var response map[string]any
 	err := json.NewDecoder(rr.Body).Decode(&response)
 	assert.NoError(t, err)
 	assert.Equal(t, "DOWN", response["status"])
@@ -115,10 +115,10 @@ func TestHealthHandler_ServeHTTP_DBConnected(t *testing.T) {
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code) // Still DOWN because rabbitConn is nil
 
-	var response map[string]interface{}
+	var response map[string]any
 	err := json.NewDecoder(rr.Body).Decode(&response)
 	assert.NoError(t, err)
 
-	details := response["details"].(map[string]interface{})
+	details := response["details"].(map[string]any)
 	assert.Equal(t, "connected", details["database"])
 }

@@ -262,7 +262,7 @@ func (h *Handlers) HandleUpdateCustomer(ctx context.Context, d amqp.Delivery) er
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
 
-	updates := make(map[string]interface{})
+	updates := make(map[string]any)
 	if payload.Status != "" {
 		updates["status"] = payload.Status
 	}
@@ -376,7 +376,7 @@ func (h *Handlers) HandleSearchCustomer(ctx context.Context, d amqp.Delivery) er
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
 
-	criteria := make(map[string]interface{})
+	criteria := make(map[string]any)
 	if payload.ID != "" {
 		criteria["id"] = payload.ID
 	}
@@ -501,7 +501,7 @@ func (h *Handlers) HandlePartyEvent(ctx context.Context, d amqp.Delivery) error 
 
 func (h *Handlers) handlePartyUpdated(ctx context.Context, p PartyEventPayload) error {
 	// Find all customers linked to this party
-	customers, err := h.repo.SearchCustomers(ctx, map[string]interface{}{"party_id": p.ID})
+	customers, err := h.repo.SearchCustomers(ctx, map[string]any{"party_id": p.ID})
 	if err != nil {
 		return err
 	}
@@ -515,7 +515,7 @@ func (h *Handlers) handlePartyUpdated(ctx context.Context, p PartyEventPayload) 
 		}
 
 		if cust.Name != newName {
-			updates := map[string]interface{}{"name": newName}
+			updates := map[string]any{"name": newName}
 			if err := h.repo.PatchCustomer(ctx, cust.ID, updates); err != nil {
 				slog.Error("failed to sync party update to customer", "customer_id", cust.ID, "error", err)
 			}
@@ -525,13 +525,13 @@ func (h *Handlers) handlePartyUpdated(ctx context.Context, p PartyEventPayload) 
 }
 
 func (h *Handlers) handlePartyDeleted(ctx context.Context, p PartyEventPayload) error {
-	customers, err := h.repo.SearchCustomers(ctx, map[string]interface{}{"party_id": p.ID})
+	customers, err := h.repo.SearchCustomers(ctx, map[string]any{"party_id": p.ID})
 	if err != nil {
 		return err
 	}
 
 	for _, cust := range customers {
-		updates := map[string]interface{}{
+		updates := map[string]any{
 			"status":        domain.CustomerStatusClosed,
 			"status_reason": "Linked party was deleted",
 		}
@@ -549,7 +549,7 @@ func (h *Handlers) handlePartyDeletionInitiated(ctx context.Context, p PartyEven
 	}
 
 	// Check for active customers
-	customers, err := h.repo.SearchCustomers(ctx, map[string]interface{}{"party_id": p.ID})
+	customers, err := h.repo.SearchCustomers(ctx, map[string]any{"party_id": p.ID})
 	if err != nil {
 		return fmt.Errorf("failed to search customers: %w", err)
 	}
@@ -594,7 +594,7 @@ func (h *Handlers) extractUser(ctx context.Context, d amqp.Delivery) context.Con
 	return ctx
 }
 
-func (h *Handlers) replyTo(ctx context.Context, d amqp.Delivery, payload interface{}) error {
+func (h *Handlers) replyTo(ctx context.Context, d amqp.Delivery, payload any) error {
 	if d.ReplyTo == "" {
 		return nil
 	}

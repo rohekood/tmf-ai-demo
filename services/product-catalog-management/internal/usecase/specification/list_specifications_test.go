@@ -14,7 +14,7 @@ func TestListProductSpecifications_Execute(t *testing.T) {
 	useCase := NewListProductSpecifications(mockRepo)
 
 	ctx := context.Background()
-	filters := map[string]interface{}{"name": "Spec"}
+	filters := map[string]any{"name": "Spec"}
 	expected := []*domain.ProductSpecification{
 		{ID: "s1", Name: "Spec 1"},
 	}

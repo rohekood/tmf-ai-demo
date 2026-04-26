@@ -2,11 +2,11 @@ package http
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"errors"
 )
 
 func TestCatalogHandler_Errors(t *testing.T) {
@@ -33,7 +33,7 @@ func TestCatalogHandler_Errors(t *testing.T) {
 		{"UpdateCatErr", "PUT", "/api/catalogs/1", `{"name":"A"}`, errors.New("rpc"), 500},
 		{"GetCatErr", "GET", "/api/catalogs/1", "", errors.New("rpc"), 500},
 		{"DelCatErr", "DELETE", "/api/catalogs/1", "", errors.New("rpc"), 500},
-		
+
 		{"CreateCategoryBad", "POST", "/api/categories", "{", nil, 400},
 		{"CreateCategoryErr", "POST", "/api/categories", `{"name":"A"}`, errors.New("rpc"), 500},
 		{"UpdateCategoryBad", "PUT", "/api/categories/1", "{", nil, 400},
@@ -58,7 +58,7 @@ func TestCatalogHandler_Errors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+			mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 				return nil, tc.err
 			}
 			var req *http.Request

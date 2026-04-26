@@ -15,7 +15,7 @@ type mockValidator struct {
 	valid bool
 }
 
-func (m *mockValidator) ValidateToken(ctx context.Context, tokenString string) (interface{}, error) {
+func (m *mockValidator) ValidateToken(ctx context.Context, tokenString string) (any, error) {
 	if m.valid {
 		return &validator.ValidatedClaims{
 			RegisteredClaims: validator.RegisteredClaims{
@@ -40,7 +40,7 @@ func TestEnsureValidToken(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Authorization", "Bearer dummy-token")
-	
+
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
@@ -71,10 +71,10 @@ func TestNewAuth0Validator(t *testing.T) {
 
 	// Wait briefly to allow cache provider initialization
 	time.Sleep(10 * time.Millisecond)
-	
+
 	// Test error case (invalid URL - need something that fails url.Parse or caching provider)
 	// URL parsing rarely fails unless there's a control character
-	_, err = NewAuth0Validator(string([]byte{0x7f}) + "invalid", "test-audience")
+	_, err = NewAuth0Validator(string([]byte{0x7f})+"invalid", "test-audience")
 	if err == nil {
 		t.Errorf("expected error for invalid url")
 	}

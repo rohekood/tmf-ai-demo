@@ -349,7 +349,7 @@ func TestSearchParties_ByID(t *testing.T) {
 	}
 	require.NoError(t, repo.CreateIndividual(context.Background(), ind))
 
-	results, err := repo.SearchParties(context.Background(), map[string]interface{}{"id": "search-id-1"})
+	results, err := repo.SearchParties(context.Background(), map[string]any{"id": "search-id-1"})
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
 	assert.Equal(t, "search-id-1", results[0].ID)
@@ -377,7 +377,7 @@ func TestSearchParties_ByExternalReference_Extended(t *testing.T) {
 	}
 	require.NoError(t, repo.CreateIndividual(context.Background(), ind))
 
-	results, err := repo.SearchParties(context.Background(), map[string]interface{}{"externalReference": "ERP-X1"})
+	results, err := repo.SearchParties(context.Background(), map[string]any{"externalReference": "ERP-X1"})
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
 }
@@ -396,7 +396,7 @@ func TestSearchParties_ByGivenName_Extended(t *testing.T) {
 	}
 	require.NoError(t, repo.CreateIndividual(context.Background(), ind))
 
-	results, err := repo.SearchParties(context.Background(), map[string]interface{}{"given_name": "UniqueGivenName"})
+	results, err := repo.SearchParties(context.Background(), map[string]any{"given_name": "UniqueGivenName"})
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
 }
@@ -416,7 +416,7 @@ func TestSearchParties_ByFamilyName(t *testing.T) {
 	}
 	require.NoError(t, repo.CreateIndividual(context.Background(), ind))
 
-	results, err := repo.SearchParties(context.Background(), map[string]interface{}{"family_name": "UniqueFamilyName"})
+	results, err := repo.SearchParties(context.Background(), map[string]any{"family_name": "UniqueFamilyName"})
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
 }
@@ -436,7 +436,7 @@ func TestSearchParties_ByIsLegalEntity(t *testing.T) {
 	}
 	require.NoError(t, repo.CreateOrganization(context.Background(), org))
 
-	results, err := repo.SearchParties(context.Background(), map[string]interface{}{
+	results, err := repo.SearchParties(context.Background(), map[string]any{
 		"is_legal_entity": true,
 		"trading_name":    "LegalCorp",
 	})
@@ -459,7 +459,7 @@ func TestSearchParties_ByNameCriteria(t *testing.T) {
 	}
 	require.NoError(t, repo.CreateIndividual(context.Background(), ind))
 
-	results, err := repo.SearchParties(context.Background(), map[string]interface{}{"name": "SearchByName"})
+	results, err := repo.SearchParties(context.Background(), map[string]any{"name": "SearchByName"})
 	assert.NoError(t, err)
 	assert.GreaterOrEqual(t, len(results), 1)
 }
@@ -478,7 +478,7 @@ func TestSearchParties_GenericSearch(t *testing.T) {
 	}
 	require.NoError(t, repo.CreateIndividual(context.Background(), ind))
 
-	results, err := repo.SearchParties(context.Background(), map[string]interface{}{"search": "GenericSearchUnique"})
+	results, err := repo.SearchParties(context.Background(), map[string]any{"search": "GenericSearchUnique"})
 	assert.NoError(t, err)
 	assert.GreaterOrEqual(t, len(results), 1)
 }
@@ -579,10 +579,10 @@ func TestOutboxPublisher_MarshalError(t *testing.T) {
 // ========== OutboxWorker Tests ==========
 
 type mockRabbitPublisher struct {
-	publishFn func(ctx context.Context, exchange, routingKey string, msg interface{}) error
+	publishFn func(ctx context.Context, exchange, routingKey string, msg any) error
 }
 
-func (m *mockRabbitPublisher) Publish(ctx context.Context, exchange, routingKey string, msg interface{}) error {
+func (m *mockRabbitPublisher) Publish(ctx context.Context, exchange, routingKey string, msg any) error {
 	return m.publishFn(ctx, exchange, routingKey, msg)
 }
 
@@ -592,7 +592,7 @@ func (m *mockRabbitPublisher) DeclareTopicExchange(name string, durable, autoDel
 	return nil
 }
 
-func (m *mockRabbitPublisher) PublishToQueue(ctx context.Context, queueName string, correlationID string, body interface{}) error {
+func (m *mockRabbitPublisher) PublishToQueue(ctx context.Context, queueName string, correlationID string, body any) error {
 	return nil
 }
 
@@ -611,7 +611,7 @@ func TestOutboxWorker_Start_ContextCancel(t *testing.T) {
 
 	outboxRepo := NewOutboxRepository(db)
 	pub := &mockRabbitPublisher{
-		publishFn: func(ctx context.Context, exchange, routingKey string, msg interface{}) error {
+		publishFn: func(ctx context.Context, exchange, routingKey string, msg any) error {
 			return nil
 		},
 	}
@@ -648,7 +648,7 @@ func TestOutboxWorker_ProcessEvent_WithHeaders(t *testing.T) {
 
 	var capturedCtx context.Context
 	pub := &mockRabbitPublisher{
-		publishFn: func(ctx context.Context, exchange, routingKey string, msg interface{}) error {
+		publishFn: func(ctx context.Context, exchange, routingKey string, msg any) error {
 			capturedCtx = ctx
 			return nil
 		},
@@ -684,7 +684,7 @@ func TestOutboxWorker_ProcessEvent_PublishError(t *testing.T) {
 	ctx := context.Background()
 
 	pub := &mockRabbitPublisher{
-		publishFn: func(ctx context.Context, exchange, routingKey string, msg interface{}) error {
+		publishFn: func(ctx context.Context, exchange, routingKey string, msg any) error {
 			return errors.New("publish failed")
 		},
 	}
@@ -725,7 +725,7 @@ func TestOutboxWorker_ProcessBatch_NoPendingEvents(t *testing.T) {
 
 	outboxRepo := NewOutboxRepository(db)
 	pub := &mockRabbitPublisher{
-		publishFn: func(ctx context.Context, exchange, routingKey string, msg interface{}) error {
+		publishFn: func(ctx context.Context, exchange, routingKey string, msg any) error {
 			t.Fatal("Should not be called with no events")
 			return nil
 		},
@@ -763,7 +763,7 @@ func TestOutboxWorker_ProcessEvent_InvalidHeaders(t *testing.T) {
 	ctx := context.Background()
 
 	pub := &mockRabbitPublisher{
-		publishFn: func(ctx context.Context, exchange, routingKey string, msg interface{}) error {
+		publishFn: func(ctx context.Context, exchange, routingKey string, msg any) error {
 			return nil
 		},
 	}

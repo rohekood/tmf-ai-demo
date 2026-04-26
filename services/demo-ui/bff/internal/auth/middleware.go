@@ -16,7 +16,7 @@ import (
 
 // TokenValidator defines the interface for validating JWT tokens.
 type TokenValidator interface {
-	ValidateToken(ctx context.Context, tokenString string) (interface{}, error)
+	ValidateToken(ctx context.Context, tokenString string) (any, error)
 }
 
 // NewAuth0Validator creates a new TokenValidator using Auth0.

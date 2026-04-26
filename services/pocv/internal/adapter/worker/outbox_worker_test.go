@@ -25,10 +25,10 @@ func setupTestDB(t *testing.T) *gorm.DB {
 }
 
 type mockPublisher struct {
-	publish func(ctx context.Context, exchange, routingKey string, payload interface{}) error
+	publish func(ctx context.Context, exchange, routingKey string, payload any) error
 }
 
-func (m *mockPublisher) Publish(ctx context.Context, exchange, routingKey string, payload interface{}) error {
+func (m *mockPublisher) Publish(ctx context.Context, exchange, routingKey string, payload any) error {
 	if m.publish != nil {
 		return m.publish(ctx, exchange, routingKey, payload)
 	}
@@ -81,7 +81,7 @@ func TestOutboxWorker_StartAndProcessBatch(t *testing.T) {
 
 	publishCount := 0
 	pubMock := &mockPublisher{
-		publish: func(ctx context.Context, exchange, routingKey string, payload interface{}) error {
+		publish: func(ctx context.Context, exchange, routingKey string, payload any) error {
 			publishCount++
 			if routingKey == "test.topic.3" {
 				return errors.New("publish failed")
@@ -155,6 +155,6 @@ func TestOutboxWorker_DBError(t *testing.T) {
 	worker.processBatch(context.Background())
 }
 
-func (m *mockPublisher) PublishToQueue(ctx context.Context, exchange string, queue string, body interface{}) error {
+func (m *mockPublisher) PublishToQueue(ctx context.Context, exchange string, queue string, body any) error {
 	return nil
 }

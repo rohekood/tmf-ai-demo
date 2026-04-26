@@ -67,7 +67,7 @@ func main() {
 
 	// 3. RabbitMQ
 	var conn *amqp.Connection
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		conn, err = amqp.Dial(rabbitURL)
 		if err == nil {
 			break

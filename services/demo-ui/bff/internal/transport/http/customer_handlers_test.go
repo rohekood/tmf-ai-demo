@@ -17,7 +17,7 @@ func TestHandler_SearchCustomers(t *testing.T) {
 	handler := NewHandler(mockClient, nil)
 
 	t.Run("Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			if exchange != "tmf.customer" || routingKey != "query.customer.search" {
 				t.Errorf("Unexpected exchange or routing key: %s, %s", exchange, routingKey)
 			}
@@ -38,7 +38,7 @@ func TestHandler_SearchCustomers(t *testing.T) {
 	})
 
 	t.Run("RPC Error", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return nil, errors.New("RPC failed")
 		}
 
@@ -61,7 +61,7 @@ func TestHandler_GetCustomer(t *testing.T) {
 	mux.HandleFunc("GET /api/customers/{id}", handler.GetCustomer)
 
 	t.Run("Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return []byte(`{"id":"1", "name":"Customer 1"}`), nil
 		}
 
@@ -80,12 +80,12 @@ func TestHandler_CreateCustomer_DerivesName(t *testing.T) {
 	mockClient := &MockRPCClient{}
 	handler := NewHandler(mockClient, nil)
 
-	mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+	mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 		if routingKey == "query.party.get" {
 			return []byte(`{"id":"p1", "@type":"Individual", "givenName":"John", "familyName":"Doe"}`), nil
 		}
 		if routingKey == "cmd.customer.onboard" {
-			p := payload.(map[string]interface{})
+			p := payload.(map[string]any)
 			if p["name"] != "John Doe" {
 				t.Errorf("Expected name to be derived as 'John Doe', got %v", p["name"])
 			}
@@ -109,9 +109,9 @@ func TestHandler_CreateCustomer_RespectsProvidedName(t *testing.T) {
 	mockClient := &MockRPCClient{}
 	handler := NewHandler(mockClient, nil)
 
-	mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+	mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 		if routingKey == "cmd.customer.onboard" {
-			p := payload.(map[string]interface{})
+			p := payload.(map[string]any)
 			if p["name"] != "Custom Name" {
 				t.Errorf("Expected name to be 'Custom Name', got %v", p["name"])
 			}
@@ -135,7 +135,7 @@ func TestHandler_GetCustomer_EnrichesPartyDetails(t *testing.T) {
 	mockClient := &MockRPCClient{}
 	handler := NewHandler(mockClient, nil)
 
-	mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+	mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 		if routingKey == "query.customer.get" {
 			return []byte(`{"id":"c1", "name":"Cust", "partyId":"p1"}`), nil
 		}
@@ -156,7 +156,7 @@ func TestHandler_GetCustomer_EnrichesPartyDetails(t *testing.T) {
 		t.Errorf("Expected status OK, got %v", w.Code)
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 		t.Fatalf("failed to unmarshal response: %v", err)
 	}
@@ -176,7 +176,7 @@ func TestCustomerHandler_PartyEnrichmentErrors(t *testing.T) {
 	handler.RegisterRoutes(mux)
 
 	t.Run("GetCustomer_PartyErr", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			if routingKey == "query.customer.get" {
 				return []byte(`{"id":"c1", "partyId":"p1"}`), nil
 			}
@@ -194,7 +194,7 @@ func TestCustomerHandler_PartyEnrichmentErrors(t *testing.T) {
 	})
 
 	t.Run("CreateCustomer_PartyErr", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			if routingKey == "cmd.customer.onboard" {
 				return []byte(`{"id":"c1", "partyId":"p1"}`), nil
 			}
@@ -278,13 +278,13 @@ func TestHandler_CustomerMutationSuccess(t *testing.T) {
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
 
-	mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+	mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 		if exchange != customerExchange {
 			return nil, errors.New("unexpected exchange")
 		}
 		switch routingKey {
 		case cmdCustomerUpdate:
-			if payload.(map[string]interface{})["id"] != "c1" {
+			if payload.(map[string]any)["id"] != "c1" {
 				t.Fatalf("expected update payload to include id c1")
 			}
 			if headers["user"] != "user-1" {
@@ -297,7 +297,7 @@ func TestHandler_CustomerMutationSuccess(t *testing.T) {
 			}
 			return []byte(`{}`), nil
 		case cmdCustomerLogInteraction:
-			if payload.(map[string]interface{})["customerId"] != "c1" {
+			if payload.(map[string]any)["customerId"] != "c1" {
 				t.Fatalf("expected interaction payload to include customerId c1")
 			}
 			return []byte(`{"id":"i1"}`), nil

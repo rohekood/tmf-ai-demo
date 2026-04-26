@@ -15,7 +15,7 @@ func TestCatalogHandler(t *testing.T) {
 	handler.RegisterRoutes(mux)
 
 	t.Run("ListCatalogs_Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			if exchange != catalogExchange || routingKey != queryCatalogList {
 				t.Errorf("Unexpected exchange or routing key: %s, %s", exchange, routingKey)
 			}
@@ -35,7 +35,7 @@ func TestCatalogHandler(t *testing.T) {
 	})
 
 	t.Run("CreateSpecification_Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			if exchange != catalogExchange || routingKey != cmdSpecCreate {
 				t.Errorf("Unexpected exchange or routing key: %s, %s", exchange, routingKey)
 			}
@@ -56,7 +56,7 @@ func TestCatalogHandler(t *testing.T) {
 	})
 
 	t.Run("GetOffering_Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			if routingKey != queryOfferingGet {
 				t.Errorf("Unexpected routing key: %s", routingKey)
 			}
@@ -77,11 +77,11 @@ func TestCatalogHandler(t *testing.T) {
 	})
 
 	t.Run("UpdateCategory_Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			if routingKey != cmdCategoryUpdate {
 				t.Errorf("Unexpected routing key: %s", routingKey)
 			}
-			p := payload.(map[string]interface{})
+			p := payload.(map[string]any)
 			if p["id"] != "cat-id-1" {
 				t.Errorf("Expected ID 'cat-id-1', got %v", p["id"])
 			}
@@ -99,7 +99,7 @@ func TestCatalogHandler(t *testing.T) {
 	})
 
 	t.Run("DeleteCatalog_Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			if routingKey != cmdCatalogDelete {
 				t.Errorf("Unexpected routing key: %s", routingKey)
 			}

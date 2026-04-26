@@ -10,21 +10,21 @@ import (
 
 // DebugMessage represents a captured RabbitMQ message for the UI
 type DebugMessage struct {
-	ID            string                 `json:"id"` // Unique ID for UI tracking
-	Timestamp     time.Time              `json:"timestamp"`
-	Type          string                 `json:"type"` // cmd, evt, query
-	Topic         string                 `json:"topic"`
-	Exchange      string                 `json:"exchange,omitempty"`
-	CorrelationID string                 `json:"correlationId,omitempty"`
-	ReplyTo       string                 `json:"replyTo,omitempty"`
-	Payload       map[string]interface{} `json:"payload"`
-	Headers       map[string]interface{} `json:"headers,omitempty"`
-	Service       string                 `json:"service"` // derived from topic prefix
+	ID            string         `json:"id"` // Unique ID for UI tracking
+	Timestamp     time.Time      `json:"timestamp"`
+	Type          string         `json:"type"` // cmd, evt, query
+	Topic         string         `json:"topic"`
+	Exchange      string         `json:"exchange,omitempty"`
+	CorrelationID string         `json:"correlationId,omitempty"`
+	ReplyTo       string         `json:"replyTo,omitempty"`
+	Payload       map[string]any `json:"payload"`
+	Headers       map[string]any `json:"headers,omitempty"`
+	Service       string         `json:"service"` // derived from topic prefix
 }
 
 // Broadcaster interface for decoupling from HTTP package
 type Broadcaster interface {
-	Broadcast(msg interface{})
+	Broadcast(msg any)
 }
 
 // DebugConsumer consumes all messages for debugging purposes
@@ -132,12 +132,12 @@ func (dc *DebugConsumer) handleMessages(msgs <-chan amqp.Delivery) {
 			service = d.Exchange[4:]
 		}
 
-		var payload map[string]interface{}
+		var payload map[string]any
 		_ = json.Unmarshal(d.Body, &payload) // Ignore error, payload might be raw string or empty
 
 		// If payload failed to unmarshal, store as raw string if possible or empty
 		if payload == nil {
-			payload = map[string]interface{}{
+			payload = map[string]any{
 				"raw": string(d.Body),
 			}
 		}

@@ -97,8 +97,7 @@ func TestListener_MessageProcessing(t *testing.T) {
 	l, err := NewListener(sharedConn)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Start listener in a goroutine
 	go func() {

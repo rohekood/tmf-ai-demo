@@ -21,7 +21,7 @@ func (m *MockOfferingRepo) Get(ctx context.Context, id string) (*domain.ProductO
 	return args.Get(0).(*domain.ProductOffering), args.Error(1)
 }
 
-func (m *MockOfferingRepo) List(ctx context.Context, filters map[string]interface{}) ([]*domain.ProductOffering, error) {
+func (m *MockOfferingRepo) List(ctx context.Context, filters map[string]any) ([]*domain.ProductOffering, error) {
 	args := m.Called(ctx, filters)
 	return args.Get(0).([]*domain.ProductOffering), args.Error(1)
 }
@@ -53,7 +53,7 @@ func (m *MockSpecRepo) Get(ctx context.Context, id string) (*domain.ProductSpeci
 	return args.Get(0).(*domain.ProductSpecification), args.Error(1)
 }
 
-func (m *MockSpecRepo) List(ctx context.Context, filters map[string]interface{}) ([]*domain.ProductSpecification, error) {
+func (m *MockSpecRepo) List(ctx context.Context, filters map[string]any) ([]*domain.ProductSpecification, error) {
 	args := m.Called(ctx, filters)
 	return args.Get(0).([]*domain.ProductSpecification), args.Error(1)
 }

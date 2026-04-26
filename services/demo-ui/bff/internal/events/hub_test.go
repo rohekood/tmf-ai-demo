@@ -150,7 +150,7 @@ func TestHub_StartConsumer_SubscribeError(t *testing.T) {
 
 	called := false
 	originalFatalf := fatalf
-	fatalf = func(format string, args ...interface{}) {
+	fatalf = func(format string, args ...any) {
 		called = true
 	}
 	defer func() {

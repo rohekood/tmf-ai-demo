@@ -39,7 +39,7 @@ func TestRPCHandler_HandleGetCustomer(t *testing.T) {
 	}
 
 	mockRepo.On("GetCustomer", mock.Anything, "cust-1").Return(cust, nil).Once()
-	mockPub.On("PublishToQueue", mock.Anything, "reply-queue", "corr-1", mock.MatchedBy(func(resp map[string]interface{}) bool {
+	mockPub.On("PublishToQueue", mock.Anything, "reply-queue", "corr-1", mock.MatchedBy(func(resp map[string]any) bool {
 		return resp["id"] == "cust-1" &&
 			resp["tier"] == "Gold" &&
 			resp["segment"] == "Consumer" &&

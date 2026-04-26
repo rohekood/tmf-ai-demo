@@ -11,7 +11,7 @@ import (
 )
 
 func TestAmqpHeaderCarrier(t *testing.T) {
-	cm := amqpHeaderCarrier(make(map[string]interface{}))
+	cm := amqpHeaderCarrier(make(map[string]any))
 	cm.Set("key1", "val1")
 	val := cm.Get("key1")
 	assert.Equal(t, "val1", val)

@@ -15,18 +15,18 @@ func TestIntegration_CreateParty_WithReferencesAndAttachments(t *testing.T) {
 	suite := setupTestSuite(t)
 
 	// Payload with all new gap fields
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"@type":      "Individual",
 		"id":         "int-gaps-1",
 		"givenName":  "Integration",
 		"familyName": "Gaps",
-		"externalReferences": []map[string]interface{}{
+		"externalReferences": []map[string]any{
 			{"externalSystemId": "CRM", "externalReferenceId": "C123"},
 		},
-		"taxExemptions": []map[string]interface{}{
+		"taxExemptions": []map[string]any{
 			{"certificateNumber": "TAX-123", "issuingJurisdiction": "US"},
 		},
-		"attachments": []map[string]interface{}{
+		"attachments": []map[string]any{
 			{"name": "doc.txt", "content": []byte("hello world"), "attachmentType": "Note"},    // Implicit Internal
 			{"name": "link.png", "url": "http://s3/bucket/img.png", "attachmentType": "Image"}, // Implicit S3
 		},
@@ -75,11 +75,11 @@ func TestIntegration_SearchParty_ByExternalReference_RPC(t *testing.T) {
 	suite := setupTestSuite(t)
 
 	// 1. Create a Party with External Ref
-	payloadCreate := map[string]interface{}{
+	payloadCreate := map[string]any{
 		"@type":     "Individual",
 		"id":        "int-search-ext-1",
 		"givenName": "FoundMe",
-		"externalReferences": []map[string]interface{}{
+		"externalReferences": []map[string]any{
 			{"externalSystemId": "Legacy", "externalReferenceId": "SEARCH-TARGET"},
 		},
 	}
@@ -93,7 +93,7 @@ func TestIntegration_SearchParty_ByExternalReference_RPC(t *testing.T) {
 	require.NoError(t, err)
 
 	// 3. Search Request
-	payloadSearch := map[string]interface{}{
+	payloadSearch := map[string]any{
 		"externalReference": "SEARCH-TARGET",
 	}
 	bodySearch, _ := json.Marshal(payloadSearch)
@@ -108,7 +108,7 @@ func TestIntegration_SearchParty_ByExternalReference_RPC(t *testing.T) {
 	// 4. Verify Reply
 	select {
 	case reply := <-replies:
-		var results []map[string]interface{}
+		var results []map[string]any
 		err := json.Unmarshal(reply.Body, &results)
 		require.NoError(t, err)
 		require.Len(t, results, 1)

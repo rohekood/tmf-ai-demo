@@ -72,7 +72,7 @@ func TestPartyRepository_ContextErrors(t *testing.T) {
 	})
 
 	t.Run("SearchParties", func(t *testing.T) {
-		_, err := repo.SearchParties(ctx, map[string]interface{}{"id": "123"})
+		_, err := repo.SearchParties(ctx, map[string]any{"id": "123"})
 		assert.Error(t, err)
 	})
 }

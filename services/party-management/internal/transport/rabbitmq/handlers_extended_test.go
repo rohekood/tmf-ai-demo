@@ -17,11 +17,11 @@ type mockTestPublisher struct {
 	testifymock.Mock
 }
 
-func (m *mockTestPublisher) Publish(ctx context.Context, exchange, routingKey string, body interface{}) error {
+func (m *mockTestPublisher) Publish(ctx context.Context, exchange, routingKey string, body any) error {
 	args := m.Called(ctx, exchange, routingKey, body)
 	return args.Error(0)
 }
-func (m *mockTestPublisher) PublishToQueue(ctx context.Context, exchange, queue string, body interface{}) error {
+func (m *mockTestPublisher) PublishToQueue(ctx context.Context, exchange, queue string, body any) error {
 	return nil
 }
 func (m *mockTestPublisher) DeclareTopicExchange(name string, d, a, i, n bool) error {
@@ -54,7 +54,7 @@ func TestHandleUpdateParty_Individual(t *testing.T) {
 	pub.On("Publish", ctx, EventExchange, EvtPartyStateChange, testifymock.Anything).Return(nil)
 	pub.On("Publish", ctx, "", "reply-queue", testifymock.Anything).Return(nil)
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"@type":     "Individual",
 		"id":        "update-ind",
 		"givenName": "NewName",
@@ -87,7 +87,7 @@ func TestHandleUpdateParty_Organization(t *testing.T) {
 	repo.On("UpdateOrganization", ctx, testifymock.AnythingOfType("*domain.Organization")).Return(nil)
 	pub.On("Publish", ctx, EventExchange, EvtPartyUpdated, testifymock.Anything).Return(nil)
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"@type":       "Organization",
 		"id":          "update-org",
 		"tradingName": "NewCorp",

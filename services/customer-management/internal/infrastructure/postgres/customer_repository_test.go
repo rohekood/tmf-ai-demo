@@ -123,7 +123,7 @@ func TestPatchCustomer(t *testing.T) {
 	require.NoError(t, repo.CreateCustomer(ctx, cust))
 
 	// Test 1: Basic fields and one sub-resource
-	updates := map[string]interface{}{
+	updates := map[string]any{
 		"name":   "Patched Name",
 		"status": domain.CustomerStatusClosed,
 
@@ -147,7 +147,7 @@ func TestPatchCustomer(t *testing.T) {
 	assert.Equal(t, "Marketing", patched.PrivacyConsents[0].ConsentType)
 
 	// Test 2: Full Patch (All sub-resources)
-	fullUpdates := map[string]interface{}{
+	fullUpdates := map[string]any{
 		"accounts": []domain.CustomerAccount{
 			{ID: "a1", Name: "Account 1", AccountStatus: "Active"},
 		},
@@ -272,18 +272,18 @@ func TestSearchCustomers(t *testing.T) {
 	require.NoError(t, repo.CreateCustomer(ctx, cust2))
 
 	// Search by name
-	results, err := repo.SearchCustomers(ctx, map[string]interface{}{"name": "Alice"})
+	results, err := repo.SearchCustomers(ctx, map[string]any{"name": "Alice"})
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
 	assert.Equal(t, "s-1", results[0].ID)
 
 	// Search by status
-	results, err = repo.SearchCustomers(ctx, map[string]interface{}{"status": domain.CustomerStatusActive})
+	results, err = repo.SearchCustomers(ctx, map[string]any{"status": domain.CustomerStatusActive})
 	assert.NoError(t, err)
 	assert.Len(t, results, 2)
 
 	// Search by party_id
-	results, err = repo.SearchCustomers(ctx, map[string]interface{}{"party_id": "p-2"})
+	results, err = repo.SearchCustomers(ctx, map[string]any{"party_id": "p-2"})
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
 	assert.Equal(t, "s-2", results[0].ID)
@@ -360,7 +360,7 @@ func TestPatchCustomer_NonExistent(t *testing.T) {
 	repo := NewCustomerRepository(db)
 	ctx := context.Background()
 
-	err := repo.PatchCustomer(ctx, "non-existent", map[string]interface{}{"name": "foo"})
+	err := repo.PatchCustomer(ctx, "non-existent", map[string]any{"name": "foo"})
 	assert.Error(t, err)
 }
 
@@ -397,7 +397,7 @@ func TestSearchCustomers_Error(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := repo.SearchCustomers(ctx, map[string]interface{}{})
+	_, err := repo.SearchCustomers(ctx, map[string]any{})
 	assert.Error(t, err)
 }
 
@@ -457,27 +457,27 @@ func TestPatchCustomer_Error(t *testing.T) {
 	canceledCtx, cancel := context.WithCancel(ctx)
 	cancel() // instantly cancel to force gorm/sql execution errors
 
-	err := repo.PatchCustomer(canceledCtx, cust.ID, map[string]interface{}{"accounts": []domain.CustomerAccount{{ID: "dup9"}}})
+	err := repo.PatchCustomer(canceledCtx, cust.ID, map[string]any{"accounts": []domain.CustomerAccount{{ID: "dup9"}}})
 	assert.Error(t, err)
 
-	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]interface{}{"credit_profiles": []domain.CreditProfile{{ID: "dup10"}}})
+	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]any{"credit_profiles": []domain.CreditProfile{{ID: "dup10"}}})
 	assert.Error(t, err)
 
-	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]interface{}{"contact_mediums": []domain.ContactMedium{{ID: "dup11"}}})
+	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]any{"contact_mediums": []domain.ContactMedium{{ID: "dup11"}}})
 	assert.Error(t, err)
 
-	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]interface{}{"characteristics": []domain.CustomerCharacteristic{{ID: "dup12"}}})
+	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]any{"characteristics": []domain.CustomerCharacteristic{{ID: "dup12"}}})
 	assert.Error(t, err)
 
-	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]interface{}{"privacy_consents": []domain.PrivacyConsent{{ID: "dup13"}}})
+	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]any{"privacy_consents": []domain.PrivacyConsent{{ID: "dup13"}}})
 	assert.Error(t, err)
 
-	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]interface{}{"related_parties": []domain.RelatedParty{{ID: "dup14"}}})
+	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]any{"related_parties": []domain.RelatedParty{{ID: "dup14"}}})
 	assert.Error(t, err)
 
-	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]interface{}{"payment_methods": []domain.PaymentMethod{{ID: "dup15"}}})
+	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]any{"payment_methods": []domain.PaymentMethod{{ID: "dup15"}}})
 	assert.Error(t, err)
 
-	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]interface{}{"market_segments": []domain.MarketSegment{{ID: "dup16"}}})
+	err = repo.PatchCustomer(canceledCtx, cust.ID, map[string]any{"market_segments": []domain.MarketSegment{{ID: "dup16"}}})
 	assert.Error(t, err)
 }

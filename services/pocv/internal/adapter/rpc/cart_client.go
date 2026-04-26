@@ -10,7 +10,7 @@ import (
 
 // RPCRequestor is an interface to allow mocking of rabbitmq.RPCClient
 type RPCRequestor interface {
-	Request(ctx context.Context, routingKey string, payload interface{}) ([]byte, error)
+	Request(ctx context.Context, routingKey string, payload any) ([]byte, error)
 }
 
 type cartClient struct {
@@ -21,7 +21,7 @@ func NewCartClient(rpc RPCRequestor) ports.CartClient {
 	return &cartClient{rpc: rpc}
 }
 
-func (c *cartClient) GetCart(ctx context.Context, cartID string) (map[string]interface{}, error) {
+func (c *cartClient) GetCart(ctx context.Context, cartID string) (map[string]any, error) {
 	// Send RPC request to Shopping Cart
 	// Topic: query.cart.session.get (We need to define this topic in pkg if not exists)
 
@@ -32,7 +32,7 @@ func (c *cartClient) GetCart(ctx context.Context, cartID string) (map[string]int
 		return nil, fmt.Errorf("rpc cart fetch failed: %w", err)
 	}
 
-	var cart map[string]interface{}
+	var cart map[string]any
 	if err := json.Unmarshal(respBytes, &cart); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal cart response: %w", err)
 	}

@@ -64,8 +64,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	h.orderHandler.RegisterRoutes(mux)
 }
 
-func getHeaders(r *http.Request) map[string]interface{} {
-	headers := make(map[string]interface{})
+func getHeaders(r *http.Request) map[string]any {
+	headers := make(map[string]any)
 	if auth := r.Header.Get("Authorization"); auth != "" {
 		headers["Authorization"] = auth
 	}
@@ -131,13 +131,13 @@ func (h *Handler) GetCustomer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Enrich with Party Name if possible
-	var customer map[string]interface{}
+	var customer map[string]any
 	if err := json.Unmarshal(responseBytes, &customer); err == nil {
 		if partyID, ok := customer["partyId"].(string); ok && partyID != "" {
 			partyPayload := map[string]string{"id": partyID}
 			partyBytes, err := h.rpcClient.CallRPC(ctx, partyExchange, queryPartyGet, partyPayload, getHeaders(r))
 			if err == nil {
-				var party map[string]interface{}
+				var party map[string]any
 				if err := json.Unmarshal(partyBytes, &party); err == nil {
 					pType, _ := party["@type"].(string)
 					customer["partyType"] = pType
@@ -179,7 +179,7 @@ func (h *Handler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
 		_ = r.Body.Close()
 	}()
 
-	var payload map[string]interface{}
+	var payload map[string]any
 	if err := json.Unmarshal(body, &payload); err != nil {
 		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 		return
@@ -203,7 +203,7 @@ func (h *Handler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
 			// but we can't set name.
 			slog.Warn("failed to fetch party for name derivation", "party_id", partyID, "error", err)
 		} else {
-			var party map[string]interface{}
+			var party map[string]any
 			if err := json.Unmarshal(partyBytes, &party); err == nil {
 				derivedName := ""
 				pType, _ := party["@type"].(string)
@@ -253,7 +253,7 @@ func (h *Handler) UpdateCustomer(w http.ResponseWriter, r *http.Request) {
 		_ = r.Body.Close()
 	}()
 
-	var payload map[string]interface{}
+	var payload map[string]any
 	if err := json.Unmarshal(body, &payload); err != nil {
 		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 		return
@@ -316,7 +316,7 @@ func (h *Handler) LogInteraction(w http.ResponseWriter, r *http.Request) {
 		_ = r.Body.Close()
 	}()
 
-	var payload map[string]interface{}
+	var payload map[string]any
 	if err := json.Unmarshal(body, &payload); err != nil {
 		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 		return

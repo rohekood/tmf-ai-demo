@@ -22,7 +22,7 @@ func TestHandleCreateParty_IndividualPublishCreatedError(t *testing.T) {
 	repo.On("CreateIndividual", ctx, testifymock.Anything).Return(nil)
 	pub.On("Publish", ctx, EventExchange, EvtPartyCreated, testifymock.Anything).Return(errors.New("pub error"))
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, _ := json.Marshal(map[string]any{
 		"@type": "Individual", "id": "pub-err-1", "givenName": "Test",
 	})
 	err := h.HandleCreateParty(ctx, amqp.Delivery{Body: body})
@@ -38,7 +38,7 @@ func TestHandleCreateParty_IndividualPublishStateChangeError(t *testing.T) {
 	pub.On("Publish", ctx, EventExchange, EvtPartyCreated, testifymock.Anything).Return(nil)
 	pub.On("Publish", ctx, EventExchange, EvtPartyStateChange, testifymock.Anything).Return(errors.New("state error"))
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, _ := json.Marshal(map[string]any{
 		"@type": "Individual", "id": "pub-err-2", "givenName": "Test",
 	})
 	err := h.HandleCreateParty(ctx, amqp.Delivery{Body: body})
@@ -52,7 +52,7 @@ func TestHandleCreateParty_OrgPublishError(t *testing.T) {
 	repo.On("CreateOrganization", ctx, testifymock.Anything).Return(nil)
 	pub.On("Publish", ctx, EventExchange, EvtPartyCreated, testifymock.Anything).Return(errors.New("pub error"))
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, _ := json.Marshal(map[string]any{
 		"@type": "Organization", "id": "pub-err-3", "tradingName": "Corp",
 	})
 	err := h.HandleCreateParty(ctx, amqp.Delivery{Body: body})
@@ -67,7 +67,7 @@ func TestHandleCreateParty_OrgPublishStateChangeError(t *testing.T) {
 	pub.On("Publish", ctx, EventExchange, EvtPartyCreated, testifymock.Anything).Return(nil)
 	pub.On("Publish", ctx, EventExchange, EvtPartyStateChange, testifymock.Anything).Return(errors.New("state err"))
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, _ := json.Marshal(map[string]any{
 		"@type": "Organization", "id": "pub-err-4", "tradingName": "Corp",
 	})
 	err := h.HandleCreateParty(ctx, amqp.Delivery{Body: body})
@@ -82,7 +82,7 @@ func TestHandleUpdateParty_IndividualGetPartyError(t *testing.T) {
 
 	repo.On("GetParty", ctx, "upd-err").Return(nil, errors.New("not found"))
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, _ := json.Marshal(map[string]any{
 		"@type": "Individual", "id": "upd-err", "givenName": "Test",
 	})
 	err := h.HandleUpdateParty(ctx, amqp.Delivery{Body: body})
@@ -98,7 +98,7 @@ func TestHandleUpdateParty_IndividualUpdateError(t *testing.T) {
 	repo.On("UpdateIndividual", ctx, testifymock.Anything).Return(errors.New("update fail"))
 	pub.On("Publish", ctx, testifymock.Anything, testifymock.Anything, testifymock.Anything).Return(nil)
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, _ := json.Marshal(map[string]any{
 		"@type": "Individual", "id": "upd-fail", "givenName": "Test",
 	})
 	err := h.HandleUpdateParty(ctx, amqp.Delivery{Body: body})
@@ -113,7 +113,7 @@ func TestHandleUpdateParty_IndividualPublishError(t *testing.T) {
 	repo.On("UpdateIndividual", ctx, testifymock.Anything).Return(nil)
 	pub.On("Publish", ctx, EventExchange, EvtPartyUpdated, testifymock.Anything).Return(errors.New("pub fail"))
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, _ := json.Marshal(map[string]any{
 		"@type": "Individual", "id": "upd-pub-err", "givenName": "Test",
 	})
 	err := h.HandleUpdateParty(ctx, amqp.Delivery{Body: body})
@@ -129,7 +129,7 @@ func TestHandleUpdateParty_IndividualStateChangePublishError(t *testing.T) {
 	pub.On("Publish", ctx, EventExchange, EvtPartyUpdated, testifymock.Anything).Return(nil)
 	pub.On("Publish", ctx, EventExchange, EvtPartyStateChange, testifymock.Anything).Return(errors.New("sc fail"))
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, _ := json.Marshal(map[string]any{
 		"@type": "Individual", "id": "upd-sc-err", "givenName": "Test", "status": "Active",
 	})
 	err := h.HandleUpdateParty(ctx, amqp.Delivery{Body: body})
@@ -142,7 +142,7 @@ func TestHandleUpdateParty_OrgGetPartyError(t *testing.T) {
 
 	repo.On("GetParty", ctx, "upd-org-err").Return(nil, errors.New("not found"))
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, _ := json.Marshal(map[string]any{
 		"@type": "Organization", "id": "upd-org-err",
 	})
 	err := h.HandleUpdateParty(ctx, amqp.Delivery{Body: body})
@@ -157,7 +157,7 @@ func TestHandleUpdateParty_OrgUpdateError(t *testing.T) {
 	repo.On("UpdateOrganization", ctx, testifymock.Anything).Return(errors.New("update fail"))
 	pub.On("Publish", ctx, testifymock.Anything, testifymock.Anything, testifymock.Anything).Return(nil)
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, _ := json.Marshal(map[string]any{
 		"@type": "Organization", "id": "upd-org-fail", "tradingName": "Fail",
 	})
 	err := h.HandleUpdateParty(ctx, amqp.Delivery{Body: body})
@@ -172,7 +172,7 @@ func TestHandleUpdateParty_OrgPublishError(t *testing.T) {
 	repo.On("UpdateOrganization", ctx, testifymock.Anything).Return(nil)
 	pub.On("Publish", ctx, EventExchange, EvtPartyUpdated, testifymock.Anything).Return(errors.New("pub fail"))
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, _ := json.Marshal(map[string]any{
 		"@type": "Organization", "id": "upd-org-pub", "tradingName": "Fail",
 	})
 	err := h.HandleUpdateParty(ctx, amqp.Delivery{Body: body})
@@ -188,7 +188,7 @@ func TestHandleUpdateParty_OrgStateChangePublishError(t *testing.T) {
 	pub.On("Publish", ctx, EventExchange, EvtPartyUpdated, testifymock.Anything).Return(nil)
 	pub.On("Publish", ctx, EventExchange, EvtPartyStateChange, testifymock.Anything).Return(errors.New("sc fail"))
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, _ := json.Marshal(map[string]any{
 		"@type": "Organization", "id": "upd-org-sc", "tradingName": "Corp", "status": "Active",
 	})
 	err := h.HandleUpdateParty(ctx, amqp.Delivery{Body: body})

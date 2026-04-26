@@ -64,8 +64,7 @@ func TestRabbitMQHandler_CreateProductSpecification(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Start Handler in background
 	go func() {
@@ -108,7 +107,7 @@ func TestRabbitMQHandler_CreateProductSpecification(t *testing.T) {
 
 	// Wait for processing using Eventually
 	assert.Eventually(t, func() bool {
-		list, err := specRepo.List(context.Background(), map[string]interface{}{"name": "Async Spec"})
+		list, err := specRepo.List(context.Background(), map[string]any{"name": "Async Spec"})
 		return err == nil && len(list) == 1 && list[0].Name == "Async Spec" && list[0].ProductNumber == "ASYNC-001"
 	}, 10*time.Second, 100*time.Millisecond, "Specification should be created via RabbitMQ")
 }

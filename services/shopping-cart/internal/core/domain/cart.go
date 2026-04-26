@@ -40,10 +40,10 @@ func (c CartItem) MarshalJSON() ([]byte, error) {
 	type Alias CartItem
 	return json.Marshal(&struct {
 		Alias
-		Price map[string]interface{} `json:"price"`
+		Price map[string]any `json:"price"`
 	}{
 		Alias: (Alias)(c),
-		Price: map[string]interface{}{
+		Price: map[string]any{
 			"amount":   c.UnitAmount,
 			"currency": c.Currency,
 		},

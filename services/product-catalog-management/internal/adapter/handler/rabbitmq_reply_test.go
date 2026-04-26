@@ -1,7 +1,6 @@
 package handler_test
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 	"time"
@@ -45,8 +44,7 @@ func TestRabbitMQHandler_Reply(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Start Handler
 	go func() { _ = h.Start(ctx) }()
@@ -105,7 +103,7 @@ func TestRabbitMQHandler_Reply(t *testing.T) {
 	select {
 	case d := <-msgs:
 		assert.Equal(t, corrId, d.CorrelationId)
-		var response map[string]interface{}
+		var response map[string]any
 		err := json.Unmarshal(d.Body, &response)
 		require.NoError(t, err)
 		assert.Contains(t, response, "id")

@@ -695,7 +695,7 @@ func (h *RabbitMQHandler) handleDeleteProductOffering(d amqp.Delivery) {
 	}
 }
 
-func (h *RabbitMQHandler) reply(ctx context.Context, d amqp.Delivery, response interface{}) {
+func (h *RabbitMQHandler) reply(ctx context.Context, d amqp.Delivery, response any) {
 	responseBody, err := json.Marshal(response)
 	if err != nil {
 		log.Printf("Error marshalling response: %v", err)

@@ -377,7 +377,7 @@ func TestSearchParties_ByGivenName(t *testing.T) {
 	require.NoError(t, repo.CreateIndividual(ctx, ind1))
 	require.NoError(t, repo.CreateIndividual(ctx, ind2))
 
-	results, err := repo.SearchParties(ctx, map[string]interface{}{
+	results, err := repo.SearchParties(ctx, map[string]any{
 		"given_name": "Alice",
 	})
 	assert.NoError(t, err)
@@ -415,7 +415,7 @@ func TestSearchParties_ByTradingName(t *testing.T) {
 	require.NoError(t, repo.CreateOrganization(ctx, org1))
 	require.NoError(t, repo.CreateOrganization(ctx, org2))
 
-	results, err := repo.SearchParties(ctx, map[string]interface{}{
+	results, err := repo.SearchParties(ctx, map[string]any{
 		"trading_name": "TechCorp",
 	})
 	assert.NoError(t, err)
@@ -453,7 +453,7 @@ func TestSearchParties_ByType(t *testing.T) {
 	require.NoError(t, repo.CreateIndividual(ctx, ind))
 	require.NoError(t, repo.CreateOrganization(ctx, org))
 
-	results, err := repo.SearchParties(ctx, map[string]interface{}{
+	results, err := repo.SearchParties(ctx, map[string]any{
 		"type": domain.PartyTypeOrganization,
 	})
 	assert.NoError(t, err)

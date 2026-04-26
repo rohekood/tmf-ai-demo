@@ -22,14 +22,14 @@ func TestCartItem_MarshalJSON(t *testing.T) {
 	b, err := json.Marshal(item)
 	assert.NoError(t, err)
 
-	var result map[string]interface{}
+	var result map[string]any
 	err = json.Unmarshal(b, &result)
 	assert.NoError(t, err)
 
 	assert.Equal(t, "item-1", result["id"])
 	assert.Equal(t, float64(2), result["quantity"])
 
-	priceMap, ok := result["price"].(map[string]interface{})
+	priceMap, ok := result["price"].(map[string]any)
 	assert.True(t, ok)
 	assert.Equal(t, 100.50, priceMap["amount"])
 	assert.Equal(t, "EUR", priceMap["currency"])

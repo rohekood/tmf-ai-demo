@@ -31,7 +31,7 @@ func (m *MockOfferingRepo) Get(ctx context.Context, id string) (*domain.ProductO
 	return nil, args.Error(1)
 }
 
-func (m *MockOfferingRepo) List(ctx context.Context, filters map[string]interface{}) ([]*domain.ProductOffering, error) {
+func (m *MockOfferingRepo) List(ctx context.Context, filters map[string]any) ([]*domain.ProductOffering, error) {
 	args := m.Called(ctx, filters)
 	if args.Get(0) != nil {
 		return args.Get(0).([]*domain.ProductOffering), args.Error(1)
@@ -53,12 +53,12 @@ type MockPublisher struct {
 	mock.Mock
 }
 
-func (m *MockPublisher) Publish(ctx context.Context, exchange, routingKey string, body interface{}) error {
+func (m *MockPublisher) Publish(ctx context.Context, exchange, routingKey string, body any) error {
 	args := m.Called(ctx, exchange, routingKey, body)
 	return args.Error(0)
 }
 
-func (m *MockPublisher) PublishToQueue(ctx context.Context, queueName string, correlationID string, body interface{}) error {
+func (m *MockPublisher) PublishToQueue(ctx context.Context, queueName string, correlationID string, body any) error {
 	args := m.Called(ctx, queueName, correlationID, body)
 	return args.Error(0)
 }
@@ -109,7 +109,7 @@ func TestCatalogRPCHandler_HandleGetOffering(t *testing.T) {
 	}
 
 	repo.On("Get", ctx, "off1").Return(offering, nil)
-	pub.On("PublishToQueue", ctx, "reply_queue", "corr-123", map[string]interface{}{
+	pub.On("PublishToQueue", ctx, "reply_queue", "corr-123", map[string]any{
 		"id":        "off1",
 		"name":      "Test Offering",
 		"basePrice": 150.0,
@@ -139,7 +139,7 @@ func TestCatalogRPCHandler_HandleGetOffering_NoPrices(t *testing.T) {
 	}
 
 	repo.On("Get", ctx, "off1").Return(offering, nil)
-	pub.On("PublishToQueue", ctx, "reply_queue", "corr-123", map[string]interface{}{
+	pub.On("PublishToQueue", ctx, "reply_queue", "corr-123", map[string]any{
 		"id":        "off1",
 		"name":      "Test Offering",
 		"basePrice": 100.0,
@@ -167,7 +167,7 @@ func TestCatalogRPCHandler_HandleGetOffersByCategory(t *testing.T) {
 		{ID: "off1", Name: "Offer 1"},
 	}
 
-	repo.On("List", ctx, map[string]interface{}{"category": "cat1"}).Return(offerings, nil)
+	repo.On("List", ctx, map[string]any{"category": "cat1"}).Return(offerings, nil)
 
 	pub.On("PublishToQueue", ctx, "reply_queue", "corr-123", mock.Anything).Return(nil)
 

@@ -62,7 +62,7 @@ type ContactMedium struct {
 	StateOrProvince string     `json:"stateOrProvince,omitempty"`
 	Postcode        string     `json:"postcode,omitempty"`
 	Country         string     `json:"country,omitempty"`
-	ValidForStart   time.Time  `json:"validForStart,omitempty"`
+	ValidForStart   time.Time  `json:"validForStart"`
 	ValidForEnd     *time.Time `json:"validForEnd,omitempty"`
 	CreatedAt       time.Time  `json:"createdAt"`
 	UpdatedAt       time.Time  `json:"updatedAt"`
@@ -78,8 +78,8 @@ type Identification struct {
 	IdentificationType string     `json:"identificationType"`
 	IdentificationID   string     `json:"identificationId"`
 	IssuingAuthority   string     `json:"issuingAuthority,omitempty"`
-	IssuingDate        time.Time  `json:"issuingDate,omitempty"`
-	ValidForStart      time.Time  `json:"validForStart,omitempty"`
+	IssuingDate        time.Time  `json:"issuingDate"`
+	ValidForStart      time.Time  `json:"validForStart"`
 	ValidForEnd        *time.Time `json:"validForEnd,omitempty"`
 	CreatedAt          time.Time  `json:"createdAt"`
 	UpdatedAt          time.Time  `json:"updatedAt"`
@@ -96,7 +96,7 @@ type RelatedParty struct {
 	RelatedPartyName string     `json:"relatedPartyName"`
 	Role             string     `json:"role"`
 	Permissions      []string   `gorm:"serializer:json" json:"permissions,omitempty"` // stored as JSON array in DB
-	ValidForStart    time.Time  `json:"validForStart,omitempty"`
+	ValidForStart    time.Time  `json:"validForStart"`
 	ValidForEnd      *time.Time `json:"validForEnd,omitempty"`
 	CreatedAt        time.Time  `json:"createdAt"`
 	UpdatedAt        time.Time  `json:"updatedAt"`
@@ -138,7 +138,7 @@ type TaxExemption struct {
 	PartyID             string     `gorm:"not null;index" json:"partyId"`
 	CertificateNumber   string     `json:"certificateNumber"`
 	IssuingJurisdiction string     `json:"issuingJurisdiction"`
-	ValidForStart       time.Time  `json:"validForStart,omitempty"`
+	ValidForStart       time.Time  `json:"validForStart"`
 	ValidForEnd         *time.Time `json:"validForEnd,omitempty"`
 	CreatedAt           time.Time  `json:"createdAt"`
 	UpdatedAt           time.Time  `json:"updatedAt"`
@@ -212,5 +212,5 @@ type Repository interface {
 	UpdateOrganization(ctx context.Context, org *Organization) error
 
 	DeleteParty(ctx context.Context, id string) error
-	SearchParties(ctx context.Context, criteria map[string]interface{}) ([]Party, error)
+	SearchParties(ctx context.Context, criteria map[string]any) ([]Party, error)
 }

@@ -39,7 +39,7 @@ func (r *ProductSpecificationRepo) Get(ctx context.Context, id string) (*domain.
 	return model.ToDomain(), nil
 }
 
-func (r *ProductSpecificationRepo) List(ctx context.Context, filters map[string]interface{}) ([]*domain.ProductSpecification, error) {
+func (r *ProductSpecificationRepo) List(ctx context.Context, filters map[string]any) ([]*domain.ProductSpecification, error) {
 	var models []ProductSpecificationModel
 	query := r.db.WithContext(ctx)
 

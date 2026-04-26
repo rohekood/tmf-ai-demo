@@ -17,7 +17,7 @@ type MockRPCClient struct {
 	mock.Mock
 }
 
-func (m *MockRPCClient) RequestWithHeaders(ctx context.Context, exchange, routingKey string, request interface{}, headers map[string]interface{}) ([]byte, error) {
+func (m *MockRPCClient) RequestWithHeaders(ctx context.Context, exchange, routingKey string, request any, headers map[string]any) ([]byte, error) {
 	args := m.Called(ctx, exchange, routingKey, request, headers)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -284,7 +284,7 @@ func TestQualificationClient_GetPriceForOfferingWrapper(t *testing.T) {
 		res, err := client.GetPriceForOfferingWrapper(session, "off-1")
 		assert.NoError(t, err)
 
-		resMap := res.(map[string]interface{})
+		resMap := res.(map[string]any)
 		assert.Equal(t, 50.0, resMap["price"])
 		assert.Equal(t, "USD", resMap["currency"])
 	})

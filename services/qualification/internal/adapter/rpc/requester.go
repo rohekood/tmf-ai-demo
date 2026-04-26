@@ -5,5 +5,5 @@ import (
 )
 
 type Requester interface {
-	Request(ctx context.Context, routingKey string, request interface{}) ([]byte, error)
+	Request(ctx context.Context, routingKey string, request any) ([]byte, error)
 }

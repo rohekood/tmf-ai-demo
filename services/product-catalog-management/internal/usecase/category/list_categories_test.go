@@ -14,7 +14,7 @@ func TestListCategories_Execute(t *testing.T) {
 	useCase := NewListCategories(mockRepo)
 
 	ctx := context.Background()
-	filters := map[string]interface{}{"name": "Test"}
+	filters := map[string]any{"name": "Test"}
 	expected := []*domain.Category{
 		{ID: "c1", Name: "Test Cat"},
 	}

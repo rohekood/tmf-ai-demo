@@ -15,7 +15,7 @@ func NewListProductOfferings(repo ports.ProductOfferingRepository) *ListProductO
 }
 
 func (uc *ListProductOfferings) Execute(ctx context.Context, input ports.ListProductOfferingsInput) ([]*domain.ProductOffering, error) {
-	filters := make(map[string]interface{})
+	filters := make(map[string]any)
 	if input.Filters.Name != nil {
 		filters["name"] = *input.Filters.Name
 	}

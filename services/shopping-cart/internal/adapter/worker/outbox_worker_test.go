@@ -24,12 +24,12 @@ type MockPublisher struct {
 	mock.Mock
 }
 
-func (m *MockPublisher) Publish(ctx context.Context, exchange, routingKey string, payload interface{}) error {
+func (m *MockPublisher) Publish(ctx context.Context, exchange, routingKey string, payload any) error {
 	args := m.Called(ctx, exchange, routingKey, payload)
 	return args.Error(0)
 }
 
-func (m *MockPublisher) PublishToQueue(ctx context.Context, queueName string, correlationID string, body interface{}) error {
+func (m *MockPublisher) PublishToQueue(ctx context.Context, queueName string, correlationID string, body any) error {
 	args := m.Called(ctx, queueName, correlationID, body)
 	return args.Error(0)
 }

@@ -57,7 +57,7 @@ func TestOfferingRepository_CRUD(t *testing.T) {
 	assert.Equal(t, 99.99, fetched.ProductOfferingPrice[0].Price.Value)
 
 	// List
-	list, err := repo.List(ctx, map[string]interface{}{"name": "iPhone%"})
+	list, err := repo.List(ctx, map[string]any{"name": "iPhone%"})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, list)
 

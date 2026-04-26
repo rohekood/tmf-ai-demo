@@ -12,7 +12,7 @@ import (
 
 func TestMockGISClient(t *testing.T) {
 	client := rpc.NewMockGISClient()
-	
+
 	res, err := client.CheckPolygon(context.Background(), domain.Address{City: "Berlin"})
 	assert.NoError(t, err)
 	assert.True(t, res)
@@ -24,7 +24,7 @@ func TestMockGISClient(t *testing.T) {
 
 func TestMockInventoryClient(t *testing.T) {
 	client := rpc.NewMockInventoryClient()
-	
+
 	res, err := client.GetPortCapacity(context.Background(), domain.Address{Zip: "12345"})
 	assert.NoError(t, err)
 	assert.Equal(t, 10, res)
@@ -36,7 +36,7 @@ func TestMockInventoryClient(t *testing.T) {
 
 func TestMockCatalogClient(t *testing.T) {
 	client := rpc.NewMockCatalogClient()
-	
+
 	res, err := client.GetOffersByCategory(context.Background(), "Fiber")
 	assert.NoError(t, err)
 	assert.Len(t, res, 1)
@@ -48,15 +48,15 @@ func TestMockCatalogClient(t *testing.T) {
 
 func TestMockRPCCaller(t *testing.T) {
 	caller := &rpc.MockRPCCaller{
-		OnRequest: func(ctx context.Context, topic string, payload interface{}) ([]byte, error) {
+		OnRequest: func(ctx context.Context, topic string, payload any) ([]byte, error) {
 			return []byte("test"), nil
 		},
 	}
-	
+
 	res, err := caller.Request(context.Background(), "test", nil)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("test"), res)
-	
+
 	caller.OnRequest = nil
 	res, err = caller.Request(context.Background(), "test", nil)
 	assert.NoError(t, err)

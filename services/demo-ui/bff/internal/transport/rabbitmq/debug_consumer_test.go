@@ -9,11 +9,11 @@ import (
 
 // MockBroadcaster for testing
 type MockBroadcaster struct {
-	LastMsg interface{}
-	MsgChan chan interface{}
+	LastMsg any
+	MsgChan chan any
 }
 
-func (m *MockBroadcaster) Broadcast(msg interface{}) {
+func (m *MockBroadcaster) Broadcast(msg any) {
 	m.LastMsg = msg
 	if m.MsgChan != nil {
 		m.MsgChan <- msg
@@ -22,7 +22,7 @@ func (m *MockBroadcaster) Broadcast(msg interface{}) {
 
 func TestDebugConsumer_HandleMessages(t *testing.T) {
 	mockBroadcaster := &MockBroadcaster{
-		MsgChan: make(chan interface{}, 1),
+		MsgChan: make(chan any, 1),
 	}
 
 	// We don't need a real Client for this test as we only test handleMessages logic
@@ -84,7 +84,7 @@ func TestDebugConsumer_HandleMessages(t *testing.T) {
 
 func TestDebugConsumer_HandleMessages_Raw(t *testing.T) {
 	mockBroadcaster := &MockBroadcaster{
-		MsgChan: make(chan interface{}, 1),
+		MsgChan: make(chan any, 1),
 	}
 	consumer := &DebugConsumer{
 		broadcaster: mockBroadcaster,

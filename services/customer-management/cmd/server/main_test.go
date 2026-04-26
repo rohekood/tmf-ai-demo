@@ -26,11 +26,11 @@ func (m *mockPublisher) DeclareTopicExchange(name string, durable, autoDelete, i
 	return nil
 }
 
-func (m *mockPublisher) Publish(ctx context.Context, exchange, routingKey string, body interface{}) error {
+func (m *mockPublisher) Publish(ctx context.Context, exchange, routingKey string, body any) error {
 	return nil
 }
 
-func (m *mockPublisher) PublishToQueue(ctx context.Context, exchange, queue string, body interface{}) error {
+func (m *mockPublisher) PublishToQueue(ctx context.Context, exchange, queue string, body any) error {
 	return nil
 }
 

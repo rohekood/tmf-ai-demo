@@ -124,8 +124,7 @@ func TestOutboxFlow_CreateOffering(t *testing.T) {
 	assert.Equal(t, "evt.catalog.offering.created", outboxEvent.RoutingKey)
 
 	// 5. Start Worker and Verify Delivery
-	workerCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	workerCtx := t.Context()
 	go outboxWorker.Start(workerCtx)
 
 	// Wait for message

@@ -21,7 +21,7 @@ func (m *MockSpecificationRepo) Get(ctx context.Context, id string) (*domain.Pro
 	return args.Get(0).(*domain.ProductSpecification), args.Error(1)
 }
 
-func (m *MockSpecificationRepo) List(ctx context.Context, filters map[string]interface{}) ([]*domain.ProductSpecification, error) {
+func (m *MockSpecificationRepo) List(ctx context.Context, filters map[string]any) ([]*domain.ProductSpecification, error) {
 	args := m.Called(ctx, filters)
 	return args.Get(0).([]*domain.ProductSpecification), args.Error(1)
 }

@@ -319,7 +319,7 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 			if err := h.publishEvent(txCtx, EvtPartyCreated, ind); err != nil {
 				return err
 			}
-			if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+			if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]any{
 				"id":       ind.ID,
 				"newState": ind.Status,
 			}); err != nil {
@@ -377,7 +377,7 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 			if err := h.publishEvent(txCtx, EvtPartyCreated, org); err != nil {
 				return err
 			}
-			if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+			if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]any{
 				"id":       org.ID,
 				"newState": org.Status,
 			}); err != nil {
@@ -471,7 +471,7 @@ func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error
 				return err
 			}
 			if oldStatus != newStatus {
-				if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+				if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]any{
 					"id":       ind.ID,
 					"oldState": oldStatus,
 					"newState": newStatus,
@@ -546,7 +546,7 @@ func (h *Handlers) HandleUpdateParty(ctx context.Context, d amqp.Delivery) error
 				return err
 			}
 			if oldStatus != newStatus {
-				if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+				if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]any{
 					"id":       org.ID,
 					"oldState": oldStatus,
 					"newState": newStatus,
@@ -613,7 +613,7 @@ func (h *Handlers) HandlePatchParty(ctx context.Context, d amqp.Delivery) error 
 				return err
 			}
 			if payload.Status != nil && oldStatus != *payload.Status {
-				if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+				if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]any{
 					"id":       existing.ID,
 					"oldState": oldStatus,
 					"newState": *payload.Status,
@@ -651,7 +651,7 @@ func (h *Handlers) HandlePatchParty(ctx context.Context, d amqp.Delivery) error 
 				return err
 			}
 			if payload.Status != nil && oldStatus != *payload.Status {
-				if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+				if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]any{
 					"id":       existingOrg.ID,
 					"oldState": oldStatus,
 					"newState": *payload.Status,
@@ -720,7 +720,7 @@ func (h *Handlers) HandleDeleteParty(ctx context.Context, d amqp.Delivery) error
 		}
 
 		// 3. Publish Deletion Initiated Event
-		if err := h.publishEvent(txCtx, EvtPartyDeletionInitiated, map[string]interface{}{
+		if err := h.publishEvent(txCtx, EvtPartyDeletionInitiated, map[string]any{
 			"id":   payload.ID,
 			"type": party.Type,
 		}); err != nil {
@@ -728,7 +728,7 @@ func (h *Handlers) HandleDeleteParty(ctx context.Context, d amqp.Delivery) error
 		}
 
 		// Also publish state change
-		if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+		if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]any{
 			"id":       payload.ID,
 			"oldState": oldStatus,
 			"newState": newStatus,
@@ -780,10 +780,10 @@ func (h *Handlers) HandleFinalizeDeletion(ctx context.Context, d amqp.Delivery) 
 			}
 		}
 
-		if err := h.publishEvent(txCtx, EvtPartyDeleted, map[string]interface{}{"id": payload.ID}); err != nil {
+		if err := h.publishEvent(txCtx, EvtPartyDeleted, map[string]any{"id": payload.ID}); err != nil {
 			return err
 		}
-		if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+		if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]any{
 			"id":       payload.ID,
 			"oldState": domain.PartyStatusDeletionPending,
 			"newState": newStatus,
@@ -830,7 +830,7 @@ func (h *Handlers) HandleCancelDeletion(ctx context.Context, d amqp.Delivery) er
 			}
 		}
 
-		if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+		if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]any{
 			"id":       payload.ID,
 			"oldState": domain.PartyStatusDeletionPending,
 			"newState": newStatus,
@@ -885,7 +885,7 @@ func (h *Handlers) HandleCustomerCreated(ctx context.Context, d amqp.Delivery) e
 				}
 			}
 
-			if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]interface{}{
+			if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]any{
 				"id":       payload.PartyID,
 				"oldState": domain.PartyStatusDeletionPending,
 				"newState": newStatus,
@@ -929,7 +929,7 @@ func (h *Handlers) HandleSearchParty(ctx context.Context, d amqp.Delivery) error
 		return fmt.Errorf("failed to unmarshal SearchPartyPayload: %w", err)
 	}
 
-	criteria := make(map[string]interface{})
+	criteria := make(map[string]any)
 	if payload.Search != nil {
 		criteria["search"] = *payload.Search
 	}
@@ -958,7 +958,7 @@ func (h *Handlers) HandleSearchParty(ctx context.Context, d amqp.Delivery) error
 	}
 
 	// Fetch full details for each party (Individual or Organization)
-	result := make([]interface{}, 0, len(parties))
+	result := make([]any, 0, len(parties))
 	for _, party := range parties {
 		if party.Type == domain.PartyTypeIndividual {
 			ind, err := h.repo.GetIndividual(ctx, party.ID)
@@ -986,7 +986,7 @@ func (h *Handlers) HandleSearchParty(ctx context.Context, d amqp.Delivery) error
 
 // --- Helpers ---
 
-func (h *Handlers) publishEvent(ctx context.Context, routingKey string, event interface{}) error {
+func (h *Handlers) publishEvent(ctx context.Context, routingKey string, event any) error {
 	if h.eventPublisher == nil {
 		slog.Warn("eventPublisher is nil, skipping event publishing", "routingKey", routingKey)
 		return nil
@@ -998,7 +998,7 @@ func (h *Handlers) publishEvent(ctx context.Context, routingKey string, event in
 	return nil
 }
 
-func (h *Handlers) replyTo(ctx context.Context, d amqp.Delivery, response interface{}) error {
+func (h *Handlers) replyTo(ctx context.Context, d amqp.Delivery, response any) error {
 	if d.ReplyTo == "" {
 		slog.Debug("no ReplyTo queue specified, skipping reply")
 		return nil

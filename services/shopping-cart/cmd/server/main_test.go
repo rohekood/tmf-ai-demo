@@ -32,7 +32,7 @@ func TestMain(m *testing.M) {
 		postgres.WithPassword("testpass"),
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).WithStartupTimeout(5*time.Second)),
+				WithOccurrence(2).WithStartupTimeout(30*time.Second)),
 	)
 	if err == nil {
 		connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")

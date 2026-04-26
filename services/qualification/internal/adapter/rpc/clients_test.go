@@ -17,7 +17,7 @@ type MockRPCRequester struct {
 	mock.Mock
 }
 
-func (m *MockRPCRequester) Request(ctx context.Context, routingKey string, request interface{}) ([]byte, error) {
+func (m *MockRPCRequester) Request(ctx context.Context, routingKey string, request any) ([]byte, error) {
 	args := m.Called(ctx, routingKey, request)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -31,7 +31,7 @@ func TestCatalogPricingClient(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"id":        "off-1",
 			"name":      "Offer 1",
 			"basePrice": 10.0,
@@ -46,11 +46,11 @@ func TestCatalogPricingClient(t *testing.T) {
 	})
 
 	t.Run("Success with TMF structure", func(t *testing.T) {
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"id":   "off-1",
 			"name": "Offer 1",
-			"productOfferingPrice": []map[string]interface{}{
-				{"price": map[string]interface{}{"value": 15.0, "unit": "EUR"}},
+			"productOfferingPrice": []map[string]any{
+				{"price": map[string]any{"value": 15.0, "unit": "EUR"}},
 			},
 		}
 		respBytes, _ := json.Marshal(resp)
@@ -84,7 +84,7 @@ func TestCustomerPricingClient(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"id":           "cust-1",
 			"status":       "Active",
 			"customerTier": "Gold",

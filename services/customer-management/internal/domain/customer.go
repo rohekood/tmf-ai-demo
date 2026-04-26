@@ -31,7 +31,7 @@ type Customer struct {
 	Name                 string                   `json:"name"` // Display name
 	Status               CustomerStatus           `gorm:"not null" json:"status"`
 	StatusReason         string                   `json:"statusReason,omitempty"`
-	ValidForStart        time.Time                `json:"validForStart,omitempty"`
+	ValidForStart        time.Time                `json:"validForStart"`
 	ValidForEnd          *time.Time               `json:"validForEnd,omitempty"`
 	PartyID              string                   `gorm:"not null;index" json:"partyId"`
 	PartyType            string                   `json:"partyType"` // Individual or Organization
@@ -97,7 +97,7 @@ type CreditProfile struct {
 	CreditProfileDate time.Time  `json:"creditProfileDate"`
 	CreditRiskScore   int        `json:"creditRiskScore"`
 	CreditScore       int        `json:"creditScore"`
-	ValidForStart     time.Time  `json:"validForStart,omitempty"`
+	ValidForStart     time.Time  `json:"validForStart"`
 	ValidForEnd       *time.Time `json:"validForEnd,omitempty"`
 	CreatedAt         time.Time  `json:"createdAt"`
 	UpdatedAt         time.Time  `json:"updatedAt"`
@@ -127,7 +127,7 @@ type ContactMedium struct {
 	StateOrProvince string     `json:"stateOrProvince,omitempty"`
 	Postcode        string     `json:"postcode,omitempty"`
 	Country         string     `json:"country,omitempty"`
-	ValidForStart   time.Time  `json:"validForStart,omitempty"`
+	ValidForStart   time.Time  `json:"validForStart"`
 	ValidForEnd     *time.Time `json:"validForEnd,omitempty"`
 	CreatedAt       time.Time  `json:"createdAt"`
 	UpdatedAt       time.Time  `json:"updatedAt"`
@@ -171,7 +171,7 @@ type PrivacyConsent struct {
 	CustomerID    string     `gorm:"not null;index" json:"customerId"`
 	ConsentType   string     `json:"consentType"`
 	Status        string     `json:"status"`
-	ValidForStart time.Time  `json:"validForStart,omitempty"`
+	ValidForStart time.Time  `json:"validForStart"`
 	ValidForEnd   *time.Time `json:"validForEnd,omitempty"`
 	CreatedAt     time.Time  `json:"createdAt"`
 	UpdatedAt     time.Time  `json:"updatedAt"`
@@ -280,8 +280,8 @@ type Repository interface {
 	CreateCustomer(ctx context.Context, c *Customer) error
 	GetCustomer(ctx context.Context, id string) (*Customer, error)
 	UpdateCustomer(ctx context.Context, c *Customer) error
-	PatchCustomer(ctx context.Context, id string, updates map[string]interface{}) error
+	PatchCustomer(ctx context.Context, id string, updates map[string]any) error
 	DeleteCustomer(ctx context.Context, id string) error
-	SearchCustomers(ctx context.Context, criteria map[string]interface{}) ([]Customer, error)
+	SearchCustomers(ctx context.Context, criteria map[string]any) ([]Customer, error)
 	AddInteraction(ctx context.Context, interaction *CustomerInteraction) error
 }

@@ -88,7 +88,7 @@ func TestSearchParties_ByExternalReference(t *testing.T) {
 	}
 	require.NoError(t, repo.CreateIndividual(ctx, ind2))
 
-	results, err := repo.SearchParties(ctx, map[string]interface{}{
+	results, err := repo.SearchParties(ctx, map[string]any{
 		"externalReference": "12345",
 	})
 	require.NoError(t, err)

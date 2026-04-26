@@ -68,8 +68,7 @@ func TestRabbitMQHandler_CreateCatalog(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Start Handler in background
 	go func() {
@@ -109,7 +108,7 @@ func TestRabbitMQHandler_CreateCatalog(t *testing.T) {
 
 	// Wait for processing using Eventually
 	assert.Eventually(t, func() bool {
-		list, err := repo.List(context.Background(), map[string]interface{}{"name": "Async Catalog"})
+		list, err := repo.List(context.Background(), map[string]any{"name": "Async Catalog"})
 		return err == nil && len(list) == 1 && list[0].Name == "Async Catalog" && list[0].Description == "Created via RabbitMQ"
 	}, 10*time.Second, 100*time.Millisecond, "Catalog should be created via RabbitMQ")
 }

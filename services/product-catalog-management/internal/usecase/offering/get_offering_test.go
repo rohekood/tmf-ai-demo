@@ -24,7 +24,7 @@ func (m *MockCategoryRepoLocal) Get(ctx context.Context, id string) (*domain.Cat
 	}
 	return args.Get(0).(*domain.Category), args.Error(1)
 }
-func (m *MockCategoryRepoLocal) List(ctx context.Context, filters map[string]interface{}) ([]*domain.Category, error) {
+func (m *MockCategoryRepoLocal) List(ctx context.Context, filters map[string]any) ([]*domain.Category, error) {
 	return nil, nil
 }
 func (m *MockCategoryRepoLocal) Update(ctx context.Context, category *domain.Category) error {

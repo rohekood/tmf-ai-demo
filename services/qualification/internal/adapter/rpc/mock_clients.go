@@ -64,10 +64,10 @@ func (m *MockCatalogClient) GetOffersByCategory(ctx context.Context, category st
 
 // MockRPCCaller simulates RPC calls
 type MockRPCCaller struct {
-	OnRequest func(ctx context.Context, topic string, payload interface{}) ([]byte, error)
+	OnRequest func(ctx context.Context, topic string, payload any) ([]byte, error)
 }
 
-func (m *MockRPCCaller) Request(ctx context.Context, topic string, payload interface{}) ([]byte, error) {
+func (m *MockRPCCaller) Request(ctx context.Context, topic string, payload any) ([]byte, error) {
 	if m.OnRequest != nil {
 		return m.OnRequest(ctx, topic, payload)
 	}

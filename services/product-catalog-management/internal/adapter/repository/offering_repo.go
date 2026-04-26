@@ -41,7 +41,7 @@ func (r *ProductOfferingRepo) Get(ctx context.Context, id string) (*domain.Produ
 	return model.ToDomain(), nil
 }
 
-func (r *ProductOfferingRepo) List(ctx context.Context, filters map[string]interface{}) ([]*domain.ProductOffering, error) {
+func (r *ProductOfferingRepo) List(ctx context.Context, filters map[string]any) ([]*domain.ProductOffering, error) {
 	var models []ProductOfferingModel
 	query := r.db.WithContext(ctx)
 

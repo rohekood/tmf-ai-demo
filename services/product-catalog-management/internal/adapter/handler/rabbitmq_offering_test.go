@@ -68,8 +68,7 @@ func TestRabbitMQHandler_CreateProductOffering(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Start Handler
 	go func() {
@@ -125,7 +124,7 @@ func TestRabbitMQHandler_CreateProductOffering(t *testing.T) {
 
 	// Wait for processing using Eventually
 	assert.Eventually(t, func() bool {
-		list, err := offeringRepo.List(context.Background(), map[string]interface{}{"name": "Async Offering"})
+		list, err := offeringRepo.List(context.Background(), map[string]any{"name": "Async Offering"})
 		return err == nil && len(list) == 1 && list[0].Name == "Async Offering"
 	}, 10*time.Second, 100*time.Millisecond, "Offering should be created via RabbitMQ")
 }
@@ -160,8 +159,7 @@ func TestRabbitMQHandler_Offering_AdvancedFeatures(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Start Handler
 	go func() {
@@ -243,7 +241,7 @@ func TestRabbitMQHandler_Offering_AdvancedFeatures(t *testing.T) {
 	// Verify Create & Attachments via Repo using Eventually
 	var offeringID string
 	assert.Eventually(t, func() bool {
-		list, err := offeringRepo.List(context.Background(), map[string]interface{}{"name": offeringName})
+		list, err := offeringRepo.List(context.Background(), map[string]any{"name": offeringName})
 		if err != nil || len(list) != 1 {
 			return false
 		}
@@ -253,7 +251,7 @@ func TestRabbitMQHandler_Offering_AdvancedFeatures(t *testing.T) {
 
 	// 3. Test Advanced Filtering
 	// Send RPC Query for Filtering
-	filterPayload := map[string]interface{}{
+	filterPayload := map[string]any{
 		"minPrice": 50.0,
 		"maxPrice": 150.0,
 		"category": catID,
@@ -289,7 +287,7 @@ func TestRabbitMQHandler_Offering_AdvancedFeatures(t *testing.T) {
 	}
 
 	// 4. Test Enriched Retrieval
-	getPayload := map[string]interface{}{
+	getPayload := map[string]any{
 		"id":     offeringID,
 		"enrich": true,
 	}

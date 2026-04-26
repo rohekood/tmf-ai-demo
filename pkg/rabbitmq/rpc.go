@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"sync"
 	"time"
 
@@ -101,17 +102,17 @@ func (c *RPCClient) handleReplies(msgs <-chan amqp.Delivery) {
 }
 
 // Request sends a message and waits for a reply (uses default exchange)
-func (c *RPCClient) Request(ctx context.Context, routingKey string, payload interface{}) ([]byte, error) {
+func (c *RPCClient) Request(ctx context.Context, routingKey string, payload any) ([]byte, error) {
 	return c.RequestWithHeaders(ctx, c.exchange, routingKey, payload, nil)
 }
 
 // RequestToExchange sends a message to a specific exchange and waits for a reply
-func (c *RPCClient) RequestToExchange(ctx context.Context, exchange, routingKey string, payload interface{}) ([]byte, error) {
+func (c *RPCClient) RequestToExchange(ctx context.Context, exchange, routingKey string, payload any) ([]byte, error) {
 	return c.RequestWithHeaders(ctx, exchange, routingKey, payload, nil)
 }
 
 // RequestWithHeaders sends a message with custom headers and waits for a reply
-func (c *RPCClient) RequestWithHeaders(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+func (c *RPCClient) RequestWithHeaders(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal: %w", err)
@@ -123,9 +124,7 @@ func (c *RPCClient) RequestWithHeaders(ctx context.Context, exchange, routingKey
 	defer c.pending.Delete(correlationID)
 
 	amqpHeaders := injectContextHeaders(ctx)
-	for k, v := range headers {
-		amqpHeaders[k] = v
-	}
+	maps.Copy(amqpHeaders, headers)
 
 	fmt.Printf("[RPC] Publishing to Ex: %s, Key: %s, ReplyTo: %s, CorrID: %s\n", exchange, routingKey, c.replyQueue, correlationID)
 	err = c.channel.PublishWithContext(ctx,
@@ -176,21 +175,19 @@ func (c *RPCClient) Connection() *amqp.Connection {
 }
 
 // Publish sends a message without waiting for a reply (fire-and-forget)
-func (c *RPCClient) Publish(ctx context.Context, exchange, routingKey string, payload interface{}) error {
+func (c *RPCClient) Publish(ctx context.Context, exchange, routingKey string, payload any) error {
 	return c.PublishWithHeaders(ctx, exchange, routingKey, payload, nil)
 }
 
 // PublishWithHeaders sends a message with custom headers without waiting for reply
-func (c *RPCClient) PublishWithHeaders(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) error {
+func (c *RPCClient) PublishWithHeaders(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal: %w", err)
 	}
 
 	amqpHeaders := injectContextHeaders(ctx)
-	for k, v := range headers {
-		amqpHeaders[k] = v
-	}
+	maps.Copy(amqpHeaders, headers)
 
 	return c.channel.PublishWithContext(ctx,
 		exchange,

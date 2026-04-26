@@ -20,7 +20,7 @@ func TestListCatalogs_Execute(t *testing.T) {
 		{ID: "cat-2", Name: "Catalog 2"},
 	}
 
-	filters := map[string]interface{}{"name": "Catalog%"}
+	filters := map[string]any{"name": "Catalog%"}
 	input := ports.ListCatalogsInput{Filters: filters}
 
 	// 1. Success

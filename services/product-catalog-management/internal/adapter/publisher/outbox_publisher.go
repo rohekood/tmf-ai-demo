@@ -17,7 +17,7 @@ func NewOutboxPublisher(db *gorm.DB) *OutboxPublisher {
 	return &OutboxPublisher{db: db}
 }
 
-func (p *OutboxPublisher) saveEvent(ctx context.Context, routingKey string, event interface{}) error {
+func (p *OutboxPublisher) saveEvent(ctx context.Context, routingKey string, event any) error {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return err

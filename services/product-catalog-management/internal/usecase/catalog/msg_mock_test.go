@@ -22,7 +22,7 @@ func (m *MockCatalogRepo) Get(ctx context.Context, id string) (*domain.Catalog, 
 	return args.Get(0).(*domain.Catalog), args.Error(1)
 }
 
-func (m *MockCatalogRepo) List(ctx context.Context, filters map[string]interface{}) ([]*domain.Catalog, error) {
+func (m *MockCatalogRepo) List(ctx context.Context, filters map[string]any) ([]*domain.Catalog, error) {
 	args := m.Called(ctx, filters)
 	return args.Get(0).([]*domain.Catalog), args.Error(1)
 }

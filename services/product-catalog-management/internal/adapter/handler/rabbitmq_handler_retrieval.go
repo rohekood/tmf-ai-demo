@@ -167,7 +167,7 @@ func (h *RabbitMQHandler) handleGetProductOffering(d amqp.Delivery) {
 	h.publishResponse(ctx, d, result)
 }
 
-func (h *RabbitMQHandler) publishResponse(ctx context.Context, d amqp.Delivery, response interface{}) {
+func (h *RabbitMQHandler) publishResponse(ctx context.Context, d amqp.Delivery, response any) {
 	responseBody, err := json.Marshal(response)
 	if err != nil {
 		log.Printf("Error marshalling response: %v", err)

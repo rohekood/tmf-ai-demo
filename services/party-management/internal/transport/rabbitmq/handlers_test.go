@@ -67,7 +67,7 @@ func (m *MockRepository) DeleteParty(ctx context.Context, id string) error {
 	return args.Error(0)
 }
 
-func (m *MockRepository) SearchParties(ctx context.Context, criteria map[string]interface{}) ([]domain.Party, error) {
+func (m *MockRepository) SearchParties(ctx context.Context, criteria map[string]any) ([]domain.Party, error) {
 	args := m.Called(ctx, criteria)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -90,7 +90,7 @@ func TestHandleCreateParty_Individual(t *testing.T) {
 	ctx := context.Background()
 	mockRepo.On("CreateIndividual", ctx, testifymock.AnythingOfType("*domain.Individual")).Return(nil)
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"@type":      "Individual",
 		"id":         "test-ind-1",
 		"givenName":  "Test",
@@ -113,7 +113,7 @@ func TestHandleCreateParty_Organization(t *testing.T) {
 	ctx := context.Background()
 	mockRepo.On("CreateOrganization", ctx, testifymock.AnythingOfType("*domain.Organization")).Return(nil)
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"@type":         "Organization",
 		"id":            "test-org-1",
 		"tradingName":   "Test Corp",

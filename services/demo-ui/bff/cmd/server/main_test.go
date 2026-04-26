@@ -15,7 +15,7 @@ import (
 
 type mockTokenValidator struct{}
 
-func (m *mockTokenValidator) ValidateToken(ctx context.Context, tokenString string) (interface{}, error) {
+func (m *mockTokenValidator) ValidateToken(ctx context.Context, tokenString string) (any, error) {
 	return nil, nil
 }
 

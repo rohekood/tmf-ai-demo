@@ -39,7 +39,7 @@ func (r *CategoryRepo) Get(ctx context.Context, id string) (*domain.Category, er
 	return model.ToDomain(), nil
 }
 
-func (r *CategoryRepo) List(ctx context.Context, filters map[string]interface{}) ([]*domain.Category, error) {
+func (r *CategoryRepo) List(ctx context.Context, filters map[string]any) ([]*domain.Category, error) {
 	var models []CategoryModel
 	query := r.db.WithContext(ctx)
 

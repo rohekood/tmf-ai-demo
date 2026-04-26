@@ -19,6 +19,7 @@ type Client struct {
 }
 
 var newRPCClientFunc = pkgrmq.NewRPCClient
+
 // NewClient creates a new BFF RabbitMQ client using the shared library
 func NewClient(url string) (*Client, error) {
 	if url == "" {
@@ -41,7 +42,7 @@ func (c *Client) SetBroadcaster(b Broadcaster) {
 }
 
 // CallRPC sends a request and waits for a response, with debug broadcasting support
-func (c *Client) CallRPC(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+func (c *Client) CallRPC(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 	// Broadcast request if broadcaster is set
 	if c.broadcaster != nil {
 		c.broadcastRequest(exchange, routingKey, payload, headers)
@@ -59,7 +60,7 @@ func (c *Client) CallRPC(ctx context.Context, exchange, routingKey string, paylo
 }
 
 // PublishCommand sends a message without waiting for reply (kept for backward compatibility)
-func (c *Client) PublishCommand(ctx context.Context, exchange, routingKey string, payload interface{}) error {
+func (c *Client) PublishCommand(ctx context.Context, exchange, routingKey string, payload any) error {
 	// Broadcast if broadcaster is set
 	if c.broadcaster != nil {
 		c.broadcastRequest(exchange, routingKey, payload, nil)
@@ -80,13 +81,13 @@ func (c *Client) Close() {
 	}
 }
 
-func (c *Client) broadcastRequest(exchange, routingKey string, payload interface{}, headers map[string]interface{}) {
-	var payloadMap map[string]interface{}
+func (c *Client) broadcastRequest(exchange, routingKey string, payload any, headers map[string]any) {
+	var payloadMap map[string]any
 	if data, err := json.Marshal(payload); err == nil {
 		_ = json.Unmarshal(data, &payloadMap)
 	}
 	if payloadMap == nil {
-		payloadMap = map[string]interface{}{"data": payload}
+		payloadMap = map[string]any{"data": payload}
 	}
 
 	debugMsg := DebugMessage{
@@ -103,9 +104,9 @@ func (c *Client) broadcastRequest(exchange, routingKey string, payload interface
 }
 
 func (c *Client) broadcastReply(routingKey string, body []byte) {
-	var payload map[string]interface{}
+	var payload map[string]any
 	if err := json.Unmarshal(body, &payload); err != nil {
-		payload = map[string]interface{}{
+		payload = map[string]any{
 			"raw": string(body),
 		}
 	}

@@ -49,7 +49,7 @@ func (h *CatalogRPCHandler) HandleGetOffering(ctx context.Context, payload []byt
 		currency = offering.ProductOfferingPrice[0].Price.Unit
 	}
 
-	response := map[string]interface{}{
+	response := map[string]any{
 		"id":        offering.ID,
 		"name":      offering.Name,
 		"basePrice": basePrice,
@@ -76,7 +76,7 @@ func (h *CatalogRPCHandler) HandleGetOffersByCategory(ctx context.Context, paylo
 
 	h.logger.InfoContext(ctx, "Getting offers by category", "category", req.Category)
 
-	filters := map[string]interface{}{
+	filters := map[string]any{
 		"category": req.Category,
 	}
 

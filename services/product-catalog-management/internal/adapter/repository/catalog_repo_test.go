@@ -74,7 +74,7 @@ func TestCatalogRepository_CRUD(t *testing.T) {
 	assert.Equal(t, "Updated Catalog", fetched2.Name)
 
 	// 4. List
-	list, err := repo.List(ctx, map[string]interface{}{"name": "Updated%"})
+	list, err := repo.List(ctx, map[string]any{"name": "Updated%"})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, list)
 	assert.Equal(t, id, list[0].ID)

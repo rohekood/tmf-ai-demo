@@ -55,12 +55,12 @@ type MockPublisher struct {
 	mock.Mock
 }
 
-func (m *MockPublisher) Publish(ctx context.Context, exchange, routingKey string, payload interface{}) error {
+func (m *MockPublisher) Publish(ctx context.Context, exchange, routingKey string, payload any) error {
 	args := m.Called(ctx, exchange, routingKey, payload)
 	return args.Error(0)
 }
 
-func (m *MockPublisher) PublishToQueue(ctx context.Context, queueName string, correlationID string, body interface{}) error {
+func (m *MockPublisher) PublishToQueue(ctx context.Context, queueName string, correlationID string, body any) error {
 	args := m.Called(ctx, queueName, correlationID, body)
 	return args.Error(0)
 }
@@ -193,16 +193,16 @@ func TestRPCHandler(t *testing.T) {
 		h := handler.NewRPCHandler(nil, nil, logger)
 		cons := new(MockConsumer)
 		cons.On("Subscribe", "query.qual.session.get", mock.Anything).Return(nil)
-		
+
 		err := h.BindRPCHandlers(cons)
 		assert.NoError(t, err)
 	})
-	
+
 	t.Run("BindRPCHandlers Error", func(t *testing.T) {
 		h := handler.NewRPCHandler(nil, nil, logger)
 		cons := new(MockConsumer)
 		cons.On("Subscribe", "query.qual.session.get", mock.Anything).Return(errors.New("sub error"))
-		
+
 		err := h.BindRPCHandlers(cons)
 		assert.Error(t, err)
 	})

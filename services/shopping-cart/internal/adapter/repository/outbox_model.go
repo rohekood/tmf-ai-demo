@@ -28,7 +28,7 @@ func (OutboxEventModel) TableName() string {
 }
 
 // Convert Map Headers to JSON Byte Array
-func NewOutboxEvent(routingKey string, payload interface{}, headers map[string]string) (*OutboxEventModel, error) {
+func NewOutboxEvent(routingKey string, payload any, headers map[string]string) (*OutboxEventModel, error) {
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
@@ -40,11 +40,11 @@ func NewOutboxEvent(routingKey string, payload interface{}, headers map[string]s
 	}
 
 	return &OutboxEventModel{
-		ID:         uuid.New(),
-		Topic: routingKey,
-		Payload:    data,
-		Headers:    headerBytes,
-		Status:     StatusPending,
-		CreatedAt:  time.Now().UTC(),
+		ID:        uuid.New(),
+		Topic:     routingKey,
+		Payload:   data,
+		Headers:   headerBytes,
+		Status:    StatusPending,
+		CreatedAt: time.Now().UTC(),
 	}, nil
 }

@@ -15,10 +15,10 @@ func TestGetPortCapacity(t *testing.T) {
 		// Mock setup
 		expectedCapacity := 5
 		mockCaller := &MockRPCCaller{
-			OnRequest: func(ctx context.Context, topic string, payload interface{}) ([]byte, error) {
+			OnRequest: func(ctx context.Context, topic string, payload any) ([]byte, error) {
 				assert.Equal(t, "query.inventory.resource.capacity", topic)
 
-				resp := map[string]interface{}{
+				resp := map[string]any{
 					"free": expectedCapacity,
 				}
 				return json.Marshal(resp)
@@ -34,7 +34,7 @@ func TestGetPortCapacity(t *testing.T) {
 
 	t.Run("Failure RPC Error", func(t *testing.T) {
 		mockCaller := &MockRPCCaller{
-			OnRequest: func(ctx context.Context, topic string, payload interface{}) ([]byte, error) {
+			OnRequest: func(ctx context.Context, topic string, payload any) ([]byte, error) {
 				return nil, errors.New("rpc error")
 			},
 		}
@@ -48,7 +48,7 @@ func TestGetPortCapacity(t *testing.T) {
 
 	t.Run("Failure JSON Unmarshal", func(t *testing.T) {
 		mockCaller := &MockRPCCaller{
-			OnRequest: func(ctx context.Context, topic string, payload interface{}) ([]byte, error) {
+			OnRequest: func(ctx context.Context, topic string, payload any) ([]byte, error) {
 				return []byte("invalid json"), nil
 			},
 		}

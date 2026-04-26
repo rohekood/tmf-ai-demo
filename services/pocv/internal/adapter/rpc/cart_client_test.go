@@ -7,10 +7,10 @@ import (
 )
 
 type mockRPC struct {
-	request func(ctx context.Context, routingKey string, payload interface{}) ([]byte, error)
+	request func(ctx context.Context, routingKey string, payload any) ([]byte, error)
 }
 
-func (m *mockRPC) Request(ctx context.Context, routingKey string, payload interface{}) ([]byte, error) {
+func (m *mockRPC) Request(ctx context.Context, routingKey string, payload any) ([]byte, error) {
 	if m.request != nil {
 		return m.request(ctx, routingKey, payload)
 	}
@@ -26,7 +26,7 @@ func TestGetCart(t *testing.T) {
 		{
 			name: "Success",
 			rpcMock: &mockRPC{
-				request: func(ctx context.Context, routingKey string, payload interface{}) ([]byte, error) {
+				request: func(ctx context.Context, routingKey string, payload any) ([]byte, error) {
 					return []byte(`{"items": []}`), nil
 				},
 			},
@@ -35,7 +35,7 @@ func TestGetCart(t *testing.T) {
 		{
 			name: "RPC Error",
 			rpcMock: &mockRPC{
-				request: func(ctx context.Context, routingKey string, payload interface{}) ([]byte, error) {
+				request: func(ctx context.Context, routingKey string, payload any) ([]byte, error) {
 					return nil, errors.New("rpc failed")
 				},
 			},
@@ -44,7 +44,7 @@ func TestGetCart(t *testing.T) {
 		{
 			name: "Unmarshal Error",
 			rpcMock: &mockRPC{
-				request: func(ctx context.Context, routingKey string, payload interface{}) ([]byte, error) {
+				request: func(ctx context.Context, routingKey string, payload any) ([]byte, error) {
 					return []byte(`invalid json`), nil
 				},
 			},

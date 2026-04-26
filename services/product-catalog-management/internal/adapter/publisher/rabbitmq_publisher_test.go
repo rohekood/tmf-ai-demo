@@ -14,12 +14,12 @@ type MockRabbitMQPublisher struct {
 	mock.Mock
 }
 
-func (m *MockRabbitMQPublisher) Publish(ctx context.Context, exchange, routingKey string, body interface{}) error {
+func (m *MockRabbitMQPublisher) Publish(ctx context.Context, exchange, routingKey string, body any) error {
 	args := m.Called(ctx, exchange, routingKey, body)
 	return args.Error(0)
 }
 
-func (m *MockRabbitMQPublisher) PublishToQueue(ctx context.Context, queueName string, correlationID string, body interface{}) error {
+func (m *MockRabbitMQPublisher) PublishToQueue(ctx context.Context, queueName string, correlationID string, body any) error {
 	args := m.Called(ctx, queueName, correlationID, body)
 	return args.Error(0)
 }

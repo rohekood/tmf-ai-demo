@@ -91,7 +91,7 @@ func (h *CatalogHandler) ListCatalogs(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), catalogRPCTimeout)
 	defer cancel()
 
-	payload := map[string]interface{}{} // Add filters if needed
+	payload := map[string]any{} // Add filters if needed
 	responseBytes, err := h.rpcClient.CallRPC(ctx, catalogExchange, queryCatalogList, payload, getHeaders(r))
 	if err != nil {
 		slog.Error("error listing catalogs", "error", err)
@@ -125,7 +125,7 @@ func (h *CatalogHandler) ListCategories(w http.ResponseWriter, r *http.Request) 
 	ctx, cancel := context.WithTimeout(r.Context(), catalogRPCTimeout)
 	defer cancel()
 
-	payload := map[string]interface{}{}
+	payload := map[string]any{}
 	responseBytes, err := h.rpcClient.CallRPC(ctx, catalogExchange, queryCategoryList, payload, getHeaders(r))
 	if err != nil {
 		slog.Error("error listing categories", "error", err)
@@ -159,7 +159,7 @@ func (h *CatalogHandler) ListSpecifications(w http.ResponseWriter, r *http.Reque
 	ctx, cancel := context.WithTimeout(r.Context(), catalogRPCTimeout)
 	defer cancel()
 
-	payload := map[string]interface{}{}
+	payload := map[string]any{}
 	responseBytes, err := h.rpcClient.CallRPC(ctx, catalogExchange, querySpecList, payload, getHeaders(r))
 	if err != nil {
 		slog.Error("error listing specifications", "error", err)
@@ -193,7 +193,7 @@ func (h *CatalogHandler) ListOfferings(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), catalogRPCTimeout)
 	defer cancel()
 
-	payload := map[string]interface{}{}
+	payload := map[string]any{}
 	responseBytes, err := h.rpcClient.CallRPC(ctx, catalogExchange, queryOfferingList, payload, getHeaders(r))
 	if err != nil {
 		slog.Error("error listing offerings", "error", err)
@@ -233,7 +233,7 @@ func (h *CatalogHandler) handleCommand(w http.ResponseWriter, r *http.Request, t
 		_ = r.Body.Close()
 	}()
 
-	var payload interface{}
+	var payload any
 	if err := json.Unmarshal(body, &payload); err != nil {
 		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 		return
@@ -270,7 +270,7 @@ func (h *CatalogHandler) handleCommandWithID(w http.ResponseWriter, r *http.Requ
 		_ = r.Body.Close()
 	}()
 
-	var payload map[string]interface{}
+	var payload map[string]any
 	if err := json.Unmarshal(body, &payload); err != nil {
 		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 		return

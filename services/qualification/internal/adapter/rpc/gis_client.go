@@ -22,7 +22,7 @@ func NewGISClient(rpc Requester) ports.GISClient {
 
 func (c *rabbitGISClient) CheckPolygon(ctx context.Context, address domain.Address) (bool, error) {
 	reqID := uuid.New().String()
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"address":   address,
 		"requestId": reqID,
 	}

@@ -11,7 +11,7 @@ import (
 
 // RPCRequester interface for making RPC requests (for testing)
 type RPCRequester interface {
-	RequestWithHeaders(ctx context.Context, exchange, routingKey string, request interface{}, headers map[string]interface{}) ([]byte, error)
+	RequestWithHeaders(ctx context.Context, exchange, routingKey string, request any, headers map[string]any) ([]byte, error)
 }
 
 // QualificationClient handles RPC calls to the qualification service
@@ -97,12 +97,12 @@ func (s *QualificationSession) GetOfferingPrice(offeringID string) (price float6
 }
 
 // GetPriceForOfferingWrapper is a wrapper method that returns an interface type
-func (c *QualificationClient) GetPriceForOfferingWrapper(sessionInterface interface{}, offeringID string) (interface{}, error) {
+func (c *QualificationClient) GetPriceForOfferingWrapper(sessionInterface any, offeringID string) (any, error) {
 	price, currency, err := c.GetPriceForOffering(sessionInterface, offeringID)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]interface{}{
+	return map[string]any{
 		"price":    price,
 		"currency": currency,
 	}, nil
@@ -110,7 +110,7 @@ func (c *QualificationClient) GetPriceForOfferingWrapper(sessionInterface interf
 
 // GetPriceForOffering extracts the price for a specific offering from the session
 // Deprecated: Use GetOfferingPrice on the session directly
-func (c *QualificationClient) GetPriceForOffering(sessionInterface interface{}, offeringID string) (float64, string, error) {
+func (c *QualificationClient) GetPriceForOffering(sessionInterface any, offeringID string) (float64, string, error) {
 	session, ok := sessionInterface.(*QualificationSession)
 	if !ok {
 		return 0, "", fmt.Errorf("invalid session type")

@@ -48,8 +48,7 @@ func TestRabbitMQHandler_Catalog_CRUD(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go func() {
 		_ = h.Start(ctx)
@@ -65,7 +64,7 @@ func TestRabbitMQHandler_Catalog_CRUD(t *testing.T) {
 	err = repo.Create(ctx, cat)
 	require.NoError(t, err)
 
-	updateMsg := map[string]interface{}{
+	updateMsg := map[string]any{
 		"id":          cat.ID,
 		"name":        "Updated Catalog",
 		"description": "Updated via RabbitMQ",
@@ -75,7 +74,7 @@ func TestRabbitMQHandler_Catalog_CRUD(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Eventually(t, func() bool {
-		list, _ := repo.List(context.Background(), map[string]interface{}{"name": "Updated Catalog"})
+		list, _ := repo.List(context.Background(), map[string]any{"name": "Updated Catalog"})
 		return len(list) == 1
 	}, 10*time.Second, 100*time.Millisecond)
 
@@ -85,7 +84,7 @@ func TestRabbitMQHandler_Catalog_CRUD(t *testing.T) {
 	msgs, err := ch.Consume(replyQueue.Name, "", true, false, false, false, nil)
 	require.NoError(t, err)
 
-	getMsg := map[string]interface{}{"id": cat.ID}
+	getMsg := map[string]any{"id": cat.ID}
 	body, _ = json.Marshal(getMsg)
 	err = ch.Publish("catalog_events", "query.catalog.catalog.get", false, false, amqp.Publishing{
 		ContentType:   "application/json",
@@ -105,7 +104,7 @@ func TestRabbitMQHandler_Catalog_CRUD(t *testing.T) {
 		t.Fatal("Timeout waiting for GET reply")
 	}
 
-	listMsg := map[string]interface{}{"name": "Updated Catalog"}
+	listMsg := map[string]any{"name": "Updated Catalog"}
 	body, _ = json.Marshal(listMsg)
 	err = ch.Publish("catalog_events", "query.catalog.catalog.list", false, false, amqp.Publishing{
 		ContentType:   "application/json",
@@ -125,13 +124,13 @@ func TestRabbitMQHandler_Catalog_CRUD(t *testing.T) {
 		t.Fatal("Timeout waiting for LIST reply")
 	}
 
-	deleteMsg := map[string]interface{}{"id": cat.ID}
+	deleteMsg := map[string]any{"id": cat.ID}
 	body, _ = json.Marshal(deleteMsg)
 	err = ch.Publish("catalog_events", "cmd.catalog.catalog.delete", false, false, amqp.Publishing{ContentType: "application/json", Body: body})
 	require.NoError(t, err)
 
 	assert.Eventually(t, func() bool {
-		list, _ := repo.List(context.Background(), map[string]interface{}{"id": cat.ID})
+		list, _ := repo.List(context.Background(), map[string]any{"id": cat.ID})
 		return len(list) == 0
 	}, 10*time.Second, 100*time.Millisecond)
 }
@@ -156,8 +155,7 @@ func TestRabbitMQHandler_Catalog_Errors(t *testing.T) {
 		nil, nil, nil, nil, nil,
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go func() { _ = h.Start(ctx) }()
 	time.Sleep(1 * time.Second)
 

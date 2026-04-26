@@ -107,7 +107,7 @@ type mockBroadcaster struct {
 	lastMsg DebugMessage
 }
 
-func (m *mockBroadcaster) Broadcast(msg interface{}) {
+func (m *mockBroadcaster) Broadcast(msg any) {
 	if d, ok := msg.(DebugMessage); ok {
 		m.lastMsg = d
 	}
@@ -121,7 +121,7 @@ func TestClient_BroadcastRequestAndReply(t *testing.T) {
 	client.SetBroadcaster(broadcaster)
 
 	// Test broadcastRequest
-	headers := map[string]interface{}{"h1": "v1"}
+	headers := map[string]any{"h1": "v1"}
 	payload := map[string]string{"key": "value"}
 	client.broadcastRequest("exchange", "routingKey", payload, headers)
 

@@ -17,12 +17,12 @@ type MockRabbitMQPublisher struct {
 	mock.Mock
 }
 
-func (m *MockRabbitMQPublisher) Publish(ctx context.Context, exchange, routingKey string, body interface{}) error {
+func (m *MockRabbitMQPublisher) Publish(ctx context.Context, exchange, routingKey string, body any) error {
 	args := m.Called(ctx, exchange, routingKey, body)
 	return args.Error(0)
 }
 
-func (m *MockRabbitMQPublisher) PublishToQueue(ctx context.Context, queueName string, correlationID string, body interface{}) error {
+func (m *MockRabbitMQPublisher) PublishToQueue(ctx context.Context, queueName string, correlationID string, body any) error {
 	args := m.Called(ctx, queueName, correlationID, body)
 	return args.Error(0)
 }
@@ -40,9 +40,9 @@ func (m *MockRabbitMQPublisher) Close() error {
 func TestOutboxWorker_ProcessEvent(t *testing.T) {
 	mockPub := new(MockRabbitMQPublisher)
 	rabbitPub, _ := publisher.NewRabbitMQPublisher(mockPub, "test_exchange")
-	
+
 	w := worker.NewOutboxWorker(sharedDB, rabbitPub)
-	
+
 	ctx := context.Background()
 
 	// Add an event to DB
@@ -65,7 +65,7 @@ func TestOutboxWorker_ProcessEvent(t *testing.T) {
 
 	ctxTimeout, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	
+
 	go w.Start(ctxTimeout)
 	time.Sleep(1500 * time.Millisecond)
 
@@ -81,9 +81,9 @@ func TestOutboxWorker_ProcessEvent(t *testing.T) {
 func TestOutboxWorker_ProcessEvent_Errors(t *testing.T) {
 	mockPub := new(MockRabbitMQPublisher)
 	rabbitPub, _ := publisher.NewRabbitMQPublisher(mockPub, "test_exchange")
-	
+
 	w := worker.NewOutboxWorker(sharedDB, rabbitPub)
-	
+
 	ctx := context.Background()
 
 	// 1. Invalid Headers
@@ -108,7 +108,7 @@ func TestOutboxWorker_ProcessEvent_Errors(t *testing.T) {
 	// Process batch via Start
 	ctxTimeout, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	
+
 	go w.Start(ctxTimeout)
 	time.Sleep(1500 * time.Millisecond)
 

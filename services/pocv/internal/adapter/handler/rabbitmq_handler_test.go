@@ -266,19 +266,25 @@ func TestHandleOrderCreated(t *testing.T) {
 }
 
 type mockPublisher struct {
-	publishToQueue func(ctx context.Context, queueName, correlationID string, body interface{}) error
+	publishToQueue func(ctx context.Context, queueName, correlationID string, body any) error
 }
 
-func (m *mockPublisher) PublishToQueue(ctx context.Context, queueName, correlationID string, body interface{}) error {
+func (m *mockPublisher) PublishToQueue(ctx context.Context, queueName, correlationID string, body any) error {
 	if m.publishToQueue != nil {
 		return m.publishToQueue(ctx, queueName, correlationID, body)
 	}
 	return nil
 }
 
-func (m *mockPublisher) Publish(ctx context.Context, exchange, routingKey string, body interface{}) error { return nil }
-func (m *mockPublisher) PublishToTopic(ctx context.Context, routingKey string, body interface{}) error { return nil }
-func (m *mockPublisher) DeclareTopicExchange(name string, durable, autoDelete, internal, noWait bool) error { return nil }
+func (m *mockPublisher) Publish(ctx context.Context, exchange, routingKey string, body any) error {
+	return nil
+}
+func (m *mockPublisher) PublishToTopic(ctx context.Context, routingKey string, body any) error {
+	return nil
+}
+func (m *mockPublisher) DeclareTopicExchange(name string, durable, autoDelete, internal, noWait bool) error {
+	return nil
+}
 func (m *mockPublisher) Close() error { return nil }
 
 func TestGetSagaQueryReturnsSagaInstanceToCaller(t *testing.T) {
@@ -294,7 +300,7 @@ func TestGetSagaQueryReturnsSagaInstanceToCaller(t *testing.T) {
 	}
 
 	pub := &mockPublisher{
-		publishToQueue: func(ctx context.Context, queueName, correlationID string, body interface{}) error {
+		publishToQueue: func(ctx context.Context, queueName, correlationID string, body any) error {
 			if queueName != "reply_queue" {
 				t.Errorf("Expected reply_queue, got %s", queueName)
 			}
@@ -320,7 +326,7 @@ func TestGetSagaQueryFailsWhenSagaNotFound(t *testing.T) {
 		},
 	}
 	h := NewRabbitMQHandler(uc, &mockPublisher{})
-	
+
 	err := h.HandleGetSaga(context.Background(), []byte(`{"id":"s1"}`))
 	if err == nil {
 		t.Errorf("Expected error when saga not found")
@@ -342,7 +348,7 @@ func TestGetSagaQueryFailsWhenReplyToMissing(t *testing.T) {
 		},
 	}
 	h := NewRabbitMQHandler(uc, &mockPublisher{})
-	
+
 	err := h.HandleGetSaga(context.Background(), []byte(`{"id":"s1"}`))
 	if err != nil {
 		t.Errorf("Expected no error when ReplyTo is missing (it should just log and return nil), got %v", err)

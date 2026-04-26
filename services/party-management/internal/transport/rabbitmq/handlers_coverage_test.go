@@ -112,7 +112,7 @@ func TestHandleCreateParty_IndividualRepoError(t *testing.T) {
 	repo.On("CreateIndividual", ctx, testifymock.Anything).Return(errors.New("db error"))
 	pub.On("Publish", ctx, testifymock.Anything, testifymock.Anything, testifymock.Anything).Return(nil)
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, _ := json.Marshal(map[string]any{
 		"@type": "Individual", "id": "fail-1", "givenName": "Test",
 	})
 	err := h.HandleCreateParty(ctx, amqp.Delivery{Body: body})
@@ -127,7 +127,7 @@ func TestHandleCreateParty_OrganizationRepoError(t *testing.T) {
 	repo.On("CreateOrganization", ctx, testifymock.Anything).Return(errors.New("db error"))
 	pub.On("Publish", ctx, testifymock.Anything, testifymock.Anything, testifymock.Anything).Return(nil)
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, _ := json.Marshal(map[string]any{
 		"@type": "Organization", "id": "fail-2", "tradingName": "Corp",
 	})
 	err := h.HandleCreateParty(ctx, amqp.Delivery{Body: body})
@@ -651,33 +651,33 @@ func TestHandleCreateParty_IndividualWithAllSubResources(t *testing.T) {
 	repo.On("CreateIndividual", ctx, testifymock.Anything).Return(nil)
 	pub.On("Publish", ctx, EventExchange, testifymock.Anything, testifymock.Anything).Return(nil)
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"@type":      "Individual",
 		"id":         "sub-res-1",
 		"givenName":  "Sub",
 		"familyName": "Res",
 		"href":       "http://example.com/sub-res-1",
-		"contactMediums": []map[string]interface{}{
+		"contactMediums": []map[string]any{
 			{"id": "", "mediumType": "email", "value": "a@b.com", "preferred": true},
 			{"id": "cm-2", "mediumType": "phone", "value": "555-1234"},
 		},
-		"identifications": []map[string]interface{}{
+		"identifications": []map[string]any{
 			{"identificationType": "passport", "identificationId": "AB123", "issuingAuthority": "GOV", "issuingDate": "2024-01-01T00:00:00Z"},
 			{"id": "id-2", "identificationType": "id-card", "identificationId": "CD456"},
 		},
-		"relatedParties": []map[string]interface{}{
+		"relatedParties": []map[string]any{
 			{"id": "rp-1", "relatedPartyId": "rel-1", "role": "owner", "permissions": []string{"read", "write"}},
 		},
-		"characteristics": []map[string]interface{}{
+		"characteristics": []map[string]any{
 			{"name": "lang", "value": "en", "valueType": "string"},
 		},
-		"externalReferences": []map[string]interface{}{
+		"externalReferences": []map[string]any{
 			{"externalSystemId": "CRM", "externalReferenceId": "CRM-001"},
 		},
-		"taxExemptions": []map[string]interface{}{
+		"taxExemptions": []map[string]any{
 			{"certificateNumber": "TX001", "issuingJurisdiction": "EU", "validForStart": "2024-01-01T00:00:00Z", "validForEnd": "2025-01-01T00:00:00Z"},
 		},
-		"attachments": []map[string]interface{}{
+		"attachments": []map[string]any{
 			{"name": "photo.png", "mimeType": "image/png", "url": "https://s3.example.com/photo.png"},
 		},
 	}
@@ -693,17 +693,17 @@ func TestHandleCreateParty_OrgWithAllSubResources(t *testing.T) {
 	repo.On("CreateOrganization", ctx, testifymock.Anything).Return(nil)
 	pub.On("Publish", ctx, EventExchange, testifymock.Anything, testifymock.Anything).Return(nil)
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"@type":           "Organization",
 		"id":              "sub-res-2",
 		"tradingName":     "SubCorp",
 		"isLegalEntity":   true,
 		"href":            "http://example.com/sub-res-2",
-		"contactMediums":  []map[string]interface{}{{"mediumType": "email", "value": "org@test.com"}},
-		"identifications": []map[string]interface{}{{"identificationType": "reg", "identificationId": "REG001"}},
-		"characteristics": []map[string]interface{}{{"id": "ch-1", "name": "region", "value": "EU"}},
-		"taxExemptions":   []map[string]interface{}{{"certificateNumber": "TX2"}},
-		"attachments":     []map[string]interface{}{{"name": "doc.pdf", "refType": "S3", "refId": "s3://doc.pdf"}},
+		"contactMediums":  []map[string]any{{"mediumType": "email", "value": "org@test.com"}},
+		"identifications": []map[string]any{{"identificationType": "reg", "identificationId": "REG001"}},
+		"characteristics": []map[string]any{{"id": "ch-1", "name": "region", "value": "EU"}},
+		"taxExemptions":   []map[string]any{{"certificateNumber": "TX2"}},
+		"attachments":     []map[string]any{{"name": "doc.pdf", "refType": "S3", "refId": "s3://doc.pdf"}},
 	}
 	body, _ := json.Marshal(payload)
 	err := h.HandleCreateParty(ctx, amqp.Delivery{Body: body})
@@ -722,7 +722,7 @@ func TestHandleUpdateParty_IndividualSameStatus(t *testing.T) {
 	repo.On("UpdateIndividual", ctx, testifymock.Anything).Return(nil)
 	pub.On("Publish", ctx, EventExchange, EvtPartyUpdated, testifymock.Anything).Return(nil)
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"@type": "Individual", "id": "upd-same", "givenName": "Same", "status": "Active",
 	}
 	body, _ := json.Marshal(payload)
@@ -742,7 +742,7 @@ func TestHandleUpdateParty_OrgStatusChange(t *testing.T) {
 	repo.On("UpdateOrganization", ctx, testifymock.Anything).Return(nil)
 	pub.On("Publish", ctx, EventExchange, testifymock.Anything, testifymock.Anything).Return(nil)
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"@type": "Organization", "id": "upd-org-sc", "tradingName": "NewCorp", "status": "Active",
 	}
 	body, _ := json.Marshal(payload)

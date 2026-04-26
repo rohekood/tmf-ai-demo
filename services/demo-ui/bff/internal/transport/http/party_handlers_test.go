@@ -14,7 +14,7 @@ func TestPartyHandler_SearchParties(t *testing.T) {
 	handler := NewPartyHandler(mockClient)
 
 	t.Run("Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			if exchange != "tmf.party" || routingKey != "query.party.search" {
 				t.Errorf("Unexpected exchange or routing key: %s, %s", exchange, routingKey)
 			}
@@ -35,7 +35,7 @@ func TestPartyHandler_SearchParties(t *testing.T) {
 	})
 
 	t.Run("RPC Error", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return nil, errors.New("RPC failed")
 		}
 
@@ -55,7 +55,7 @@ func TestPartyHandler_CreateParty(t *testing.T) {
 	handler := NewPartyHandler(mockClient)
 
 	t.Run("Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			if exchange != "tmf.party" || routingKey != "cmd.party.create" {
 				t.Errorf("Unexpected exchange or routing key: %s, %s", exchange, routingKey)
 			}
@@ -81,7 +81,7 @@ func TestPartyHandler_GetParty(t *testing.T) {
 	mux.HandleFunc("GET /parties/{id}", handler.GetParty)
 
 	t.Run("Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return []byte(`{"id":"123"}`), nil
 		}
 
@@ -102,7 +102,7 @@ func TestPartyHandler_CRUD(t *testing.T) {
 	handler.RegisterRoutes(mux)
 
 	t.Run("CreateParty_Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return []byte(`{"id":"p1", "name":"Party 1"}`), nil
 		}
 		req := httptest.NewRequest("POST", "/api/parties", strings.NewReader(`{"name":"Party 1"}`))
@@ -114,7 +114,7 @@ func TestPartyHandler_CRUD(t *testing.T) {
 	})
 
 	t.Run("UpdateParty_Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return []byte(`{"id":"p1", "name":"Updated"}`), nil
 		}
 		req := httptest.NewRequest("PUT", "/api/parties/p1", strings.NewReader(`{"name":"Updated"}`))
@@ -126,7 +126,7 @@ func TestPartyHandler_CRUD(t *testing.T) {
 	})
 
 	t.Run("PatchParty_Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return []byte(`{"id":"p1", "name":"Patched"}`), nil
 		}
 		req := httptest.NewRequest("PATCH", "/api/parties/p1", strings.NewReader(`{"name":"Patched"}`))
@@ -138,7 +138,7 @@ func TestPartyHandler_CRUD(t *testing.T) {
 	})
 
 	t.Run("DeleteParty_Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return nil, nil
 		}
 		req := httptest.NewRequest("DELETE", "/api/parties/p1", nil)
@@ -150,7 +150,7 @@ func TestPartyHandler_CRUD(t *testing.T) {
 	})
 
 	t.Run("Errors_SearchParties_RPCError", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return nil, errors.New("rpc error")
 		}
 		req := httptest.NewRequest("GET", "/api/parties", nil)
@@ -180,7 +180,7 @@ func TestPartyHandler_CRUD(t *testing.T) {
 	})
 
 	t.Run("Errors_UpdateParty_RPCError", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return nil, errors.New("rpc error")
 		}
 		req := httptest.NewRequest("PUT", "/api/parties/1", strings.NewReader(`{"name":"P"}`))
@@ -201,7 +201,7 @@ func TestPartyHandler_CRUD(t *testing.T) {
 	})
 
 	t.Run("Errors_PatchParty_RPCError", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return nil, errors.New("rpc error")
 		}
 		req := httptest.NewRequest("PATCH", "/api/parties/1", strings.NewReader(`{"name":"P"}`))
@@ -213,7 +213,7 @@ func TestPartyHandler_CRUD(t *testing.T) {
 	})
 
 	t.Run("Errors_DeleteParty_RPCError", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return nil, errors.New("rpc error")
 		}
 		req := httptest.NewRequest("DELETE", "/api/parties/1", nil)
@@ -252,7 +252,7 @@ func TestPartyHandler_AdditionalErrors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+			mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 				return nil, tc.err
 			}
 			var req *http.Request

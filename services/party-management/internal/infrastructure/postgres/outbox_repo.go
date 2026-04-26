@@ -35,7 +35,7 @@ func (r *OutboxRepository) MarkAsProcessed(ctx context.Context, id string) error
 	return r.db.WithContext(ctx).
 		Model(&domain.OutboxEvent{}).
 		Where("id = ?", id).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"status":       domain.StatusPublished,
 			"processed_at": gorm.Expr("NOW()"),
 		}).Error

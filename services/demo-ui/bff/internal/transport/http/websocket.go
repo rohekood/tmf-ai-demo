@@ -115,7 +115,7 @@ func (h *Hub) addToBuffer(msg []byte) {
 }
 
 // Broadcast sends a message to all connected clients
-func (h *Hub) Broadcast(msg interface{}) {
+func (h *Hub) Broadcast(msg any) {
 	bytes, err := json.Marshal(msg)
 	if err != nil {
 		log.Printf("Error marshaling broadcast message: %v", err)
@@ -134,8 +134,8 @@ func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
 	var selectedProtocol string
 
 	for _, p := range protocols {
-		if strings.HasPrefix(p, "access_token.") {
-			token = strings.TrimPrefix(p, "access_token.")
+		if after, ok := strings.CutPrefix(p, "access_token."); ok {
+			token = after
 			// Must echo back the EXACT protocol string sent by the client
 			selectedProtocol = p
 			break
@@ -232,7 +232,7 @@ func (c *Client) writePump() {
 
 			// Send any queued messages as separate frames
 			n := len(c.send)
-			for i := 0; i < n; i++ {
+			for range n {
 				if err := c.conn.WriteMessage(websocket.TextMessage, <-c.send); err != nil {
 					return
 				}

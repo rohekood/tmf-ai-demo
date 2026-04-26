@@ -11,16 +11,16 @@ import (
 
 const (
 	orderExchange = "ex.domain.market" // Using default market exchange
-	
+
 	cmdQualEligibilityCheck = "cmd.qual.eligibility.check"
 	queryQualSessionGet     = "query.qual.session.get"
-	
-	cmdCartItemAdd          = "cmd.cart.item.add"
-	cmdCartItemRemove       = "cmd.cart.item.remove"
-	queryCartGet            = "query.cart.get"
-	
-	cmdOrderCheckoutSubmit  = "cmd.order.checkout.submit"
-	queryPocvSagaGet        = "query.pocv.saga.get"
+
+	cmdCartItemAdd    = "cmd.cart.item.add"
+	cmdCartItemRemove = "cmd.cart.item.remove"
+	queryCartGet      = "query.cart.get"
+
+	cmdOrderCheckoutSubmit = "cmd.order.checkout.submit"
+	queryPocvSagaGet       = "query.pocv.saga.get"
 
 	qualRPCTimeout = 30 * time.Second
 	cartRPCTimeout = 15 * time.Second
@@ -63,7 +63,7 @@ func (h *OrderHandler) CheckQualification(w http.ResponseWriter, r *http.Request
 	}
 	defer r.Body.Close()
 
-	var payload map[string]interface{}
+	var payload map[string]any
 	if err := json.Unmarshal(body, &payload); err != nil {
 		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 		return
@@ -120,7 +120,7 @@ func (h *OrderHandler) AddCartItem(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	var payload map[string]interface{}
+	var payload map[string]any
 	if err := json.Unmarshal(body, &payload); err != nil {
 		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 		return
@@ -168,7 +168,7 @@ func (h *OrderHandler) GetCart(w http.ResponseWriter, r *http.Request) {
 func (h *OrderHandler) RemoveCartItem(w http.ResponseWriter, r *http.Request) {
 	cartId := r.PathValue("cartId")
 	itemId := r.PathValue("itemId")
-	
+
 	if cartId == "" || itemId == "" {
 		http.Error(w, "Cart ID and Item ID are required", http.StatusBadRequest)
 		return
@@ -202,7 +202,7 @@ func (h *OrderHandler) Checkout(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	var payload map[string]interface{}
+	var payload map[string]any
 	if err := json.Unmarshal(body, &payload); err != nil {
 		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 		return

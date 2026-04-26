@@ -26,7 +26,7 @@ func TestPartySerializationContract(t *testing.T) {
 		data, err := json.Marshal(ind)
 		assert.NoError(t, err)
 
-		var asMap map[string]interface{}
+		var asMap map[string]any
 		err = json.Unmarshal(data, &asMap)
 		assert.NoError(t, err)
 
@@ -52,7 +52,7 @@ func TestPartySerializationContract(t *testing.T) {
 		data, err := json.Marshal(org)
 		assert.NoError(t, err)
 
-		var asMap map[string]interface{}
+		var asMap map[string]any
 		err = json.Unmarshal(data, &asMap)
 		assert.NoError(t, err)
 

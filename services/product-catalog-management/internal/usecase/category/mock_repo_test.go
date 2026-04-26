@@ -21,7 +21,7 @@ func (m *MockCategoryRepo) Get(ctx context.Context, id string) (*domain.Category
 	return args.Get(0).(*domain.Category), args.Error(1)
 }
 
-func (m *MockCategoryRepo) List(ctx context.Context, filters map[string]interface{}) ([]*domain.Category, error) {
+func (m *MockCategoryRepo) List(ctx context.Context, filters map[string]any) ([]*domain.Category, error) {
 	args := m.Called(ctx, filters)
 	return args.Get(0).([]*domain.Category), args.Error(1)
 }

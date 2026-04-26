@@ -17,7 +17,7 @@ func NewOutboxPublisher(repo *OutboxRepository) *OutboxPublisher {
 	return &OutboxPublisher{repo: repo}
 }
 
-func (p *OutboxPublisher) Publish(ctx context.Context, routingKey string, payload interface{}) error {
+func (p *OutboxPublisher) Publish(ctx context.Context, routingKey string, payload any) error {
 	bytes, err := json.Marshal(payload)
 	if err != nil {
 		return err

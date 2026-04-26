@@ -30,7 +30,7 @@ func (m *MockRepository) UpdateCustomer(ctx context.Context, c *domain.Customer)
 	args := m.Called(ctx, c)
 	return args.Error(0)
 }
-func (m *MockRepository) PatchCustomer(ctx context.Context, id string, updates map[string]interface{}) error {
+func (m *MockRepository) PatchCustomer(ctx context.Context, id string, updates map[string]any) error {
 	args := m.Called(ctx, id, updates)
 	return args.Error(0)
 }
@@ -38,7 +38,7 @@ func (m *MockRepository) DeleteCustomer(ctx context.Context, id string) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
-func (m *MockRepository) SearchCustomers(ctx context.Context, criteria map[string]interface{}) ([]domain.Customer, error) {
+func (m *MockRepository) SearchCustomers(ctx context.Context, criteria map[string]any) ([]domain.Customer, error) {
 	args := m.Called(ctx, criteria)
 	return args.Get(0).([]domain.Customer), args.Error(1)
 }
@@ -52,11 +52,11 @@ type MockPublisher struct {
 	mock.Mock
 }
 
-func (m *MockPublisher) Publish(ctx context.Context, exchange, routingKey string, body interface{}) error {
+func (m *MockPublisher) Publish(ctx context.Context, exchange, routingKey string, body any) error {
 	args := m.Called(ctx, exchange, routingKey, body)
 	return args.Error(0)
 }
-func (m *MockPublisher) PublishToQueue(ctx context.Context, queue, correlationID string, body interface{}) error {
+func (m *MockPublisher) PublishToQueue(ctx context.Context, queue, correlationID string, body any) error {
 	args := m.Called(ctx, queue, correlationID, body)
 	return args.Error(0)
 }

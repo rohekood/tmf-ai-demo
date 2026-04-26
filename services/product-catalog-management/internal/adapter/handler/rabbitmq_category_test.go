@@ -63,8 +63,7 @@ func TestRabbitMQHandler_CreateCategory(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Start Handler in background
 	go func() {
@@ -105,7 +104,7 @@ func TestRabbitMQHandler_CreateCategory(t *testing.T) {
 
 	// Wait for processing using Eventually
 	assert.Eventually(t, func() bool {
-		list, err := catRepo.List(context.Background(), map[string]interface{}{"name": "Async Category"})
+		list, err := catRepo.List(context.Background(), map[string]any{"name": "Async Category"})
 		return err == nil && len(list) == 1 && list[0].Name == "Async Category"
 	}, 10*time.Second, 100*time.Millisecond, "Category should be created via RabbitMQ")
 }

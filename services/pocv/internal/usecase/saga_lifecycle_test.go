@@ -45,10 +45,10 @@ func (m *mockSagaRepository) Update(ctx context.Context, saga *domain.SagaInstan
 }
 
 type mockCartClient struct {
-	getCart func(ctx context.Context, id string) (map[string]interface{}, error)
+	getCart func(ctx context.Context, id string) (map[string]any, error)
 }
 
-func (m *mockCartClient) GetCart(ctx context.Context, id string) (map[string]interface{}, error) {
+func (m *mockCartClient) GetCart(ctx context.Context, id string) (map[string]any, error) {
 	if m.getCart != nil {
 		return m.getCart(ctx, id)
 	}
@@ -76,9 +76,9 @@ func TestStartSaga(t *testing.T) {
 				},
 			},
 			cartClient: &mockCartClient{
-				getCart: func(ctx context.Context, id string) (map[string]interface{}, error) {
-					return map[string]interface{}{
-						"items": []interface{}{"item1", "item2"},
+				getCart: func(ctx context.Context, id string) (map[string]any, error) {
+					return map[string]any{
+						"items": []any{"item1", "item2"},
 					}, nil
 				},
 			},
@@ -112,7 +112,7 @@ func TestStartSaga(t *testing.T) {
 				},
 			},
 			cartClient: &mockCartClient{
-				getCart: func(ctx context.Context, id string) (map[string]interface{}, error) {
+				getCart: func(ctx context.Context, id string) (map[string]any, error) {
 					return nil, errors.New("client error")
 				},
 			},
@@ -144,7 +144,7 @@ func TestHandleInventoryReserved(t *testing.T) {
 			name: "Success",
 			repo: &mockSagaRepository{
 				get: func(ctx context.Context, id string) (*domain.SagaInstance, error) {
-					payload, _ := json.Marshal(map[string]interface{}{"totalPriceAmount": float64(100)})
+					payload, _ := json.Marshal(map[string]any{"totalPriceAmount": float64(100)})
 					return &domain.SagaInstance{
 						ID:          sagaID,
 						CurrentStep: domain.StepInventory,

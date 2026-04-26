@@ -45,7 +45,7 @@ func (u *sagaUseCase) StartSaga(ctx context.Context, cartID string) error {
 	sagaID := uuid.New().String()
 
 	// Create Command: Reserve Inventory
-	cmdPayload := map[string]interface{}{
+	cmdPayload := map[string]any{
 		"sagaId": sagaID,
 		"items":  cart["items"],
 	}
@@ -88,10 +88,10 @@ func (u *sagaUseCase) HandleInventoryReserved(ctx context.Context, sagaID string
 
 	// Command: Auth Payment
 	// Calculate total from Payload (Cart)
-	var cart map[string]interface{}
+	var cart map[string]any
 	_ = json.Unmarshal(saga.Payload, &cart)
 
-	cmdPayload := map[string]interface{}{
+	cmdPayload := map[string]any{
 		"sagaId": sagaID,
 		"amount": cart["totalPriceAmount"],
 		"token":  "tok_visa_mock", // Mock token
@@ -159,7 +159,7 @@ func (u *sagaUseCase) HandlePaymentDeclined(ctx context.Context, sagaID string) 
 	saga.UpdatedAt = time.Now().UTC()
 
 	// Compensation: Release Inventory
-	cmdPayload := map[string]interface{}{
+	cmdPayload := map[string]any{
 		"sagaId": sagaID,
 		"reason": "PaymentDeclined",
 	}

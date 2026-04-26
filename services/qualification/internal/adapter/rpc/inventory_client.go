@@ -13,7 +13,7 @@ import (
 )
 
 type RPCCaller interface {
-	Request(ctx context.Context, topic string, payload interface{}) ([]byte, error)
+	Request(ctx context.Context, topic string, payload any) ([]byte, error)
 }
 
 type rabbitInventoryClient struct {
@@ -26,7 +26,7 @@ func NewInventoryClient(rpc RPCCaller) ports.InventoryClient {
 
 func (c *rabbitInventoryClient) GetPortCapacity(ctx context.Context, address domain.Address) (int, error) {
 	reqID := uuid.New().String()
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"locationId":   "CABINET_BERLIN_05",
 		"resourceType": "OLT_PORT",
 		"requestId":    reqID,

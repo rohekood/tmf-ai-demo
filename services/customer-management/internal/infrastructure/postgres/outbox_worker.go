@@ -56,7 +56,7 @@ func (w *OutboxWorker) processEvents(ctx context.Context) {
 	}
 
 	for _, event := range events {
-		var payload interface{}
+		var payload any
 		err := json.Unmarshal(event.Payload, &payload)
 		if err != nil {
 			w.logger.Error("Failed to unmarshal event payload", "id", event.ID, "error", err)

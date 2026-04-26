@@ -20,7 +20,7 @@ type ListCatalogsUseCase interface {
 }
 
 type ListCatalogsInput struct {
-	Filters map[string]interface{}
+	Filters map[string]any
 }
 
 type GetCatalogUseCase interface {
@@ -49,7 +49,7 @@ type ListCategoriesUseCase interface {
 }
 
 type ListCategoriesInput struct {
-	Filters map[string]interface{}
+	Filters map[string]any
 }
 
 type GetCategoryUseCase interface {
@@ -79,7 +79,7 @@ type ListProductSpecificationsUseCase interface {
 }
 
 type ListProductSpecificationsInput struct {
-	Filters map[string]interface{}
+	Filters map[string]any
 }
 
 type GetProductSpecificationUseCase interface {

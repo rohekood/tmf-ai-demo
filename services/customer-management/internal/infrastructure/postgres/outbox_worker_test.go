@@ -21,11 +21,11 @@ type MockPublisher struct {
 	mock.Mock
 }
 
-func (m *MockPublisher) Publish(ctx context.Context, exchange, routingKey string, body interface{}) error {
+func (m *MockPublisher) Publish(ctx context.Context, exchange, routingKey string, body any) error {
 	args := m.Called(ctx, exchange, routingKey, body)
 	return args.Error(0)
 }
-func (m *MockPublisher) PublishToQueue(ctx context.Context, queue, correlationID string, body interface{}) error {
+func (m *MockPublisher) PublishToQueue(ctx context.Context, queue, correlationID string, body any) error {
 	return nil
 }
 func (m *MockPublisher) Close() error {

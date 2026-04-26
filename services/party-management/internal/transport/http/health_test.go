@@ -56,11 +56,11 @@ func TestHealthHandler(t *testing.T) {
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
 
 	assert.Equal(t, "DOWN", resp["status"])
-	details := resp["details"].(map[string]interface{})
+	details := resp["details"].(map[string]any)
 	assert.Equal(t, "OK", details["db"])
 	assert.Equal(t, "connection closed", details["rabbitmq"])
 }

@@ -69,7 +69,7 @@ func (p *RabbitMQPublisher) PublishProductOfferingDeleted(ctx context.Context, e
 	return p.publish(ctx, "evt.catalog.offering.deleted", event)
 }
 
-func (p *RabbitMQPublisher) publish(ctx context.Context, routingKey string, event interface{}) error {
+func (p *RabbitMQPublisher) publish(ctx context.Context, routingKey string, event any) error {
 	return p.publisher.Publish(ctx, p.exchangeName, routingKey, event)
 }
 

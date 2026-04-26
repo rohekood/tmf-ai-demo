@@ -25,7 +25,7 @@ func NewPublisher(conn *amqp.Connection) (*Publisher, error) {
 	}, nil
 }
 
-func (p *Publisher) Publish(ctx context.Context, exchange, routingKey string, event interface{}) error {
+func (p *Publisher) Publish(ctx context.Context, exchange, routingKey string, event any) error {
 	body, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("failed to marshal event: %w", err)

@@ -20,25 +20,25 @@ func TestSearchCustomers_Generic(t *testing.T) {
 	require.NoError(t, repo.CreateCustomer(ctx, cust2))
 
 	// Search Generic "John" (Name)
-	results, err := repo.SearchCustomers(ctx, map[string]interface{}{"search": "John"})
+	results, err := repo.SearchCustomers(ctx, map[string]any{"search": "John"})
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
 	assert.Equal(t, "gen-1", results[0].ID)
 
 	// Search Generic "Active" (Status)
-	results, err = repo.SearchCustomers(ctx, map[string]interface{}{"search": "Active"})
+	results, err = repo.SearchCustomers(ctx, map[string]any{"search": "Active"})
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
 	assert.Equal(t, "gen-1", results[0].ID)
 
 	// Search Generic "p-2" (PartyID)
-	results, err = repo.SearchCustomers(ctx, map[string]interface{}{"search": "p-2"})
+	results, err = repo.SearchCustomers(ctx, map[string]any{"search": "p-2"})
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
 	assert.Equal(t, "gen-2", results[0].ID)
 
 	// Search Generic "Organization" (PartyType)
-	results, err = repo.SearchCustomers(ctx, map[string]interface{}{"search": "Organization"})
+	results, err = repo.SearchCustomers(ctx, map[string]any{"search": "Organization"})
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
 	assert.Equal(t, "gen-2", results[0].ID)
@@ -62,7 +62,7 @@ func TestSearchCustomers_WithAccounts(t *testing.T) {
 	require.NoError(t, repo.CreateCustomer(ctx, cust))
 
 	// Search and verify accounts are loaded
-	results, err := repo.SearchCustomers(ctx, map[string]interface{}{"name": "Customer With Account"})
+	results, err := repo.SearchCustomers(ctx, map[string]any{"name": "Customer With Account"})
 	assert.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Equal(t, "cust-acc-1", results[0].ID)

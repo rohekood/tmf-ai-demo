@@ -17,7 +17,7 @@ func NewOutboxPublisher(repo *OutboxRepository) *OutboxPublisher {
 }
 
 // Publish implements the EventPublisher interface but saves to outbox
-func (p *OutboxPublisher) Publish(ctx context.Context, exchange, routingKey string, event interface{}) error {
+func (p *OutboxPublisher) Publish(ctx context.Context, exchange, routingKey string, event any) error {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return err

@@ -47,7 +47,7 @@ func TestCategoryRepository_CRUD(t *testing.T) {
 	assert.Equal(t, "Mobile Phones", fetched2.Name)
 
 	// List
-	list, err := repo.List(ctx, map[string]interface{}{"name": "Mobile%"})
+	list, err := repo.List(ctx, map[string]any{"name": "Mobile%"})
 	assert.NoError(t, err)
 	assert.Len(t, list, 1)
 

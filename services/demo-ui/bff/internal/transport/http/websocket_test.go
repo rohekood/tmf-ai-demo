@@ -76,7 +76,7 @@ type mockValidator struct {
 	valid bool
 }
 
-func (m *mockValidator) ValidateToken(ctx context.Context, tokenString string) (interface{}, error) {
+func (m *mockValidator) ValidateToken(ctx context.Context, tokenString string) (any, error) {
 	if m.valid {
 		return "valid", nil
 	}
@@ -181,7 +181,7 @@ func TestHub_Broadcast_Error(t *testing.T) {
 
 func TestHub_AddToBuffer_Overflow(t *testing.T) {
 	hub := NewHub()
-	for i := 0; i < 60; i++ { // buffer size is 50 usually in code
+	for range 60 { // buffer size is 50 usually in code
 		hub.addToBuffer([]byte("msg"))
 	}
 	if len(hub.buffer) > 50 { // assuming 50 is max

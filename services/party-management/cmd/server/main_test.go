@@ -20,10 +20,10 @@ type mockPublisher struct{}
 func (m *mockPublisher) DeclareTopicExchange(name string, durable, autoDelete, internal, noWait bool) error {
 	return nil
 }
-func (m *mockPublisher) Publish(ctx context.Context, exchange, routingKey string, body interface{}) error {
+func (m *mockPublisher) Publish(ctx context.Context, exchange, routingKey string, body any) error {
 	return nil
 }
-func (m *mockPublisher) PublishToQueue(ctx context.Context, exchange, queue string, body interface{}) error {
+func (m *mockPublisher) PublishToQueue(ctx context.Context, exchange, queue string, body any) error {
 	return nil
 }
 func (m *mockPublisher) Close() error {
@@ -184,10 +184,10 @@ type mockDeclareFailPublisher struct{}
 func (m *mockDeclareFailPublisher) DeclareTopicExchange(name string, durable, autoDelete, internal, noWait bool) error {
 	return fmt.Errorf("mock exchange declare error")
 }
-func (m *mockDeclareFailPublisher) Publish(ctx context.Context, exchange, routingKey string, body interface{}) error {
+func (m *mockDeclareFailPublisher) Publish(ctx context.Context, exchange, routingKey string, body any) error {
 	return nil
 }
-func (m *mockDeclareFailPublisher) PublishToQueue(ctx context.Context, exchange, queue string, body interface{}) error {
+func (m *mockDeclareFailPublisher) PublishToQueue(ctx context.Context, exchange, queue string, body any) error {
 	return nil
 }
 func (m *mockDeclareFailPublisher) Close() error {

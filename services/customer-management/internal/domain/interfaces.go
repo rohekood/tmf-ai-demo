@@ -9,5 +9,5 @@ type TransactionManager interface {
 }
 
 type EventPublisher interface {
-	Publish(ctx context.Context, routingKey string, payload interface{}) error
+	Publish(ctx context.Context, routingKey string, payload any) error
 }

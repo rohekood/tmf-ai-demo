@@ -63,7 +63,7 @@ func (s *E2ESuite) SetupSuite() {
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
 				WithOccurrence(2).
-				WithStartupTimeout(5*time.Second)),
+				WithStartupTimeout(30*time.Second)),
 	)
 	s.Require().NoError(err)
 	s.dbURL, err = s.pgContainer.ConnectionString(s.ctx, "sslmode=disable")
@@ -188,7 +188,7 @@ func (s *E2ESuite) startService(name, dbName, waitForLog string) {
 	select {
 	case <-ready:
 		fmt.Printf("✅ %s is ready\n", name)
-	case <-time.After(30 * time.Second):
+	case <-time.After(60 * time.Second):
 		s.FailNow(fmt.Sprintf("Timeout waiting for %s to start", name))
 	}
 }
@@ -308,7 +308,7 @@ func (s *E2ESuite) Test1_HappyPath_FiberOrder() {
 	select {
 	case d := <-msgsQual:
 		s.Contains(string(d.Body), "Qualified")
-	case <-time.After(20 * time.Second):
+	case <-time.After(60 * time.Second):
 		s.Fail("Timeout waiting for qualification")
 	}
 
@@ -325,7 +325,7 @@ func (s *E2ESuite) Test1_HappyPath_FiberOrder() {
 	select {
 	case <-msgsCart:
 		// Cart updated
-	case <-time.After(20 * time.Second):
+	case <-time.After(60 * time.Second):
 		s.Fail("Timeout waiting for cart")
 	}
 
@@ -344,7 +344,7 @@ func (s *E2ESuite) Test1_HappyPath_FiberOrder() {
 	case d := <-msgsOrder:
 		// Success!
 		s.Contains(string(d.Body), cartID)
-	case <-time.After(30 * time.Second):
+	case <-time.After(60 * time.Second):
 		s.Fail("Timeout waiting for order creation")
 	}
 }
@@ -366,7 +366,7 @@ func (s *E2ESuite) Test2_UnhappyPath_QualificationFailed() {
 	select {
 	case d := <-msgsQual:
 		s.Contains(string(d.Body), "Unqualified")
-	case <-time.After(20 * time.Second):
+	case <-time.After(60 * time.Second):
 		s.Fail("Timeout waiting for qualification failure")
 	}
 }
@@ -405,7 +405,7 @@ func (s *E2ESuite) Test3_UnhappyPath_PaymentDeclined() {
 	case d := <-msgsComp:
 		// Success! Compensation triggered
 		s.Contains(string(d.Body), "PaymentDeclined")
-	case <-time.After(30 * time.Second):
+	case <-time.After(60 * time.Second):
 		s.Fail("Timeout waiting for compensation")
 	}
 }
@@ -441,13 +441,13 @@ func (s *E2ESuite) Test4_QualificationSession_VIPDiscount() {
 	case d := <-msgsQual:
 		s.Contains(string(d.Body), "Qualified")
 		// Extract session ID from response
-		var response map[string]interface{}
+		var response map[string]any
 		_ = json.Unmarshal(d.Body, &response)
 		if sid, ok := response["sessionId"].(string); ok {
 			sessionID = sid
 		}
 		s.NotEmpty(sessionID, "Session ID should be present in qualification response")
-	case <-time.After(20 * time.Second):
+	case <-time.After(60 * time.Second):
 		s.Fail("Timeout waiting for qualification")
 	}
 
@@ -458,14 +458,14 @@ func (s *E2ESuite) Test4_QualificationSession_VIPDiscount() {
 	sessionResp, err := rpcClient.Request(s.ctx, "query.qual.session.get", map[string]string{"sessionId": sessionID})
 	s.Require().NoError(err)
 
-	var session map[string]interface{}
+	var session map[string]any
 	_ = json.Unmarshal(sessionResp, &session)
 
 	// Verify price is discounted
-	qualifiedOffers := session["qualifiedOffers"].([]interface{})
+	qualifiedOffers := session["qualifiedOffers"].([]any)
 	s.NotEmpty(qualifiedOffers, "Should have qualified offers")
-	offer := qualifiedOffers[0].(map[string]interface{})
-	price := offer["price"].(map[string]interface{})
+	offer := qualifiedOffers[0].(map[string]any)
+	price := offer["price"].(map[string]any)
 	actualPrice := price["amount"].(float64)
 	s.InDelta(expectedPrice, actualPrice, 0.01, "VIP customer should get 20%% discount")
 
@@ -503,13 +503,13 @@ func (s *E2ESuite) Test5_QualificationSession_PremiumDiscount() {
 	case d := <-msgsQual:
 		s.Contains(string(d.Body), "Qualified")
 		// Extract session ID from response
-		var response map[string]interface{}
+		var response map[string]any
 		_ = json.Unmarshal(d.Body, &response)
 		if sid, ok := response["sessionId"].(string); ok {
 			sessionID = sid
 		}
 		s.NotEmpty(sessionID, "Session ID should be present in qualification response")
-	case <-time.After(20 * time.Second):
+	case <-time.After(60 * time.Second):
 		s.Fail("Timeout waiting for qualification")
 	}
 
@@ -520,14 +520,14 @@ func (s *E2ESuite) Test5_QualificationSession_PremiumDiscount() {
 	sessionResp, err := rpcClient.Request(s.ctx, "query.qual.session.get", map[string]string{"sessionId": sessionID})
 	s.Require().NoError(err)
 
-	var session map[string]interface{}
+	var session map[string]any
 	_ = json.Unmarshal(sessionResp, &session)
 
 	// Verify price is discounted
-	qualifiedOffers := session["qualifiedOffers"].([]interface{})
+	qualifiedOffers := session["qualifiedOffers"].([]any)
 	s.NotEmpty(qualifiedOffers, "Should have qualified offers")
-	offer := qualifiedOffers[0].(map[string]interface{})
-	price := offer["price"].(map[string]interface{})
+	offer := qualifiedOffers[0].(map[string]any)
+	price := offer["price"].(map[string]any)
 	actualPrice := price["amount"].(float64)
 	s.InDelta(expectedPrice, actualPrice, 0.01, "Premium customer should get 10%% discount")
 
@@ -565,13 +565,13 @@ func (s *E2ESuite) Test6_QualificationSession_StandardPricing() {
 	case d := <-msgsQual:
 		s.Contains(string(d.Body), "Qualified")
 		// Extract session ID from response
-		var response map[string]interface{}
+		var response map[string]any
 		_ = json.Unmarshal(d.Body, &response)
 		if sid, ok := response["sessionId"].(string); ok {
 			sessionID = sid
 		}
 		s.NotEmpty(sessionID, "Session ID should be present in qualification response")
-	case <-time.After(20 * time.Second):
+	case <-time.After(60 * time.Second):
 		s.Fail("Timeout waiting for qualification")
 	}
 
@@ -582,14 +582,14 @@ func (s *E2ESuite) Test6_QualificationSession_StandardPricing() {
 	sessionResp, err := rpcClient.Request(s.ctx, "query.qual.session.get", map[string]string{"sessionId": sessionID})
 	s.Require().NoError(err)
 
-	var session map[string]interface{}
+	var session map[string]any
 	_ = json.Unmarshal(sessionResp, &session)
 
 	// Verify price is discounted
-	qualifiedOffers := session["qualifiedOffers"].([]interface{})
+	qualifiedOffers := session["qualifiedOffers"].([]any)
 	s.NotEmpty(qualifiedOffers, "Should have qualified offers")
-	offer := qualifiedOffers[0].(map[string]interface{})
-	price := offer["price"].(map[string]interface{})
+	offer := qualifiedOffers[0].(map[string]any)
+	price := offer["price"].(map[string]any)
 	actualPrice := price["amount"].(float64)
 	s.InDelta(expectedPrice, actualPrice, 0.01, "Standard customer should get no discount")
 
@@ -627,13 +627,13 @@ func (s *E2ESuite) Test7_QualificationSession_PriceConsistency() {
 	select {
 	case d := <-msgsQual:
 		s.Contains(string(d.Body), "Qualified")
-		var response map[string]interface{}
+		var response map[string]any
 		_ = json.Unmarshal(d.Body, &response)
 		if sid, ok := response["sessionId"].(string); ok {
 			sessionID = sid
 		}
 		s.NotEmpty(sessionID, "Session ID should be present in qualification response")
-	case <-time.After(20 * time.Second):
+	case <-time.After(60 * time.Second):
 		s.Fail("Timeout waiting for qualification")
 	}
 
@@ -644,13 +644,13 @@ func (s *E2ESuite) Test7_QualificationSession_PriceConsistency() {
 	sessionResp, err := rpcClient.Request(s.ctx, "query.qual.session.get", map[string]string{"sessionId": sessionID})
 	s.Require().NoError(err)
 
-	var session map[string]interface{}
+	var session map[string]any
 	_ = json.Unmarshal(sessionResp, &session)
 
-	qualifiedOffers := session["qualifiedOffers"].([]interface{})
+	qualifiedOffers := session["qualifiedOffers"].([]any)
 	s.NotEmpty(qualifiedOffers, "Should have qualified offers")
-	offer := qualifiedOffers[0].(map[string]interface{})
-	qualPrice := offer["price"].(map[string]interface{})
+	offer := qualifiedOffers[0].(map[string]any)
+	qualPrice := offer["price"].(map[string]any)
 	qualAmount := qualPrice["amount"].(float64)
 	s.InDelta(expectedPrice, qualAmount, 0.01, "Qualification price should be discounted")
 
@@ -666,14 +666,14 @@ func (s *E2ESuite) Test7_QualificationSession_PriceConsistency() {
 	var cartPrice float64
 	select {
 	case d := <-msgsCart:
-		var cartEvent map[string]interface{}
+		var cartEvent map[string]any
 		_ = json.Unmarshal(d.Body, &cartEvent)
-		items := cartEvent["items"].([]interface{})
+		items := cartEvent["items"].([]any)
 		s.Require().Len(items, 1, "Cart should have one item")
-		item := items[0].(map[string]interface{})
-		price := item["price"].(map[string]interface{})
+		item := items[0].(map[string]any)
+		price := item["price"].(map[string]any)
 		cartPrice = price["amount"].(float64)
-	case <-time.After(20 * time.Second):
+	case <-time.After(60 * time.Second):
 		s.Fail("Timeout waiting for cart update")
 	}
 

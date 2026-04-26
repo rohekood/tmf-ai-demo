@@ -14,7 +14,7 @@ import (
 func TestRepo_NotFound_And_Duplicates(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
-	
+
 	catRepo := repository.NewCatalogRepo(db)
 	cgRepo := repository.NewCategoryRepo(db)
 	spRepo := repository.NewProductSpecificationRepo(db)
@@ -67,9 +67,9 @@ func TestRepo_NotFound_And_Duplicates(t *testing.T) {
 	assert.NoError(t, err)
 	err = spRepo.Create(ctx, sp)
 	assert.NotNil(t, err)
-	
+
 	// test spRepo List
-	spList, err := spRepo.List(ctx, map[string]interface{}{"name": "Dup"})
+	spList, err := spRepo.List(ctx, map[string]any{"name": "Dup"})
 	assert.NoError(t, err)
 	assert.Len(t, spList, 1)
 
@@ -79,12 +79,12 @@ func TestRepo_NotFound_And_Duplicates(t *testing.T) {
 	assert.NoError(t, err)
 	err = offRepo.Create(ctx, off)
 	assert.NotNil(t, err)
-	
+
 	// test offRepo List and Update
 	off.Name = "Dup Updated"
 	err = offRepo.Update(ctx, off)
 	assert.NoError(t, err)
-	offList, err := offRepo.List(ctx, map[string]interface{}{"name": "Dup%"})
+	offList, err := offRepo.List(ctx, map[string]any{"name": "Dup%"})
 	assert.NoError(t, err)
 	assert.Len(t, offList, 1)
 }

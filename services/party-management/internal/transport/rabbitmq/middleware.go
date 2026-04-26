@@ -30,7 +30,7 @@ func TracingMiddleware(serviceName string) Middleware {
 }
 
 // amqpHeaderCarrier maps AMQP headers to OTel carrier interface.
-type amqpHeaderCarrier map[string]interface{}
+type amqpHeaderCarrier map[string]any
 
 func (c amqpHeaderCarrier) Get(key string) string {
 	if v, ok := c[key]; ok {

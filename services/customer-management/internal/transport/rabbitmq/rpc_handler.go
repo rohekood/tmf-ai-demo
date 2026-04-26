@@ -52,7 +52,7 @@ func (h *RPCHandler) HandleGetCustomer(ctx context.Context, payload []byte) erro
 	segment := extractSegment(customer)
 
 	// Create response with tier information
-	response := map[string]interface{}{
+	response := map[string]any{
 		"id":      customer.ID,
 		"tier":    tier,
 		"segment": segment,

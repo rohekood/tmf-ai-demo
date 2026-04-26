@@ -73,7 +73,7 @@ func (r *PartyRepository) CreateIndividual(ctx context.Context, ind *domain.Indi
 		ind.CreatedAt = partyBase.CreatedAt
 		ind.UpdatedAt = partyBase.UpdatedAt
 
-		individualSpecifics := map[string]interface{}{
+		individualSpecifics := map[string]any{
 			"id":          ind.ID,
 			"given_name":  ind.GivenName,
 			"family_name": ind.FamilyName,
@@ -168,7 +168,7 @@ func (r *PartyRepository) CreateOrganization(ctx context.Context, org *domain.Or
 		org.CreatedAt = partyBase.CreatedAt
 		org.UpdatedAt = partyBase.UpdatedAt
 
-		orgSpecifics := map[string]interface{}{
+		orgSpecifics := map[string]any{
 			"id":                org.ID,
 			"trading_name":      org.TradingName,
 			"is_legal_entity":   org.IsLegalEntity,
@@ -244,7 +244,7 @@ func (r *PartyRepository) UpdateIndividual(ctx context.Context, ind *domain.Indi
 		}
 
 		// 2. Update/Create Individual specifics
-		individualSpecifics := map[string]interface{}{
+		individualSpecifics := map[string]any{
 			"id":          ind.ID,
 			"given_name":  ind.GivenName,
 			"family_name": ind.FamilyName,
@@ -292,7 +292,7 @@ func (r *PartyRepository) UpdateOrganization(ctx context.Context, org *domain.Or
 		}
 
 		// 2. Update/Create Organization specifics
-		orgSpecifics := map[string]interface{}{
+		orgSpecifics := map[string]any{
 			"id":                org.ID,
 			"trading_name":      org.TradingName,
 			"is_legal_entity":   org.IsLegalEntity,
@@ -371,7 +371,7 @@ func (r *PartyRepository) DeleteParty(ctx context.Context, id string) error {
 	})
 }
 
-func (r *PartyRepository) SearchParties(ctx context.Context, criteria map[string]interface{}) ([]domain.Party, error) {
+func (r *PartyRepository) SearchParties(ctx context.Context, criteria map[string]any) ([]domain.Party, error) {
 	var parties []domain.Party
 	query := GetTx(ctx, r.db).Table("parties")
 

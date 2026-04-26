@@ -32,7 +32,7 @@ type SagaRepository interface {
 }
 
 type CartClient interface {
-	GetCart(ctx context.Context, id string) (map[string]interface{}, error)
+	GetCart(ctx context.Context, id string) (map[string]any, error)
 }
 
 type SagaUseCase interface {

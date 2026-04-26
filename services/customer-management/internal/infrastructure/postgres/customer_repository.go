@@ -63,7 +63,7 @@ func (r *CustomerRepository) UpdateCustomer(ctx context.Context, c *domain.Custo
 	return r.updateSubResources(tx, c.ID, c)
 }
 
-func (r *CustomerRepository) PatchCustomer(ctx context.Context, id string, updates map[string]interface{}) error {
+func (r *CustomerRepository) PatchCustomer(ctx context.Context, id string, updates map[string]any) error {
 	tx := GetTx(ctx, r.db)
 
 	// Handle associations separately
@@ -166,7 +166,7 @@ func (r *CustomerRepository) DeleteCustomer(ctx context.Context, id string) erro
 	return nil
 }
 
-func (r *CustomerRepository) SearchCustomers(ctx context.Context, criteria map[string]interface{}) ([]domain.Customer, error) {
+func (r *CustomerRepository) SearchCustomers(ctx context.Context, criteria map[string]any) ([]domain.Customer, error) {
 	var customers []domain.Customer
 	query := r.db.WithContext(ctx).Preload("Accounts")
 

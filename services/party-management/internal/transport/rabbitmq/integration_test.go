@@ -147,7 +147,7 @@ func TestMain(m *testing.M) {
 		log.Fatalf("failed to get rabbitmq URL: %s", err)
 	}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		sharedConn, err = amqp.Dial(rabbitURL)
 		if err == nil {
 			break
@@ -241,7 +241,7 @@ func (s *IntegrationTestSuite) waitForEvent(_ *testing.T, timeout time.Duration)
 func TestIntegration_CreateIndividual(t *testing.T) {
 	suite := setupTestSuite(t)
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"@type":      "Individual",
 		"id":         "int-ind-1",
 		"givenName":  "Integration",
@@ -271,7 +271,7 @@ func TestIntegration_CreateIndividual(t *testing.T) {
 func TestIntegration_CreateOrganization(t *testing.T) {
 	suite := setupTestSuite(t)
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"@type":         "Organization",
 		"id":            "int-org-1",
 		"tradingName":   "IntegrationCorp",
@@ -309,7 +309,7 @@ func TestIntegration_UpdateIndividual(t *testing.T) {
 	}
 	require.NoError(t, suite.Repo.CreateIndividual(context.Background(), ind))
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"id":         "int-upd-ind-1",
 		"@type":      "Individual",
 		"status":     "Active",
@@ -522,7 +522,7 @@ func TestIntegration_SearchParty(t *testing.T) {
 	case reply := <-replies:
 		assert.Equal(t, "search-test-1", reply.CorrelationId)
 
-		var results []map[string]interface{}
+		var results []map[string]any
 		err := json.Unmarshal(reply.Body, &results)
 		require.NoError(t, err, "Failed to parse search response")
 		require.Len(t, results, 1, "Expected exactly one search result")
@@ -573,7 +573,7 @@ func TestIntegration_SearchParty_ReturnsCompleteOrganizationData(t *testing.T) {
 
 	select {
 	case reply := <-replies:
-		var results []map[string]interface{}
+		var results []map[string]any
 		err := json.Unmarshal(reply.Body, &results)
 		require.NoError(t, err)
 		require.Len(t, results, 1)
@@ -635,7 +635,7 @@ func TestIntegration_SearchParty_MixedTypes_ReturnsAllFields(t *testing.T) {
 
 	select {
 	case reply := <-replies:
-		var results []map[string]interface{}
+		var results []map[string]any
 		err := json.Unmarshal(reply.Body, &results)
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, len(results), 2, "Expected at least 2 results")
@@ -702,8 +702,7 @@ func TestIntegration_AuditTrail(t *testing.T) {
 func TestListener_Routing(t *testing.T) {
 	suite := setupTestSuite(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go func() {
 		err := suite.Listener.Start(ctx, suite.Handlers)
@@ -714,7 +713,7 @@ func TestListener_Routing(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"@type":      "Individual",
 		"id":         "route-ind-1",
 		"givenName":  "Routed",
@@ -731,7 +730,7 @@ func TestListener_Routing(t *testing.T) {
 	require.NoError(t, err)
 
 	var saved *domain.Individual
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		saved, err = suite.Repo.GetIndividual(context.Background(), "route-ind-1")
 		if err == nil {
 			break

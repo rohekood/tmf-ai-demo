@@ -109,6 +109,7 @@ func TestUpdateOffering_Execute(t *testing.T) {
 	}
 }
 
+//go:fix inline
 func strPtr(s string) *string {
-	return &s
+	return new(s)
 }

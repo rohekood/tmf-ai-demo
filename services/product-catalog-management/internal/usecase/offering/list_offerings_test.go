@@ -24,7 +24,7 @@ func TestListProductOfferings_Execute(t *testing.T) {
 	inputFilters := ports.ProductOfferingFilters{Name: &name}
 
 	// Mock Expectation needs to match what Execute calls repo with.
-	mockRepo.On("List", ctx, mock.MatchedBy(func(f map[string]interface{}) bool {
+	mockRepo.On("List", ctx, mock.MatchedBy(func(f map[string]any) bool {
 		return f["name"] == "Fiber"
 	})).Return(expected, nil)
 

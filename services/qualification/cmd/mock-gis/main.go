@@ -88,7 +88,7 @@ func run(ctx context.Context, getEnv func(string) string) error {
 				inFootprint = false
 			}
 
-			response := map[string]interface{}{
+			response := map[string]any{
 				"inFootprint": inFootprint,
 				"zoneId":      "ZONE_A",
 				"technology":  "GPON",

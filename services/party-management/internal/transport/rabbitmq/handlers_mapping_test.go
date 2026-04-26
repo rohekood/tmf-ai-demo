@@ -19,18 +19,18 @@ func TestHandleCreateParty_MappingLogic(t *testing.T) {
 	h := NewHandlers(mockRepo, nil, nil, &NoOpTransactionManager{})
 
 	// Construct flat JSON payload as expected by handler
-	flatPayload := map[string]interface{}{
+	flatPayload := map[string]any{
 		"@type":      "Individual",
 		"id":         "unit-gaps-1",
 		"givenName":  "Unit",
 		"familyName": "Test",
-		"externalReferences": []map[string]interface{}{
+		"externalReferences": []map[string]any{
 			{"externalSystemId": "Sys1", "externalReferenceId": "Ref1"},
 		},
-		"taxExemptions": []map[string]interface{}{
+		"taxExemptions": []map[string]any{
 			{"certificateNumber": "CERT-999"},
 		},
-		"attachments": []map[string]interface{}{
+		"attachments": []map[string]any{
 			{"name": "note.txt", "content": []byte("content"), "refType": "Internal"},
 		},
 	}

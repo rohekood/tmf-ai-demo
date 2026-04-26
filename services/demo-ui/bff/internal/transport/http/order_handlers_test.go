@@ -14,7 +14,7 @@ func TestOrderHandler_CheckQualification(t *testing.T) {
 	handler := NewOrderHandler(mockClient)
 
 	t.Run("Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			if routingKey != cmdQualEligibilityCheck {
 				t.Errorf("Unexpected routing key: %s", routingKey)
 			}
@@ -40,7 +40,7 @@ func TestOrderHandler_CheckQualification(t *testing.T) {
 	})
 
 	t.Run("RPCError", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return nil, errors.New("rpc error")
 		}
 		req := httptest.NewRequest("POST", "/api/qualification/check", strings.NewReader(`{"partyId":"p1"}`))
@@ -59,7 +59,7 @@ func TestOrderHandler_GetQualificationSession(t *testing.T) {
 	handler.RegisterRoutes(mux)
 
 	t.Run("Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			if routingKey != queryQualSessionGet {
 				t.Errorf("Unexpected routing key: %s", routingKey)
 			}
@@ -76,7 +76,7 @@ func TestOrderHandler_GetQualificationSession(t *testing.T) {
 	})
 
 	t.Run("RPCError_ReturnsUnprocessableEntity", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return nil, errors.New("not found or expired")
 		}
 		req := httptest.NewRequest("GET", "/api/qualification/session/sess1", nil)
@@ -95,7 +95,7 @@ func TestOrderHandler_AddCartItem(t *testing.T) {
 	handler.RegisterRoutes(mux)
 
 	t.Run("Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return []byte(`{"cartId":"cart1", "items":[]}`), nil
 		}
 
@@ -118,7 +118,7 @@ func TestOrderHandler_AddCartItem(t *testing.T) {
 	})
 
 	t.Run("RPCError", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return nil, errors.New("rpc error")
 		}
 		req := httptest.NewRequest("POST", "/api/cart/items", strings.NewReader(`{"offerId":"o1"}`))
@@ -137,7 +137,7 @@ func TestOrderHandler_GetCart(t *testing.T) {
 	handler.RegisterRoutes(mux)
 
 	t.Run("Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return []byte(`{"id":"cart1"}`), nil
 		}
 
@@ -151,7 +151,7 @@ func TestOrderHandler_GetCart(t *testing.T) {
 	})
 
 	t.Run("RPCError", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return nil, errors.New("rpc error")
 		}
 		req := httptest.NewRequest("GET", "/api/cart/cart1", nil)
@@ -170,7 +170,7 @@ func TestOrderHandler_RemoveCartItem(t *testing.T) {
 	handler.RegisterRoutes(mux)
 
 	t.Run("Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return []byte(`{}`), nil
 		}
 
@@ -184,7 +184,7 @@ func TestOrderHandler_RemoveCartItem(t *testing.T) {
 	})
 
 	t.Run("RPCError", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return nil, errors.New("rpc error")
 		}
 		req := httptest.NewRequest("DELETE", "/api/cart/cart1/items/item1", nil)
@@ -203,7 +203,7 @@ func TestOrderHandler_Checkout(t *testing.T) {
 	handler.RegisterRoutes(mux)
 
 	t.Run("Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return []byte(`{"sagaId":"saga1"}`), nil
 		}
 
@@ -226,7 +226,7 @@ func TestOrderHandler_Checkout(t *testing.T) {
 	})
 
 	t.Run("RPCError", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return nil, errors.New("rpc error")
 		}
 		req := httptest.NewRequest("POST", "/api/orders/checkout", strings.NewReader(`{"cartId":"cart1"}`))
@@ -245,7 +245,7 @@ func TestOrderHandler_GetSagaStatus(t *testing.T) {
 	handler.RegisterRoutes(mux)
 
 	t.Run("Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return []byte(`{"id":"saga1", "status":"COMPLETED"}`), nil
 		}
 
@@ -259,7 +259,7 @@ func TestOrderHandler_GetSagaStatus(t *testing.T) {
 	})
 
 	t.Run("RPCError", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload interface{}, headers map[string]interface{}) ([]byte, error) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			return nil, errors.New("rpc error")
 		}
 		req := httptest.NewRequest("GET", "/api/orders/saga/saga1", nil)

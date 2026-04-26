@@ -25,7 +25,7 @@ func (p *OutboxPublisher) getDB(ctx context.Context) *gorm.DB {
 	return p.db.WithContext(ctx)
 }
 
-func (p *OutboxPublisher) saveEvent(ctx context.Context, routingKey string, payload interface{}) error {
+func (p *OutboxPublisher) saveEvent(ctx context.Context, routingKey string, payload any) error {
 	// Add Standard Headers if needed (e.g., from context)
 	headers := make(map[string]string)
 	if user, ok := ctx.Value(rabbitmq.ContextKeyUser).(string); ok {

@@ -27,7 +27,7 @@ func (OutboxEventModel) TableName() string {
 	return "outbox_events"
 }
 
-func NewOutboxEvent(topic string, payload interface{}, headers map[string]string) (*OutboxEventModel, error) {
+func NewOutboxEvent(topic string, payload any, headers map[string]string) (*OutboxEventModel, error) {
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err

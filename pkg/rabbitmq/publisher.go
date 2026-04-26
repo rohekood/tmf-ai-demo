@@ -11,8 +11,8 @@ import (
 
 // Publisher interface to allow mocking
 type Publisher interface {
-	Publish(ctx context.Context, exchange, routingKey string, body interface{}) error
-	PublishToQueue(ctx context.Context, queueName string, correlationID string, body interface{}) error
+	Publish(ctx context.Context, exchange, routingKey string, body any) error
+	PublishToQueue(ctx context.Context, queueName string, correlationID string, body any) error
 	DeclareTopicExchange(name string, durable, autoDelete, internal, noWait bool) error
 	Close() error
 }
@@ -66,7 +66,7 @@ func (p *rabbitPublisher) DeclareTopicExchange(name string, durable, autoDelete,
 	)
 }
 
-func (p *rabbitPublisher) Publish(ctx context.Context, exchange, routingKey string, body interface{}) error {
+func (p *rabbitPublisher) Publish(ctx context.Context, exchange, routingKey string, body any) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -92,7 +92,7 @@ func (p *rabbitPublisher) Publish(ctx context.Context, exchange, routingKey stri
 	)
 }
 
-func (p *rabbitPublisher) PublishToQueue(ctx context.Context, queueName string, correlationID string, body interface{}) error {
+func (p *rabbitPublisher) PublishToQueue(ctx context.Context, queueName string, correlationID string, body any) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
