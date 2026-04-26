@@ -1,5 +1,5 @@
 # Build Stage
-FROM golang:1.26.1 AS builder
+FROM golang:1.2 AS builder
 WORKDIR /workspace
 COPY pkg ./pkg
 COPY services/product-catalog-management ./services/product-catalog-management
