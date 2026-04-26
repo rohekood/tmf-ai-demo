@@ -69,7 +69,7 @@ func Run(ctx context.Context, cfg Config) error {
 	repo := repository.NewSagaRepository(db)
 	cartClient := rpc.NewCartClient(rpcClient)
 	uc := usecase.NewSagaUseCase(repo, cartClient)
-	h := handler.NewRabbitMQHandler(uc)
+	h := handler.NewRabbitMQHandler(uc, rmqPub)
 
 	// Outbox Worker
 	outboxWorker := worker.NewOutboxWorker(db, rmqPub, cfg.Exchange)
@@ -84,6 +84,17 @@ func Run(ctx context.Context, cfg Config) error {
 
 	if err := consumer.Subscribe("#", h.HandleSagaEvent); err != nil {
 		return fmt.Errorf("failed to subscribe: %w", err)
+	}
+
+	// RPC Consumer for queries
+	rpcConsumer, err := rabbitmq.NewConsumer(cfg.RabbitMQURL, cfg.Exchange, "q.pocv.rpc")
+	if err != nil {
+		return fmt.Errorf("failed to create rpc consumer: %w", err)
+	}
+	defer func() { _ = rpcConsumer.Close() }()
+
+	if err := rpcConsumer.Subscribe("query.pocv.saga.get", h.HandleGetSaga); err != nil {
+		return fmt.Errorf("failed to subscribe rpc: %w", err)
 	}
 
 	slog.Info("POCV Service Started")

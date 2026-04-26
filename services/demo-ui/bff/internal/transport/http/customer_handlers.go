@@ -29,6 +29,7 @@ type Handler struct {
 	rpcClient      RPCClient
 	partyHandler   *PartyHandler
 	catalogHandler *CatalogHandler
+	orderHandler   *OrderHandler
 	hub            *Hub
 }
 
@@ -38,6 +39,7 @@ func NewHandler(client RPCClient, hub *Hub) *Handler {
 		rpcClient:      client,
 		partyHandler:   NewPartyHandler(client),
 		catalogHandler: NewCatalogHandler(client),
+		orderHandler:   NewOrderHandler(client),
 		hub:            hub,
 	}
 }
@@ -57,6 +59,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	// Catalog routes
 	h.catalogHandler.RegisterRoutes(mux)
+
+	// Order routes
+	h.orderHandler.RegisterRoutes(mux)
 }
 
 func getHeaders(r *http.Request) map[string]interface{} {

@@ -4,8 +4,9 @@ import { LoginButton } from './LoginButton';
 
 const mockLoginWithRedirect = vi.fn();
 
-vi.mock('@auth0/auth0-react', () => ({
-    useAuth0: () => ({
+vi.mock('../../auth/context', () => ({
+    useAuth: () => ({
+        enabled: true,
         loginWithRedirect: mockLoginWithRedirect,
     }),
 }));

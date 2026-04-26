@@ -25,6 +25,12 @@ const CategoryEditPage = lazy(() => import('./features/catalog/CategoryEditPage'
 const OfferingListPage = lazy(() => import('./features/catalog/OfferingListPage'));
 const OfferingEditPage = lazy(() => import('./features/catalog/OfferingEditPage'));
 
+const QualifyPage = lazy(() => import('./features/ordering/QualifyPage'));
+const CartPage = lazy(() => import('./features/ordering/CartPage'));
+const CheckoutPage = lazy(() => import('./features/ordering/CheckoutPage'));
+const OrderStatusPage = lazy(() => import('./features/ordering/OrderStatusPage'));
+const OrderConfirmationPage = lazy(() => import('./features/ordering/OrderConfirmationPage'));
+
 const DebugConsolePage = lazy(() => import('./features/debug/DebugConsolePage'));
 
 // Loading fallback component
@@ -267,6 +273,52 @@ export const router = createBrowserRouter([
                                 ),
                             },
                         ],
+                    },
+                ],
+            },
+            // Ordering routes
+            {
+                path: 'order',
+                children: [
+                    {
+                        path: 'qualify',
+                        element: (
+                            <Suspense fallback={<PageLoader />}>
+                                <QualifyPage />
+                            </Suspense>
+                        ),
+                    },
+                    {
+                        path: 'cart',
+                        element: (
+                            <Suspense fallback={<PageLoader />}>
+                                <CartPage />
+                            </Suspense>
+                        ),
+                    },
+                    {
+                        path: 'checkout',
+                        element: (
+                            <Suspense fallback={<PageLoader />}>
+                                <CheckoutPage />
+                            </Suspense>
+                        ),
+                    },
+                    {
+                        path: 'status/:sagaId',
+                        element: (
+                            <Suspense fallback={<PageLoader />}>
+                                <OrderStatusPage />
+                            </Suspense>
+                        ),
+                    },
+                    {
+                        path: 'confirmation/:orderId',
+                        element: (
+                            <Suspense fallback={<PageLoader />}>
+                                <OrderConfirmationPage />
+                            </Suspense>
+                        ),
                     },
                 ],
             },

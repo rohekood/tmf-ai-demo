@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Users, Building2, Bug, ChevronRight, ChevronsLeft, ChevronsRight, BookOpen, Package, ShoppingCart, FolderTree } from 'lucide-react';
+import { Users, Building2, Bug, ChevronRight, ChevronsLeft, ChevronsRight, BookOpen, Package, ShoppingCart, FolderTree, ShoppingBag, MapPin } from 'lucide-react';
 import { LoginButton } from '../auth/LoginButton';
 import { LogoutButton } from '../auth/LogoutButton';
 import { useAuth } from '../../auth/context';
@@ -89,6 +89,22 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse }: SidebarProp
                         icon={<ShoppingCart size={20} />}
                         label={collapsed ? "" : "Offerings"}
                         title={collapsed ? "Offerings" : undefined}
+                    />
+                </div>
+
+                <div className="sidebar-nav-section">
+                    {!collapsed && <h3 className="sidebar-nav-title">Ordering</h3>}
+                    <NavItem
+                        to="/order/qualify"
+                        icon={<MapPin size={20} />}
+                        label={collapsed ? "" : "Check Availability"}
+                        title={collapsed ? "Check Availability" : undefined}
+                    />
+                    <NavItem
+                        to="/order/cart"
+                        icon={<ShoppingBag size={20} />}
+                        label={collapsed ? "" : "Shopping Cart"}
+                        title={collapsed ? "Shopping Cart" : undefined}
                     />
                 </div>
 

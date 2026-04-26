@@ -384,3 +384,65 @@ func TestHandleOrderCreated(t *testing.T) {
 		})
 	}
 }
+
+func TestGetSaga(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name        string
+		id          string
+		repo        *mockSagaRepository
+		expectError bool
+		expectNil   bool
+	}{
+		{
+			name: "Success",
+			id:   "s1",
+			repo: &mockSagaRepository{
+				get: func(ctx context.Context, id string) (*domain.SagaInstance, error) {
+					return &domain.SagaInstance{ID: id}, nil
+				},
+			},
+			expectError: false,
+			expectNil:   false,
+		},
+		{
+			name: "NotFound",
+			id:   "s2",
+			repo: &mockSagaRepository{
+				get: func(ctx context.Context, id string) (*domain.SagaInstance, error) {
+					return nil, nil
+				},
+			},
+			expectError: false,
+			expectNil:   true,
+		},
+		{
+			name: "Error",
+			id:   "s3",
+			repo: &mockSagaRepository{
+				get: func(ctx context.Context, id string) (*domain.SagaInstance, error) {
+					return nil, errors.New("db error")
+				},
+			},
+			expectError: true,
+			expectNil:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uc := NewSagaUseCase(tt.repo, nil)
+			res, err := uc.GetSaga(ctx, tt.id)
+			if (err != nil) != tt.expectError {
+				t.Errorf("GetSaga() error = %v, expectError %v", err, tt.expectError)
+			}
+			if tt.expectNil && res != nil {
+				t.Errorf("GetSaga() expected nil result, got %v", res)
+			}
+			if !tt.expectNil && res == nil {
+				t.Errorf("GetSaga() expected non-nil result")
+			}
+		})
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"tmf/pkg/rabbitmq"
+	"tmf/services/pocv/internal/core/domain"
 )
 
 type mockSagaUseCase struct {
@@ -15,6 +16,7 @@ type mockSagaUseCase struct {
 	handlePaymentAuthorized func(ctx context.Context, sagaID string) error
 	handlePaymentDeclined   func(ctx context.Context, sagaID string) error
 	handleOrderCreated      func(ctx context.Context, sagaID string) error
+	getSaga                 func(ctx context.Context, id string) (*domain.SagaInstance, error)
 }
 
 func (m *mockSagaUseCase) StartSaga(ctx context.Context, cartID string) error {
@@ -59,9 +61,16 @@ func (m *mockSagaUseCase) HandleOrderCreated(ctx context.Context, sagaID string)
 	return nil
 }
 
+func (m *mockSagaUseCase) GetSaga(ctx context.Context, id string) (*domain.SagaInstance, error) {
+	if m.getSaga != nil {
+		return m.getSaga(ctx, id)
+	}
+	return nil, nil
+}
+
 func TestHandleSagaEvent(t *testing.T) {
 	uc := &mockSagaUseCase{}
-	h := NewRabbitMQHandler(uc)
+	h := NewRabbitMQHandler(uc, &mockPublisher{})
 
 	tests := []struct {
 		name       string
@@ -107,7 +116,7 @@ func TestHandleSubmitOrder(t *testing.T) {
 					return tt.mockErr
 				},
 			}
-			h := NewRabbitMQHandler(uc)
+			h := NewRabbitMQHandler(uc, &mockPublisher{})
 			err := h.HandleSubmitOrder(context.Background(), tt.payload)
 			if (err != nil) != tt.expectError {
 				t.Errorf("HandleSubmitOrder() error = %v, expectError %v", err, tt.expectError)
@@ -135,7 +144,7 @@ func TestHandleInventoryReserved(t *testing.T) {
 					return tt.mockErr
 				},
 			}
-			h := NewRabbitMQHandler(uc)
+			h := NewRabbitMQHandler(uc, &mockPublisher{})
 			err := h.HandleInventoryReserved(context.Background(), tt.payload)
 			if (err != nil) != tt.expectError {
 				t.Errorf("HandleInventoryReserved() error = %v, expectError %v", err, tt.expectError)
@@ -163,7 +172,7 @@ func TestHandleInventoryFailed(t *testing.T) {
 					return tt.mockErr
 				},
 			}
-			h := NewRabbitMQHandler(uc)
+			h := NewRabbitMQHandler(uc, &mockPublisher{})
 			err := h.HandleInventoryFailed(context.Background(), tt.payload)
 			if (err != nil) != tt.expectError {
 				t.Errorf("HandleInventoryFailed() error = %v, expectError %v", err, tt.expectError)
@@ -191,7 +200,7 @@ func TestHandlePaymentAuthorized(t *testing.T) {
 					return tt.mockErr
 				},
 			}
-			h := NewRabbitMQHandler(uc)
+			h := NewRabbitMQHandler(uc, &mockPublisher{})
 			err := h.HandlePaymentAuthorized(context.Background(), tt.payload)
 			if (err != nil) != tt.expectError {
 				t.Errorf("HandlePaymentAuthorized() error = %v, expectError %v", err, tt.expectError)
@@ -219,7 +228,7 @@ func TestHandlePaymentDeclined(t *testing.T) {
 					return tt.mockErr
 				},
 			}
-			h := NewRabbitMQHandler(uc)
+			h := NewRabbitMQHandler(uc, &mockPublisher{})
 			err := h.HandlePaymentDeclined(context.Background(), tt.payload)
 			if (err != nil) != tt.expectError {
 				t.Errorf("HandlePaymentDeclined() error = %v, expectError %v", err, tt.expectError)
@@ -247,11 +256,95 @@ func TestHandleOrderCreated(t *testing.T) {
 					return tt.mockErr
 				},
 			}
-			h := NewRabbitMQHandler(uc)
+			h := NewRabbitMQHandler(uc, &mockPublisher{})
 			err := h.HandleOrderCreated(context.Background(), tt.payload)
 			if (err != nil) != tt.expectError {
 				t.Errorf("HandleOrderCreated() error = %v, expectError %v", err, tt.expectError)
 			}
 		})
+	}
+}
+
+type mockPublisher struct {
+	publishToQueue func(ctx context.Context, queueName, correlationID string, body interface{}) error
+}
+
+func (m *mockPublisher) PublishToQueue(ctx context.Context, queueName, correlationID string, body interface{}) error {
+	if m.publishToQueue != nil {
+		return m.publishToQueue(ctx, queueName, correlationID, body)
+	}
+	return nil
+}
+
+func (m *mockPublisher) Publish(ctx context.Context, exchange, routingKey string, body interface{}) error { return nil }
+func (m *mockPublisher) PublishToTopic(ctx context.Context, routingKey string, body interface{}) error { return nil }
+func (m *mockPublisher) DeclareTopicExchange(name string, durable, autoDelete, internal, noWait bool) error { return nil }
+func (m *mockPublisher) Close() error { return nil }
+
+func TestGetSagaQueryReturnsSagaInstanceToCaller(t *testing.T) {
+	mockSaga := &domain.SagaInstance{ID: "s1", Status: "PENDING"}
+
+	uc := &mockSagaUseCase{
+		getSaga: func(ctx context.Context, id string) (*domain.SagaInstance, error) {
+			if id == "s1" {
+				return mockSaga, nil
+			}
+			return nil, errors.New("not found")
+		},
+	}
+
+	pub := &mockPublisher{
+		publishToQueue: func(ctx context.Context, queueName, correlationID string, body interface{}) error {
+			if queueName != "reply_queue" {
+				t.Errorf("Expected reply_queue, got %s", queueName)
+			}
+			return nil
+		},
+	}
+
+	h := NewRabbitMQHandler(uc, pub)
+
+	ctx := context.WithValue(context.Background(), rabbitmq.ContextKeyReplyTo, "reply_queue")
+	ctx = context.WithValue(ctx, rabbitmq.ContextKeyAMQPCorrelationID, "cor-123")
+
+	err := h.HandleGetSaga(ctx, []byte(`{"id":"s1"}`))
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+}
+
+func TestGetSagaQueryFailsWhenSagaNotFound(t *testing.T) {
+	uc := &mockSagaUseCase{
+		getSaga: func(ctx context.Context, id string) (*domain.SagaInstance, error) {
+			return nil, errors.New("not found")
+		},
+	}
+	h := NewRabbitMQHandler(uc, &mockPublisher{})
+	
+	err := h.HandleGetSaga(context.Background(), []byte(`{"id":"s1"}`))
+	if err == nil {
+		t.Errorf("Expected error when saga not found")
+	}
+}
+
+func TestGetSagaQueryFailsWhenJsonInvalid(t *testing.T) {
+	h := NewRabbitMQHandler(&mockSagaUseCase{}, &mockPublisher{})
+	err := h.HandleGetSaga(context.Background(), []byte(`invalid json`))
+	if err == nil {
+		t.Errorf("Expected error when JSON is invalid")
+	}
+}
+
+func TestGetSagaQueryFailsWhenReplyToMissing(t *testing.T) {
+	uc := &mockSagaUseCase{
+		getSaga: func(ctx context.Context, id string) (*domain.SagaInstance, error) {
+			return &domain.SagaInstance{ID: "s1"}, nil
+		},
+	}
+	h := NewRabbitMQHandler(uc, &mockPublisher{})
+	
+	err := h.HandleGetSaga(context.Background(), []byte(`{"id":"s1"}`))
+	if err != nil {
+		t.Errorf("Expected no error when ReplyTo is missing (it should just log and return nil), got %v", err)
 	}
 }

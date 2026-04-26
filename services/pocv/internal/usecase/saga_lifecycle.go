@@ -187,3 +187,7 @@ func (u *sagaUseCase) HandleOrderCreated(ctx context.Context, sagaID string) err
 
 	return u.repo.Update(ctx, saga, nil)
 }
+
+func (u *sagaUseCase) GetSaga(ctx context.Context, id string) (*domain.SagaInstance, error) {
+	return u.repo.Get(ctx, id)
+}

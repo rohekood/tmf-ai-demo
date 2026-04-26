@@ -5,9 +5,9 @@ import { MemoryRouter } from 'react-router-dom';
 
 import { vi } from 'vitest';
 
-// Mock useAuth0
-vi.mock("@auth0/auth0-react", () => ({
-    useAuth0: () => ({
+// Mock useAuth
+vi.mock("../../auth/context", () => ({
+    useAuth: () => ({
         isAuthenticated: true,
         user: { name: 'Test User', email: 'test@example.com', picture: 'https://example.com/avatar.jpg' },
         logout: vi.fn(),

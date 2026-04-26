@@ -11,11 +11,12 @@ import (
 )
 
 type RabbitMQHandler struct {
-	useCase ports.SagaUseCase
+	useCase   ports.SagaUseCase
+	publisher rabbitmq.Publisher
 }
 
-func NewRabbitMQHandler(uc ports.SagaUseCase) *RabbitMQHandler {
-	return &RabbitMQHandler{useCase: uc}
+func NewRabbitMQHandler(uc ports.SagaUseCase, pub rabbitmq.Publisher) *RabbitMQHandler {
+	return &RabbitMQHandler{useCase: uc, publisher: pub}
 }
 
 // Dispatcher
@@ -86,10 +87,6 @@ func (h *RabbitMQHandler) HandleInventoryFailed(ctx context.Context, payload []b
 		return nil
 	}
 
-	// Note: SagaUseCase.HandleInventoryFailed only takes sagaID in ports.go?
-	// Let's check ports.go: HandleInventoryFailed(ctx context.Context, sagaID string) error
-	// It ignores reason? Or maybe I should log it.
-
 	if err := h.useCase.HandleInventoryFailed(ctx, evt.OrderID); err != nil {
 		return err
 	}
@@ -139,4 +136,29 @@ func (h *RabbitMQHandler) HandleOrderCreated(ctx context.Context, payload []byte
 		return err
 	}
 	return nil
+}
+
+func (h *RabbitMQHandler) HandleGetSaga(ctx context.Context, payload []byte) error {
+	type GetSagaQuery struct {
+		ID string `json:"id"`
+	}
+	var q GetSagaQuery
+	if err := json.Unmarshal(payload, &q); err != nil {
+		return err
+	}
+
+	sagaInstance, err := h.useCase.GetSaga(ctx, q.ID)
+	if err != nil {
+		return err
+	}
+
+	replyTo, _ := ctx.Value(rabbitmq.ContextKeyReplyTo).(string)
+	correlationID, _ := ctx.Value(rabbitmq.ContextKeyAMQPCorrelationID).(string)
+
+	if replyTo == "" {
+		log.Printf("POCV: Missing ReplyTo in RPC request")
+		return nil
+	}
+
+	return h.publisher.PublishToQueue(ctx, replyTo, correlationID, sagaInstance)
 }

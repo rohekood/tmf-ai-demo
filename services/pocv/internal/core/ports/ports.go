@@ -42,4 +42,5 @@ type SagaUseCase interface {
 	HandlePaymentAuthorized(ctx context.Context, sagaID string) error
 	HandlePaymentDeclined(ctx context.Context, sagaID string) error
 	HandleOrderCreated(ctx context.Context, sagaID string) error
+	GetSaga(ctx context.Context, id string) (*domain.SagaInstance, error)
 }

@@ -3,8 +3,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { Layout } from './Layout';
 import { MemoryRouter } from 'react-router-dom';
 
-vi.mock('@auth0/auth0-react', () => ({
-    useAuth0: () => ({
+vi.mock('../../auth/context', () => ({
+    useAuth: () => ({
         isAuthenticated: true,
         isLoading: false,
         user: { name: 'Test User', email: 'test@example.com' },

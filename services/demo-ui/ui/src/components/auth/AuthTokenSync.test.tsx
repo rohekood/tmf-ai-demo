@@ -4,10 +4,10 @@ import { AuthTokenSync } from './AuthTokenSync';
 import * as clientApi from '../../api/client';
 
 const mockGetAccessTokenSilently = vi.fn();
-const mockUseAuth0 = vi.fn();
+const mockUseAuth = vi.fn();
 
-vi.mock('@auth0/auth0-react', () => ({
-    useAuth0: () => mockUseAuth0(),
+vi.mock('../../auth/context', () => ({
+    useAuth: () => mockUseAuth(),
 }));
 
 // Spy on setAuthToken
@@ -19,7 +19,7 @@ describe('AuthTokenSync', () => {
     });
 
     it('sets auth token when authenticated', async () => {
-        mockUseAuth0.mockReturnValue({
+        mockUseAuth.mockReturnValue({
             isAuthenticated: true,
             getAccessTokenSilently: mockGetAccessTokenSilently,
         });
@@ -34,7 +34,7 @@ describe('AuthTokenSync', () => {
     });
 
     it('clears auth token when not authenticated', async () => {
-        mockUseAuth0.mockReturnValue({
+        mockUseAuth.mockReturnValue({
             isAuthenticated: false,
             getAccessTokenSilently: mockGetAccessTokenSilently,
         });

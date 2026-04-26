@@ -54,7 +54,7 @@ export function DebugFilters({ filter, onChange, onClear, totalCount, filteredCo
             <div className="filter-group">
                 <label>Service:</label>
                 <div className="filter-chips">
-                    {['party', 'customer', 'bff'].map((service) => (
+                    {['party', 'customer', 'bff', 'pocv', 'shopping-cart'].map((service) => (
                         <button
                             key={service}
                             className={`chip ${filter.services.includes(service) ? 'active' : ''}`}
