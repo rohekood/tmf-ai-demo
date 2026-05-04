@@ -2,6 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import type {
     QualificationRequest,
+    QualificationResult,
     QualificationSession,
     CartItemRequest,
     Cart,
@@ -10,8 +11,8 @@ import type {
 } from './types';
 
 // UC-01: Qualification API
-export const checkQualification = async (request: QualificationRequest): Promise<QualificationSession> => {
-    const { data } = await apiClient.post<QualificationSession>('/api/qualification/check', request);
+export const checkQualification = async (request: QualificationRequest): Promise<QualificationResult> => {
+    const { data } = await apiClient.post<QualificationResult>('/api/qualification/check', request);
     return data;
 };
 
@@ -48,7 +49,7 @@ export const getSagaStatus = async (sagaId: string): Promise<SagaStatusResponse>
 // --- Hooks ---
 
 export const useCheckQualification = () => {
-    return useMutation({
+    return useMutation<QualificationResult, Error, QualificationRequest>({
         mutationFn: checkQualification,
     });
 };
