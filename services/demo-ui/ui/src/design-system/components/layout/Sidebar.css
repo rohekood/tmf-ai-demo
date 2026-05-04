@@ -296,6 +296,22 @@
     }
 }
 
+.sidebar-nav-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: var(--color-primary, #6366f1);
+    color: #ffffff;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
 /* Collapse Toggle */
 .sidebar-collapse-toggle {
     margin-top: 1rem;
