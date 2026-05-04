@@ -75,6 +75,13 @@ func TestOrderHandler_GetQualificationSession(t *testing.T) {
 			if routingKey != queryQualSessionGet {
 				t.Errorf("Unexpected routing key: %s", routingKey)
 			}
+			p, ok := payload.(map[string]string)
+			if !ok {
+				t.Errorf("Expected payload to be map[string]string")
+			}
+			if p["sessionId"] != "sess1" {
+				t.Errorf("Expected payload sessionId=sess1, got %v", p)
+			}
 			return []byte(`{"sessionId":"sess1", "status":"qualified"}`), nil
 		}
 
@@ -96,6 +103,19 @@ func TestOrderHandler_GetQualificationSession(t *testing.T) {
 		mux.ServeHTTP(w, req)
 		if w.Code != http.StatusUnprocessableEntity {
 			t.Errorf("Expected status UnprocessableEntity, got %v", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "SESSION_EXPIRED") {
+			t.Errorf("Expected body to contain SESSION_EXPIRED, got %s", w.Body.String())
+		}
+	})
+
+	t.Run("EmptySessionId_ReturnsBadRequest", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/qualification/session/", nil)
+		w := httptest.NewRecorder()
+		// Call the handler directly with an empty path value to test the validation
+		handler.GetQualificationSession(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status BadRequest for empty session ID, got %v", w.Code)
 		}
 	})
 }

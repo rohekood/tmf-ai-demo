@@ -96,7 +96,7 @@ func (h *OrderHandler) GetQualificationSession(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	payload := map[string]string{"id": sessionId} // Some systems expect {"sessionId": "..."}
+	payload := map[string]string{"sessionId": sessionId}
 
 	ctx, cancel := context.WithTimeout(r.Context(), qualRPCTimeout)
 	defer cancel()
