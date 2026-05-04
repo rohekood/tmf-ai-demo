@@ -115,6 +115,101 @@ func TestDebugConsumer_HandleMessages_Raw(t *testing.T) {
 	close(msgs)
 }
 
+func TestDebugConsumer_HandleMessages_OrderingExchanges(t *testing.T) {
+	tests := []struct {
+		name            string
+		exchange        string
+		routingKey      string
+		expectedService string
+		expectedType    string
+	}{
+		{
+			name:            "qualification command on ex.domain.market",
+			exchange:        "ex.domain.market",
+			routingKey:      "cmd.qual.eligibility.check",
+			expectedService: "ordering",
+			expectedType:    "command",
+		},
+		{
+			name:            "qualification event on ex.domain.market",
+			exchange:        "ex.domain.market",
+			routingKey:      "evt.qual.checked",
+			expectedService: "ordering",
+			expectedType:    "event",
+		},
+		{
+			name:            "cart command on ex.domain.commerce",
+			exchange:        "ex.domain.commerce",
+			routingKey:      "cmd.cart.item.add",
+			expectedService: "ordering",
+			expectedType:    "command",
+		},
+		{
+			name:            "cart event on ex.domain.commerce",
+			exchange:        "ex.domain.commerce",
+			routingKey:      "evt.cart.session.updated",
+			expectedService: "ordering",
+			expectedType:    "event",
+		},
+		{
+			name:            "order command on ex.domain.order",
+			exchange:        "ex.domain.order",
+			routingKey:      "cmd.order.checkout.submit",
+			expectedService: "ordering",
+			expectedType:    "command",
+		},
+		{
+			name:            "saga query on ex.domain.order",
+			exchange:        "ex.domain.order",
+			routingKey:      "query.pocv.saga.get",
+			expectedService: "ordering",
+			expectedType:    "query",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mockBroadcaster := &MockBroadcaster{
+				MsgChan: make(chan any, 1),
+			}
+			consumer := &DebugConsumer{
+				broadcaster: mockBroadcaster,
+			}
+
+			msgs := make(chan amqp.Delivery, 1)
+			go consumer.handleMessages(msgs)
+
+			msgs <- amqp.Delivery{
+				MessageId:  "msg-order",
+				Exchange:   tc.exchange,
+				RoutingKey: tc.routingKey,
+				Body:       []byte(`{"sagaId":"abc123"}`),
+			}
+
+			select {
+			case received := <-mockBroadcaster.MsgChan:
+				debugMsg, ok := received.(DebugMessage)
+				if !ok {
+					t.Fatalf("Expected DebugMessage, got %T", received)
+				}
+				if debugMsg.Service != tc.expectedService {
+					t.Errorf("Expected Service %q, got %q", tc.expectedService, debugMsg.Service)
+				}
+				if debugMsg.Type != tc.expectedType {
+					t.Errorf("Expected Type %q, got %q", tc.expectedType, debugMsg.Type)
+				}
+				if debugMsg.Topic != tc.routingKey {
+					t.Errorf("Expected Topic %q, got %q", tc.routingKey, debugMsg.Topic)
+				}
+			case <-time.After(100 * time.Millisecond):
+				t.Error("Timeout waiting for broadcast")
+			}
+
+			close(msgs)
+		})
+	}
+}
+
 func TestDebugConsumer_NewDebugConsumer(t *testing.T) {
 	mockBroadcaster := &MockBroadcaster{}
 	consumer := NewDebugConsumer(nil, mockBroadcaster)

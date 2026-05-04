@@ -65,7 +65,13 @@ func (dc *DebugConsumer) StartSubscribing(exchangeName string) error {
 	// Based on implementation we have "tmf.party" and "tmf.customer".
 	// We need to bind to specific exchanges.
 
-	exchanges := []string{"tmf.party", "tmf.customer"}
+	exchanges := []string{
+		"tmf.party",
+		"tmf.customer",
+		"ex.domain.market",   // Qualification service
+		"ex.domain.commerce", // Shopping Cart service
+		"ex.domain.order",    // POCV saga service
+	}
 
 	for _, exchange := range exchanges {
 		// Ensure exchange exists (should be declared by services, but safer here)
@@ -130,6 +136,16 @@ func (dc *DebugConsumer) handleMessages(msgs <-chan amqp.Delivery) {
 		service := "unknown"
 		if len(d.Exchange) > 4 && d.Exchange[:4] == "tmf." {
 			service = d.Exchange[4:]
+		} else {
+			// Map ordering-related exchanges to "ordering"
+			orderingExchanges := map[string]string{
+				"ex.domain.market":   "ordering",
+				"ex.domain.commerce": "ordering",
+				"ex.domain.order":    "ordering",
+			}
+			if mapped, ok := orderingExchanges[d.Exchange]; ok {
+				service = mapped
+			}
 		}
 
 		var payload map[string]any
