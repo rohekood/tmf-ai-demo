@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useSagaStatus } from './api';
 import { PageLoader } from '../../design-system/components/common/PageLoader';
 
@@ -7,9 +7,6 @@ export default function OrderStatusPage() {
     const { sagaId } = useParams<{ sagaId: string }>();
     const navigate = useNavigate();
 
-    // Only hook into the query. It will poll until we tell it to stop.
-    // For simplicity, we won't tell it to stop polling automatically here unless status implies completion,
-    // which we can handle in the effect.
     const { data: statusData, isLoading, error } = useSagaStatus(sagaId);
 
     useEffect(() => {
@@ -31,8 +28,6 @@ export default function OrderStatusPage() {
         const s = statusData.status;
 
         switch (stepName) {
-            case 'started':
-                return 'completed';
             case 'inventory':
                 if (s === 'INVENTORY_RESERVED' || s === 'PAYMENT_AUTHORIZED' || s === 'COMPLETED') return 'completed';
                 if (s === 'INVENTORY_FAILED') return 'failed';
@@ -51,10 +46,9 @@ export default function OrderStatusPage() {
     };
 
     const steps = [
-        { id: 'started', label: 'Order Received' },
-        { id: 'inventory', label: 'Inventory Reservation' },
-        { id: 'payment', label: 'Payment Authorization' },
-        { id: 'order', label: 'Order Creation' }
+        { id: 'inventory', label: 'Inventory' },
+        { id: 'payment', label: 'Payment' },
+        { id: 'order', label: 'Order Created' }
     ];
 
     const stepColor = (status: string) => {
@@ -96,6 +90,12 @@ export default function OrderStatusPage() {
                     <div className="mt-8 p-4 bg-red-50 border border-red-200 rounded-md text-red-700">
                         <p className="font-bold">Order processing failed</p>
                         <p className="text-sm mt-1">{statusData.errorReason}</p>
+                        <Link
+                            to="/order/cart"
+                            className="inline-block mt-3 text-sm font-medium text-red-700 underline hover:text-red-900"
+                        >
+                            Modify Cart
+                        </Link>
                     </div>
                 )}
             </div>

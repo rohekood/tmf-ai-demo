@@ -71,5 +71,8 @@ describe('OrderStatusPage', () => {
 
         expect(screen.getByText('Order processing failed')).toBeInTheDocument();
         expect(screen.getByText('Payment rejected')).toBeInTheDocument();
+        const modifyCartLink = screen.getByRole('link', { name: /Modify Cart/i });
+        expect(modifyCartLink).toBeInTheDocument();
+        expect(modifyCartLink).toHaveAttribute('href', '/order/cart');
     });
 });
