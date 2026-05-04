@@ -138,27 +138,3 @@ func (h *RabbitMQHandler) HandleOrderCreated(ctx context.Context, payload []byte
 	return nil
 }
 
-func (h *RabbitMQHandler) HandleGetSaga(ctx context.Context, payload []byte) error {
-	type GetSagaQuery struct {
-		ID string `json:"id"`
-	}
-	var q GetSagaQuery
-	if err := json.Unmarshal(payload, &q); err != nil {
-		return err
-	}
-
-	sagaInstance, err := h.useCase.GetSaga(ctx, q.ID)
-	if err != nil {
-		return err
-	}
-
-	replyTo, _ := ctx.Value(rabbitmq.ContextKeyReplyTo).(string)
-	correlationID, _ := ctx.Value(rabbitmq.ContextKeyAMQPCorrelationID).(string)
-
-	if replyTo == "" {
-		log.Printf("POCV: Missing ReplyTo in RPC request")
-		return nil
-	}
-
-	return h.publisher.PublishToQueue(ctx, replyTo, correlationID, sagaInstance)
-}

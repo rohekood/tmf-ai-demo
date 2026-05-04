@@ -70,6 +70,7 @@ func Run(ctx context.Context, cfg Config) error {
 	cartClient := rpc.NewCartClient(rpcClient)
 	uc := usecase.NewSagaUseCase(repo, cartClient)
 	h := handler.NewRabbitMQHandler(uc, rmqPub)
+	rpcHandler := handler.NewRPCHandler(uc, rmqPub, slog.Default())
 
 	// Outbox Worker
 	outboxWorker := worker.NewOutboxWorker(db, rmqPub, cfg.Exchange)
@@ -93,8 +94,8 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 	defer func() { _ = rpcConsumer.Close() }()
 
-	if err := rpcConsumer.Subscribe("query.pocv.saga.get", h.HandleGetSaga); err != nil {
-		return fmt.Errorf("failed to subscribe rpc: %w", err)
+	if err := rpcHandler.BindRPCHandlers(rpcConsumer); err != nil {
+		return fmt.Errorf("failed to bind rpc handlers: %w", err)
 	}
 
 	slog.Info("POCV Service Started")
