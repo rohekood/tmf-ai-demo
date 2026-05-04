@@ -113,6 +113,10 @@ func run(ctx context.Context, getEnv func(string) string) error {
 		return fmt.Errorf("failed to subscribe cmds: %w", err)
 	}
 
+	if err := consumer.Subscribe(rabbitmq.CmdCartItemRemove, h.HandleRemoveItem); err != nil {
+		return fmt.Errorf("failed to subscribe remove cmd: %w", err)
+	}
+
 	// 8. Listener (Catalog Replication)
 	catalogConsumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.catalog", "q.cart.catalog.sync")
 	if err != nil {
@@ -133,6 +137,10 @@ func run(ctx context.Context, getEnv func(string) string) error {
 
 	if err := rpcConsumer.Subscribe("query.cart.session.get", h.HandleGetCart); err != nil {
 		return fmt.Errorf("failed to subscribe rpc: %w", err)
+	}
+
+	if err := rpcConsumer.Subscribe(rabbitmq.QueryCartGet, h.HandleGetCart); err != nil {
+		return fmt.Errorf("failed to subscribe query.cart.get rpc: %w", err)
 	}
 
 	// 10. Start

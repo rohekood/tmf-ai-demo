@@ -51,6 +51,18 @@ func TestOrderHandler_CheckQualification(t *testing.T) {
 			t.Errorf("Expected status InternalServerError, got %v", w.Code)
 		}
 	})
+
+	t.Run("Timeout", func(t *testing.T) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
+			return nil, context.DeadlineExceeded
+		}
+		req := httptest.NewRequest("POST", "/api/qualification/check", strings.NewReader(`{"address":{"street":"Main St"},"customerId":"c1"}`))
+		w := httptest.NewRecorder()
+		handler.CheckQualification(w, req)
+		if w.Code != http.StatusGatewayTimeout {
+			t.Errorf("Expected status GatewayTimeout (504), got %v", w.Code)
+		}
+	})
 }
 
 func TestOrderHandler_GetQualificationSession(t *testing.T) {
@@ -63,6 +75,13 @@ func TestOrderHandler_GetQualificationSession(t *testing.T) {
 		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
 			if routingKey != queryQualSessionGet {
 				t.Errorf("Unexpected routing key: %s", routingKey)
+			}
+			p, ok := payload.(map[string]string)
+			if !ok {
+				t.Errorf("Expected payload to be map[string]string")
+			}
+			if p["sessionId"] != "sess1" {
+				t.Errorf("Expected payload sessionId=sess1, got %v", p)
 			}
 			return []byte(`{"sessionId":"sess1", "status":"qualified"}`), nil
 		}
@@ -86,6 +105,19 @@ func TestOrderHandler_GetQualificationSession(t *testing.T) {
 		if w.Code != http.StatusUnprocessableEntity {
 			t.Errorf("Expected status UnprocessableEntity, got %v", w.Code)
 		}
+		if !strings.Contains(w.Body.String(), "SESSION_EXPIRED") {
+			t.Errorf("Expected body to contain SESSION_EXPIRED, got %s", w.Body.String())
+		}
+	})
+
+	t.Run("EmptySessionId_ReturnsBadRequest", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/qualification/session/", nil)
+		w := httptest.NewRecorder()
+		// Call the handler directly with an empty path value to test the validation
+		handler.GetQualificationSession(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status BadRequest for empty session ID, got %v", w.Code)
+		}
 	})
 }
 
@@ -97,6 +129,12 @@ func TestOrderHandler_AddCartItem(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
+			if exchange != cartExchange {
+				t.Errorf("Expected exchange %q, got %q", cartExchange, exchange)
+			}
+			if routingKey != cmdCartItemAdd {
+				t.Errorf("Expected routing key %q, got %q", cmdCartItemAdd, routingKey)
+			}
 			return []byte(`{"cartId":"cart1", "items":[]}`), nil
 		}
 
@@ -139,6 +177,18 @@ func TestOrderHandler_GetCart(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
+			if exchange != cartExchange {
+				t.Errorf("Expected exchange %q, got %q", cartExchange, exchange)
+			}
+			if routingKey != queryCartGet {
+				t.Errorf("Expected routing key %q, got %q", queryCartGet, routingKey)
+			}
+			// Verify payload contains cartId key
+			if p, ok := payload.(map[string]string); ok {
+				if p["cartId"] == "" {
+					t.Error("Expected cartId in payload")
+				}
+			}
 			return []byte(`{"id":"cart1"}`), nil
 		}
 
@@ -172,6 +222,12 @@ func TestOrderHandler_RemoveCartItem(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
+			if exchange != cartExchange {
+				t.Errorf("Expected exchange %q, got %q", cartExchange, exchange)
+			}
+			if routingKey != cmdCartItemRemove {
+				t.Errorf("Expected routing key %q, got %q", cmdCartItemRemove, routingKey)
+			}
 			return []byte(`{}`), nil
 		}
 

@@ -8,7 +8,7 @@ import (
 // Primary Port (Use Cases)
 type ManageItemsUseCase interface {
 	AddItem(ctx context.Context, cartID, offeringID, qualificationSessionID string, qty int) error
-	// UpdateItem, RemoveItem...
+	RemoveItem(ctx context.Context, cartID, itemID string) error
 }
 
 type SyncCatalogUseCase interface {

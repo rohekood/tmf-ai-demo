@@ -25,6 +25,11 @@ func (m *MockManageItemsUseCase) AddItem(ctx context.Context, cartID, offeringID
 	return args.Error(0)
 }
 
+func (m *MockManageItemsUseCase) RemoveItem(ctx context.Context, cartID, itemID string) error {
+	args := m.Called(ctx, cartID, itemID)
+	return args.Error(0)
+}
+
 // MockUpdatePriceUseCase mocks the UpdatePriceUseCase
 type MockUpdatePriceUseCase struct {
 	mock.Mock
@@ -359,5 +364,71 @@ func TestCartHandler_HandleGetCart(t *testing.T) {
 		err := h.HandleGetCart(ctx, payloadBytes)
 
 		assert.Error(t, err)
+	})
+}
+
+func TestCartHandler_HandleRemoveItem(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Should remove item successfully", func(t *testing.T) {
+		mockManageUC := new(MockManageItemsUseCase)
+		mockPriceUC := new(MockUpdatePriceUseCase)
+		mockSyncUC := new(MockSyncCatalogUseCase)
+		mockRepo := new(MockCartRepository)
+		mockPub := new(MockPublisher)
+
+		h := handler.NewCartHandler(mockManageUC, mockPriceUC, mockSyncUC, mockRepo, mockPub)
+
+		payload := map[string]any{
+			"cartId": "cart-123",
+			"itemId": "item-abc",
+		}
+		payloadBytes, _ := json.Marshal(payload)
+
+		mockManageUC.On("RemoveItem", ctx, "cart-123", "item-abc").Return(nil)
+
+		err := h.HandleRemoveItem(ctx, payloadBytes)
+
+		assert.NoError(t, err)
+		mockManageUC.AssertExpectations(t)
+	})
+
+	t.Run("Should fail when payload is invalid JSON", func(t *testing.T) {
+		mockManageUC := new(MockManageItemsUseCase)
+		mockPriceUC := new(MockUpdatePriceUseCase)
+		mockSyncUC := new(MockSyncCatalogUseCase)
+		mockRepo := new(MockCartRepository)
+		mockPub := new(MockPublisher)
+
+		h := handler.NewCartHandler(mockManageUC, mockPriceUC, mockSyncUC, mockRepo, mockPub)
+
+		err := h.HandleRemoveItem(ctx, []byte("invalid json"))
+
+		assert.Error(t, err)
+	})
+
+	t.Run("Should propagate use case errors", func(t *testing.T) {
+		mockManageUC := new(MockManageItemsUseCase)
+		mockPriceUC := new(MockUpdatePriceUseCase)
+		mockSyncUC := new(MockSyncCatalogUseCase)
+		mockRepo := new(MockCartRepository)
+		mockPub := new(MockPublisher)
+
+		h := handler.NewCartHandler(mockManageUC, mockPriceUC, mockSyncUC, mockRepo, mockPub)
+
+		payload := map[string]any{
+			"cartId": "cart-123",
+			"itemId": "item-not-found",
+		}
+		payloadBytes, _ := json.Marshal(payload)
+
+		mockManageUC.On("RemoveItem", ctx, "cart-123", "item-not-found").
+			Return(errors.New("item item-not-found not found in cart cart-123"))
+
+		err := h.HandleRemoveItem(ctx, payloadBytes)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+		mockManageUC.AssertExpectations(t)
 	})
 }

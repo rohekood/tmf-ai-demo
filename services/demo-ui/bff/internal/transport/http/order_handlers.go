@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -12,8 +13,9 @@ import (
 )
 
 const (
-	orderExchange = "ex.domain.market" // Used for qualification and cart routes
-	pocvExchange  = "ex.domain.order"  // Used for POCV saga routes (UC-03)
+	orderExchange = "ex.domain.market"   // Qualification service exchange
+	cartExchange  = "ex.domain.commerce" // Shopping Cart service exchange
+	pocvExchange  = "ex.domain.order"    // POCV saga service exchange (UC-03)
 
 	cmdQualEligibilityCheck = "cmd.qual.eligibility.check"
 	queryQualSessionGet     = "query.qual.session.get"
@@ -78,6 +80,10 @@ func (h *OrderHandler) CheckQualification(w http.ResponseWriter, r *http.Request
 	responseBytes, err := h.rpcClient.CallRPC(ctx, orderExchange, cmdQualEligibilityCheck, payload, getHeaders(r))
 	if err != nil {
 		slog.Error("error checking qualification", "error", err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			http.Error(w, "Qualification check timed out", http.StatusGatewayTimeout)
+			return
+		}
 		http.Error(w, "Failed to check qualification: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -94,7 +100,7 @@ func (h *OrderHandler) GetQualificationSession(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	payload := map[string]string{"id": sessionId} // Some systems expect {"sessionId": "..."}
+	payload := map[string]string{"sessionId": sessionId}
 
 	ctx, cancel := context.WithTimeout(r.Context(), qualRPCTimeout)
 	defer cancel()
@@ -132,7 +138,7 @@ func (h *OrderHandler) AddCartItem(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), cartRPCTimeout)
 	defer cancel()
 
-	responseBytes, err := h.rpcClient.CallRPC(ctx, orderExchange, cmdCartItemAdd, payload, getHeaders(r))
+	responseBytes, err := h.rpcClient.CallRPC(ctx, cartExchange, cmdCartItemAdd, payload, getHeaders(r))
 	if err != nil {
 		slog.Error("error adding cart item", "error", err)
 		w.Header().Set("Content-Type", "application/json")
@@ -152,12 +158,12 @@ func (h *OrderHandler) GetCart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payload := map[string]string{"id": cartId}
+	payload := map[string]string{"cartId": cartId}
 
 	ctx, cancel := context.WithTimeout(r.Context(), cartRPCTimeout)
 	defer cancel()
 
-	responseBytes, err := h.rpcClient.CallRPC(ctx, orderExchange, queryCartGet, payload, getHeaders(r))
+	responseBytes, err := h.rpcClient.CallRPC(ctx, cartExchange, queryCartGet, payload, getHeaders(r))
 	if err != nil {
 		slog.Error("error getting cart", "error", err)
 		http.Error(w, "Failed to get cart: "+err.Error(), http.StatusInternalServerError)
@@ -185,7 +191,7 @@ func (h *OrderHandler) RemoveCartItem(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), cartRPCTimeout)
 	defer cancel()
 
-	_, err := h.rpcClient.CallRPC(ctx, orderExchange, cmdCartItemRemove, payload, getHeaders(r))
+	_, err := h.rpcClient.CallRPC(ctx, cartExchange, cmdCartItemRemove, payload, getHeaders(r))
 	if err != nil {
 		slog.Error("error removing cart item", "error", err)
 		http.Error(w, "Failed to remove cart item: "+err.Error(), http.StatusInternalServerError)
