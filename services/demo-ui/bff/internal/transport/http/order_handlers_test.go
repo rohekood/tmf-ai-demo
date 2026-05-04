@@ -96,6 +96,12 @@ func TestOrderHandler_AddCartItem(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
+			if exchange != cartExchange {
+				t.Errorf("Expected exchange %q, got %q", cartExchange, exchange)
+			}
+			if routingKey != cmdCartItemAdd {
+				t.Errorf("Expected routing key %q, got %q", cmdCartItemAdd, routingKey)
+			}
 			return []byte(`{"cartId":"cart1", "items":[]}`), nil
 		}
 
@@ -138,6 +144,18 @@ func TestOrderHandler_GetCart(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
+			if exchange != cartExchange {
+				t.Errorf("Expected exchange %q, got %q", cartExchange, exchange)
+			}
+			if routingKey != queryCartGet {
+				t.Errorf("Expected routing key %q, got %q", queryCartGet, routingKey)
+			}
+			// Verify payload contains cartId key
+			if p, ok := payload.(map[string]string); ok {
+				if p["cartId"] == "" {
+					t.Error("Expected cartId in payload")
+				}
+			}
 			return []byte(`{"id":"cart1"}`), nil
 		}
 
@@ -171,6 +189,12 @@ func TestOrderHandler_RemoveCartItem(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
+			if exchange != cartExchange {
+				t.Errorf("Expected exchange %q, got %q", cartExchange, exchange)
+			}
+			if routingKey != cmdCartItemRemove {
+				t.Errorf("Expected routing key %q, got %q", cmdCartItemRemove, routingKey)
+			}
 			return []byte(`{}`), nil
 		}
 

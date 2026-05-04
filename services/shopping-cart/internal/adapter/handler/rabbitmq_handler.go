@@ -76,6 +76,20 @@ func (h *CartHandler) HandleCatalogEvent(ctx context.Context, payload []byte) er
 	return h.syncUC.SyncOffering(ctx, event.ID, event.Price.Amount, event.Price.Currency)
 }
 
+// HandleRemoveItem handles cmd.cart.item.remove
+func (h *CartHandler) HandleRemoveItem(ctx context.Context, payload []byte) error {
+	var cmd struct {
+		CartID string `json:"cartId"`
+		ItemID string `json:"itemId"`
+	}
+	if err := json.Unmarshal(payload, &cmd); err != nil {
+		return err
+	}
+
+	slog.InfoContext(ctx, "Removing item from cart", "cartId", cmd.CartID, "itemId", cmd.ItemID)
+	return h.manageUC.RemoveItem(ctx, cmd.CartID, cmd.ItemID)
+}
+
 // HandleGetCart (RPC Server)
 func (h *CartHandler) HandleGetCart(ctx context.Context, payload []byte) error {
 	// 1. Parse Request

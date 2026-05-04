@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	orderExchange = "ex.domain.market" // Using default market exchange
+	orderExchange = "ex.domain.market"   // Qualification service exchange
+	cartExchange  = "ex.domain.commerce" // Shopping Cart service exchange
 
 	cmdQualEligibilityCheck = "cmd.qual.eligibility.check"
 	queryQualSessionGet     = "query.qual.session.get"
@@ -129,7 +130,7 @@ func (h *OrderHandler) AddCartItem(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), cartRPCTimeout)
 	defer cancel()
 
-	responseBytes, err := h.rpcClient.CallRPC(ctx, orderExchange, cmdCartItemAdd, payload, getHeaders(r))
+	responseBytes, err := h.rpcClient.CallRPC(ctx, cartExchange, cmdCartItemAdd, payload, getHeaders(r))
 	if err != nil {
 		slog.Error("error adding cart item", "error", err)
 		w.Header().Set("Content-Type", "application/json")
@@ -149,12 +150,12 @@ func (h *OrderHandler) GetCart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payload := map[string]string{"id": cartId}
+	payload := map[string]string{"cartId": cartId}
 
 	ctx, cancel := context.WithTimeout(r.Context(), cartRPCTimeout)
 	defer cancel()
 
-	responseBytes, err := h.rpcClient.CallRPC(ctx, orderExchange, queryCartGet, payload, getHeaders(r))
+	responseBytes, err := h.rpcClient.CallRPC(ctx, cartExchange, queryCartGet, payload, getHeaders(r))
 	if err != nil {
 		slog.Error("error getting cart", "error", err)
 		http.Error(w, "Failed to get cart: "+err.Error(), http.StatusInternalServerError)
@@ -182,7 +183,7 @@ func (h *OrderHandler) RemoveCartItem(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), cartRPCTimeout)
 	defer cancel()
 
-	_, err := h.rpcClient.CallRPC(ctx, orderExchange, cmdCartItemRemove, payload, getHeaders(r))
+	_, err := h.rpcClient.CallRPC(ctx, cartExchange, cmdCartItemRemove, payload, getHeaders(r))
 	if err != nil {
 		slog.Error("error removing cart item", "error", err)
 		http.Error(w, "Failed to remove cart item: "+err.Error(), http.StatusInternalServerError)

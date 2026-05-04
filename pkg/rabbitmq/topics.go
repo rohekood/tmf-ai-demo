@@ -4,6 +4,7 @@ package rabbitmq
 const (
 	QueryInventoryResourceCapacity  = "query.inventory.resource.capacity"
 	QueryGISGeographyCheck          = "query.gis.geography.check"
+	QueryCartGet                    = "query.cart.get"
 	EvtCartSessionUpdated           = "evt.cart.session.updated"
 	EvtCartSessionPriced            = "evt.cart.session.priced"
 	CmdCartPriceUpdate              = "cmd.cart.price.update"
@@ -12,6 +13,7 @@ const (
 	CmdOrderManagementCreate        = "cmd.order.management.create"
 	CmdInventoryResourceRelease     = "cmd.inventory.resource.release"
 	CmdCartItemAdd                  = "cmd.cart.item.add"
+	CmdCartItemRemove               = "cmd.cart.item.remove"
 	CmdQualEligibilityCheck         = "cmd.qual.eligibility.check"
 	CmdOrderCheckoutSubmit          = "cmd.order.checkout.submit"
 	EvtPaymentTransactionAuthorized = "evt.payment.transaction.authorized"
