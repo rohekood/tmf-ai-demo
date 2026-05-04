@@ -50,6 +50,18 @@ func TestOrderHandler_CheckQualification(t *testing.T) {
 			t.Errorf("Expected status InternalServerError, got %v", w.Code)
 		}
 	})
+
+	t.Run("Timeout", func(t *testing.T) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
+			return nil, context.DeadlineExceeded
+		}
+		req := httptest.NewRequest("POST", "/api/qualification/check", strings.NewReader(`{"address":{"street":"Main St"},"customerId":"c1"}`))
+		w := httptest.NewRecorder()
+		handler.CheckQualification(w, req)
+		if w.Code != http.StatusGatewayTimeout {
+			t.Errorf("Expected status GatewayTimeout (504), got %v", w.Code)
+		}
+	})
 }
 
 func TestOrderHandler_GetQualificationSession(t *testing.T) {
