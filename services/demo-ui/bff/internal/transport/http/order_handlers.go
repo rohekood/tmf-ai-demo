@@ -8,11 +8,14 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const (
 	orderExchange = "ex.domain.market"   // Qualification service exchange
 	cartExchange  = "ex.domain.commerce" // Shopping Cart service exchange
+	pocvExchange  = "ex.domain.order"    // POCV saga service exchange (UC-03)
 
 	cmdQualEligibilityCheck = "cmd.qual.eligibility.check"
 	queryQualSessionGet     = "query.qual.session.get"
@@ -200,6 +203,13 @@ func (h *OrderHandler) RemoveCartItem(w http.ResponseWriter, r *http.Request) {
 
 // --- Checkout Handlers ---
 
+// checkoutResponse is the 202 response body for POST /api/orders/checkout.
+type checkoutResponse struct {
+	SagaID string `json:"sagaId"`
+	Status string `json:"status"`
+	CartID string `json:"cartId"`
+}
+
 func (h *OrderHandler) Checkout(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -214,20 +224,42 @@ func (h *OrderHandler) Checkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cartID, _ := payload["cartId"].(string)
+	if cartID == "" {
+		http.Error(w, "cartId is required", http.StatusBadRequest)
+		return
+	}
+
+	// Generate sagaId on the BFF side so it can be returned immediately and
+	// included in the command payload for POCV to use as its saga identifier.
+	sagaID := uuid.New().String()
+	payload["sagaId"] = sagaID
+
 	ctx, cancel := context.WithTimeout(r.Context(), sagaRPCTimeout)
 	defer cancel()
 
-	// Checkout is fire-and-forget in analysis but UI might expect sagaId in response
-	responseBytes, err := h.rpcClient.CallRPC(ctx, orderExchange, cmdOrderCheckoutSubmit, payload, getHeaders(r))
-	if err != nil {
-		slog.Error("error checking out", "error", err)
+	// Fire-and-forget: publish the command without waiting for a reply.
+	if err := h.rpcClient.PublishCommand(ctx, pocvExchange, cmdOrderCheckoutSubmit, payload); err != nil {
+		slog.Error("error publishing checkout command", "error", err)
 		http.Error(w, "Failed to initiate checkout: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	resp := checkoutResponse{
+		SagaID: sagaID,
+		Status: "PENDING",
+		CartID: cartID,
+	}
+	respBytes, err := json.Marshal(resp)
+	if err != nil {
+		slog.Error("error marshaling checkout response", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
-	_, _ = w.Write(responseBytes)
+	_, _ = w.Write(respBytes)
 }
 
 func (h *OrderHandler) GetSagaStatus(w http.ResponseWriter, r *http.Request) {
@@ -237,12 +269,12 @@ func (h *OrderHandler) GetSagaStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payload := map[string]string{"id": sagaId, "sagaId": sagaId} // Pass both to be safe depending on backend mapping
+	payload := map[string]string{"id": sagaId}
 
 	ctx, cancel := context.WithTimeout(r.Context(), sagaRPCTimeout)
 	defer cancel()
 
-	responseBytes, err := h.rpcClient.CallRPC(ctx, orderExchange, queryPocvSagaGet, payload, getHeaders(r))
+	responseBytes, err := h.rpcClient.CallRPC(ctx, pocvExchange, queryPocvSagaGet, payload, getHeaders(r))
 	if err != nil {
 		slog.Error("error getting saga status", "error", err)
 		http.Error(w, "Failed to get saga status: "+err.Error(), http.StatusInternalServerError)
