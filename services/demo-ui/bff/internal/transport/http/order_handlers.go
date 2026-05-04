@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -75,6 +76,10 @@ func (h *OrderHandler) CheckQualification(w http.ResponseWriter, r *http.Request
 	responseBytes, err := h.rpcClient.CallRPC(ctx, orderExchange, cmdQualEligibilityCheck, payload, getHeaders(r))
 	if err != nil {
 		slog.Error("error checking qualification", "error", err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			http.Error(w, "Qualification check timed out", http.StatusGatewayTimeout)
+			return
+		}
 		http.Error(w, "Failed to check qualification: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
