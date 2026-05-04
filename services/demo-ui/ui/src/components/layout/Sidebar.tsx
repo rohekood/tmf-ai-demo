@@ -3,6 +3,7 @@ import { Users, Building2, Bug, ChevronRight, ChevronsLeft, ChevronsRight, BookO
 import { LoginButton } from '../auth/LoginButton';
 import { LogoutButton } from '../auth/LogoutButton';
 import { useAuth } from '../../auth/context';
+import { CartBadge } from '../../features/ordering/CartBadge';
 import '../../design-system/components/layout/Sidebar.css';
 
 interface NavItemProps {
@@ -10,9 +11,10 @@ interface NavItemProps {
     icon: React.ReactNode;
     label: string;
     title?: string;
+    badge?: React.ReactNode;
 }
 
-function NavItem({ to, icon, label, title }: NavItemProps) {
+function NavItem({ to, icon, label, title, badge }: NavItemProps) {
     return (
         <NavLink
             to={to}
@@ -23,6 +25,7 @@ function NavItem({ to, icon, label, title }: NavItemProps) {
         >
             <span className="sidebar-nav-icon">{icon}</span>
             {label && <span className="sidebar-nav-label">{label}</span>}
+            {badge}
             {label && <ChevronRight className="sidebar-nav-arrow" size={16} />}
         </NavLink>
     );
@@ -105,6 +108,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse }: SidebarProp
                         icon={<ShoppingBag size={20} />}
                         label={collapsed ? "" : "Shopping Cart"}
                         title={collapsed ? "Shopping Cart" : undefined}
+                        badge={!collapsed && <CartBadge />}
                     />
                 </div>
 

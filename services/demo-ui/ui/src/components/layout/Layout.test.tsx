@@ -13,6 +13,10 @@ vi.mock('../../auth/context', () => ({
     }),
 }));
 
+vi.mock('../../features/ordering/CartBadge', () => ({
+    CartBadge: () => null,
+}));
+
 describe('Layout', () => {
     it('renders the layout with sidebar and headers', () => {
         render(

@@ -4,6 +4,7 @@ import type {
     QualificationRequest,
     QualificationSession,
     CartItemRequest,
+    AddCartItemResponse,
     Cart,
     CheckoutRequest,
     SagaStatusResponse
@@ -21,8 +22,9 @@ export const getQualificationSession = async (sessionId: string): Promise<Qualif
 };
 
 // UC-02: Cart API
-export const addCartItem = async (request: CartItemRequest): Promise<void> => {
-    await apiClient.post('/api/cart/items', request);
+export const addCartItem = async (request: CartItemRequest): Promise<AddCartItemResponse> => {
+    const { data } = await apiClient.post<AddCartItemResponse>('/api/cart/items', request);
+    return data;
 };
 
 export const getCart = async (cartId: string): Promise<Cart> => {

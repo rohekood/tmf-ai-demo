@@ -16,6 +16,10 @@ vi.mock("../../auth/context", () => ({
     })
 }));
 
+vi.mock('../../features/ordering/CartBadge', () => ({
+    CartBadge: () => null,
+}));
+
 describe('Sidebar', () => {
     it('renders navigation links', () => {
         const props = {

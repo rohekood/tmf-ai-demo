@@ -1,21 +1,25 @@
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCart, useRemoveCartItem } from './api';
 import { PageLoader } from '../../design-system/components/common/PageLoader';
 
+const CART_ID_KEY = 'cartId';
+
 export default function CartPage() {
     const navigate = useNavigate();
-    const cartId = 'default-cart'; // In a real app, this would be from context/session
-    
+    const queryClient = useQueryClient();
+    const cartId = localStorage.getItem(CART_ID_KEY) || undefined;
+
     const { data: cart, isLoading, error } = useCart(cartId);
     const { mutate: removeItem, isPending: isRemoving } = useRemoveCartItem();
 
     const handleRemove = (itemId: string) => {
+        if (!cartId) return;
         removeItem(
             { cartId, itemId },
             {
-                // Invalidate or refetch logic would ideally be in the hook, but for demo we can just reload or let query refetch
                 onSuccess: () => {
-                    window.location.reload(); // Simple approach for demo
+                    queryClient.invalidateQueries({ queryKey: ['cart', cartId] });
                 }
             }
         );

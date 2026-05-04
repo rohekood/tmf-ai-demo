@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -10,6 +10,16 @@ vi.mock('./api', () => ({
     useRemoveCartItem: vi.fn(),
 }));
 
+vi.mock('@tanstack/react-query', async () => {
+    const actual = await vi.importActual('@tanstack/react-query');
+    return {
+        ...actual,
+        useQueryClient: vi.fn(() => ({
+            invalidateQueries: vi.fn(),
+        })),
+    };
+});
+
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
     const actual = await vi.importActual('react-router-dom');
@@ -19,10 +29,15 @@ vi.mock('react-router-dom', async () => {
     };
 });
 
+beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.setItem('cartId', 'test-cart-id');
+    vi.mocked(api.useRemoveCartItem).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+});
+
 describe('CartPage', () => {
     it('renders loading state', () => {
         vi.mocked(api.useCart).mockReturnValue({ isLoading: true } as any);
-        vi.mocked(api.useRemoveCartItem).mockReturnValue({ mutate: vi.fn() } as any);
 
         render(
             <MemoryRouter>
@@ -72,8 +87,12 @@ describe('CartPage', () => {
         expect(mockNavigate).toHaveBeenCalledWith('/order/checkout');
     });
 
-    it('handles removing an item from the cart and reloads the page', async () => {
+    it('handles removing an item from the cart and invalidates query cache', async () => {
         const user = userEvent.setup();
+        const mockInvalidateQueries = vi.fn();
+        const { useQueryClient } = await import('@tanstack/react-query');
+        vi.mocked(useQueryClient).mockReturnValue({ invalidateQueries: mockInvalidateQueries } as any);
+
         const mockRemoveMutate = vi.fn().mockImplementation((_, options) => {
             if (options?.onSuccess) options.onSuccess();
         });
@@ -93,12 +112,6 @@ describe('CartPage', () => {
             isPending: false,
         } as any);
 
-        const originalLocation = window.location;
-        Object.defineProperty(window, 'location', {
-            configurable: true,
-            value: { reload: vi.fn() }
-        });
-
         render(
             <MemoryRouter>
                 <CartPage />
@@ -108,12 +121,10 @@ describe('CartPage', () => {
         await user.click(screen.getByRole('button', { name: /Remove/i }));
         
         expect(mockRemoveMutate).toHaveBeenCalledWith(
-            { cartId: 'default-cart', itemId: 'i1' },
+            { cartId: 'test-cart-id', itemId: 'i1' },
             expect.any(Object)
         );
-        expect(window.location.reload).toHaveBeenCalled();
-
-        Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['cart', 'test-cart-id'] });
     });
     
     it('navigates to browse services when cart is empty', async () => {
