@@ -9,16 +9,19 @@ const STEPS: { id: StepId; label: string }[] = [
     { id: 'order', label: 'Order Created' },
 ];
 
+const INVENTORY_COMPLETED_STATES = ['INVENTORY_RESERVED', 'PAYMENT_AUTHORIZED', 'PAYMENT_FAILED', 'COMPLETED'] as const;
+const PAYMENT_COMPLETED_STATES = ['PAYMENT_AUTHORIZED', 'COMPLETED'] as const;
+
 function getStepStatus(stepId: StepId, sagaStatus: SagaStatusResponse['status'] | undefined): StepStatus {
     if (!sagaStatus) return 'pending';
 
     switch (stepId) {
         case 'inventory':
-            if (sagaStatus === 'INVENTORY_RESERVED' || sagaStatus === 'PAYMENT_AUTHORIZED' || sagaStatus === 'PAYMENT_FAILED' || sagaStatus === 'COMPLETED') return 'completed';
+            if ((INVENTORY_COMPLETED_STATES as readonly string[]).includes(sagaStatus)) return 'completed';
             if (sagaStatus === 'INVENTORY_FAILED') return 'failed';
             return sagaStatus === 'STARTED' ? 'current' : 'pending';
         case 'payment':
-            if (sagaStatus === 'PAYMENT_AUTHORIZED' || sagaStatus === 'COMPLETED') return 'completed';
+            if ((PAYMENT_COMPLETED_STATES as readonly string[]).includes(sagaStatus)) return 'completed';
             if (sagaStatus === 'PAYMENT_FAILED') return 'failed';
             return sagaStatus === 'INVENTORY_RESERVED' ? 'current' : 'pending';
         case 'order':

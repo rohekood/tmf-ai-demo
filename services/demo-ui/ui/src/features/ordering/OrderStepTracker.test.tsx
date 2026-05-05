@@ -62,6 +62,8 @@ describe('OrderStepTracker', () => {
 
     it('marks order step as failed when FAILED', () => {
         render(<OrderStepTracker sagaStatus="FAILED" />);
+        expect(screen.getByTestId('step-inventory')).toHaveAttribute('data-status', 'pending');
+        expect(screen.getByTestId('step-payment')).toHaveAttribute('data-status', 'pending');
         expect(screen.getByTestId('step-order')).toHaveAttribute('data-status', 'failed');
     });
 });
