@@ -172,11 +172,11 @@ describe('QualifyPage', () => {
         expect(localStorage.getItem('cartId')).toBe('returned-cart-id');
     });
 
-    it('shows session expired banner when 422 session expired error is returned', async () => {
+    it('shows session expired banner when 422 SESSION_EXPIRED error is returned', async () => {
         const user = userEvent.setup();
         const axiosError = {
             isAxiosError: true,
-            response: { status: 422, data: { error: 'session expired' } },
+            response: { status: 422, data: { error: 'SESSION_EXPIRED' } },
         };
 
         const mockAddToCart = vi.fn().mockImplementation((_, options) => {
@@ -280,7 +280,7 @@ describe('QualifyPage', () => {
         const user = userEvent.setup();
         const axiosError = {
             isAxiosError: true,
-            response: { status: 422, data: { error: 'session expired' } },
+            response: { status: 422, data: { error: 'SESSION_EXPIRED' } },
         };
 
         const mockAddToCart = vi.fn().mockImplementation((_, options) => {
@@ -311,6 +311,48 @@ describe('QualifyPage', () => {
         expect(screen.getByRole('alert')).toBeInTheDocument();
 
         await user.click(screen.getByRole('button', { name: /Dismiss/i }));
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('re-check availability button triggers re-qualification', async () => {
+        const user = userEvent.setup();
+        const axiosError = {
+            isAxiosError: true,
+            response: { status: 422, data: { error: 'SESSION_EXPIRED' } },
+        };
+
+        const mockAddToCart = vi.fn().mockImplementation((_, options) => {
+            if (options?.onError) options.onError(axiosError);
+        });
+        const mockCheckQualify = vi.fn();
+        const mockReset = vi.fn();
+
+        vi.mocked(api.useCheckQualification).mockReturnValue({
+            mutate: mockCheckQualify,
+            isPending: false,
+            reset: mockReset,
+            data: sessionWithOfferings,
+        } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+        vi.mocked(api.useAddCartItem).mockReturnValue({
+            mutate: mockAddToCart,
+            isPending: false,
+        } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+        render(
+            <NotificationProvider>
+                <MemoryRouter>
+                    <QualifyPage />
+                </MemoryRouter>
+            </NotificationProvider>
+        );
+
+        await user.click(screen.getByRole('button', { name: /Add to Cart/i }));
+        expect(screen.getByRole('alert')).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: /re-check availability/i }));
+        expect(mockReset).toHaveBeenCalled();
+        expect(mockCheckQualify).toHaveBeenCalled();
         expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 

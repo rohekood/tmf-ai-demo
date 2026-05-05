@@ -1,6 +1,5 @@
 import { useCart } from './api';
-
-const CART_ID_KEY = 'cartId';
+import { CART_ID_KEY } from './storage';
 
 export function CartBadge() {
     const cartId = localStorage.getItem(CART_ID_KEY) || undefined;

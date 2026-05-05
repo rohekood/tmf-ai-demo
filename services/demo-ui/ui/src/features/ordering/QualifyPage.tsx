@@ -6,8 +6,7 @@ import { AddressForm, type AddressFormData } from './AddressForm';
 import { OfferingCard } from './OfferingCard';
 import { PageLoader } from '../../design-system/components/common/PageLoader';
 import { useNotification } from '../../design-system/components/common/Toast';
-
-const CART_ID_KEY = 'cartId';
+import { CART_ID_KEY } from './storage';
 
 export default function QualifyPage() {
     const navigate = useNavigate();
@@ -32,7 +31,9 @@ export default function QualifyPage() {
     };
 
     const handleRecheck = () => {
+        setSessionExpired(false);
         reset();
+        checkQualify({ address });
     };
 
     const handleSelectOffering = (offeringId: string) => {
@@ -50,7 +51,7 @@ export default function QualifyPage() {
                 onError: (err) => {
                     if (isAxiosError(err) && err.response?.status === 422) {
                         const errorCode = err.response.data?.error;
-                        if (errorCode === 'session expired') {
+                        if (errorCode === 'SESSION_EXPIRED') {
                             setSessionExpired(true);
                         } else {
                             showToast('Not available at your address', 'error');
@@ -72,7 +73,7 @@ export default function QualifyPage() {
 
             {sessionExpired && (
                 <div role="alert" className="bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-3 rounded flex items-center justify-between">
-                    <span>Session expired – please <button onClick={() => setSessionExpired(false)} className="underline font-medium">re-check availability</button>.</span>
+                    <span>Session expired – please <button onClick={handleRecheck} className="underline font-medium">re-check availability</button>.</span>
                     <button onClick={() => setSessionExpired(false)} aria-label="Dismiss" className="ml-4 text-yellow-600 hover:text-yellow-800">✕</button>
                 </div>
             )}

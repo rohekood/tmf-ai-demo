@@ -2,8 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCart, useRemoveCartItem } from './api';
 import { PageLoader } from '../../design-system/components/common/PageLoader';
-
-const CART_ID_KEY = 'cartId';
+import { CART_ID_KEY } from './storage';
 
 export default function CartPage() {
     const navigate = useNavigate();
