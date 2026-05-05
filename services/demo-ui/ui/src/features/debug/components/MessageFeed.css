@@ -39,20 +39,16 @@
 
 /* Type Colors for Icon */
 .feed-item.command .feed-item-icon {
-    color: #3b82f6;
+    color: #3b82f6; /* Blue */
 }
 
-/* Blue */
 .feed-item.event .feed-item-icon {
-    color: #f59e0b;
+    color: #a855f7; /* Purple */
 }
 
-/* Amber */
 .feed-item.query .feed-item-icon {
-    color: #10b981;
+    color: #10b981; /* Green */
 }
-
-/* Green */
 
 .feed-item-content {
     flex: 1;

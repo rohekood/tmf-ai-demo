@@ -101,6 +101,35 @@ describe('DebugFilters', () => {
         expect(mockOnChange).toHaveBeenCalledWith({ ...defaultFilter, types: ['command'] });
     });
 
+    it('renders ordering service filter chip', () => {
+        render(
+            <DebugFilters
+                filter={defaultFilter}
+                onChange={mockOnChange}
+                onClear={mockOnClear}
+                totalCount={0}
+                filteredCount={0}
+            />
+        );
+
+        expect(screen.getByText('ordering')).toBeInTheDocument();
+    });
+
+    it('toggles ordering service filter correctly', () => {
+        render(
+            <DebugFilters
+                filter={defaultFilter}
+                onChange={mockOnChange}
+                onClear={mockOnClear}
+                totalCount={0}
+                filteredCount={0}
+            />
+        );
+
+        fireEvent.click(screen.getByText('ordering'));
+        expect(mockOnChange).toHaveBeenCalledWith({ ...defaultFilter, services: ['ordering'] });
+    });
+
     it('calls onClear when clear button is clicked', () => {
         render(
             <DebugFilters
