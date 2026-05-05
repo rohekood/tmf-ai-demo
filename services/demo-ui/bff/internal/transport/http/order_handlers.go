@@ -135,11 +135,12 @@ func (h *OrderHandler) AddCartItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ensure cartId is always a non-empty value before forwarding to the cart
+	// Ensure cartId is always a non-empty string before forwarding to the cart
 	// service. An empty cartId would cause the service to save a cart with ID ""
-	// creating a collision shared across all sessions.
-	cartID, _ := payload["cartId"].(string)
-	if cartID == "" {
+	// creating a collision shared across all sessions. A missing or non-string
+	// cartId value is treated as absent and a new UUID is generated.
+	cartID, ok := payload["cartId"].(string)
+	if !ok || cartID == "" {
 		cartID = uuid.New().String()
 		payload["cartId"] = cartID
 	}

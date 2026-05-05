@@ -136,7 +136,10 @@ func TestOrderHandler_AddCartItem(t *testing.T) {
 				t.Errorf("Expected routing key %q, got %q", cmdCartItemAdd, routingKey)
 			}
 			// Verify the provided cartId is forwarded unchanged.
-			m, _ := payload.(map[string]any)
+			m, ok := payload.(map[string]any)
+			if !ok {
+				t.Fatalf("Expected payload to be map[string]any, got %T", payload)
+			}
 			if m["cartId"] != "cart1" {
 				t.Errorf("Expected cartId=cart1 in payload, got %v", m["cartId"])
 			}
@@ -162,7 +165,10 @@ func TestOrderHandler_AddCartItem(t *testing.T) {
 	t.Run("Success_AutoGeneratesCartId", func(t *testing.T) {
 		var capturedCartID string
 		mockClient.PublishCommandFunc = func(ctx context.Context, exchange, routingKey string, payload any) error {
-			m, _ := payload.(map[string]any)
+			m, ok := payload.(map[string]any)
+			if !ok {
+				t.Fatalf("Expected payload to be map[string]any, got %T", payload)
+			}
 			capturedCartID, _ = m["cartId"].(string)
 			return nil
 		}
