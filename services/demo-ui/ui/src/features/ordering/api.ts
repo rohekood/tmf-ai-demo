@@ -2,6 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import type {
     QualificationRequest,
+    QualificationResult,
     QualificationSession,
     CartItemRequest,
     AddCartItemResponse,
@@ -11,8 +12,8 @@ import type {
 } from './types';
 
 // UC-01: Qualification API
-export const checkQualification = async (request: QualificationRequest): Promise<QualificationSession> => {
-    const { data } = await apiClient.post<QualificationSession>('/api/qualification/check', request);
+export const checkQualification = async (request: QualificationRequest): Promise<QualificationResult> => {
+    const { data } = await apiClient.post<QualificationResult>('/api/qualification/check', request);
     return data;
 };
 
@@ -50,7 +51,7 @@ export const getSagaStatus = async (sagaId: string): Promise<SagaStatusResponse>
 // --- Hooks ---
 
 export const useCheckQualification = () => {
-    return useMutation({
+    return useMutation<QualificationResult, Error, QualificationRequest>({
         mutationFn: checkQualification,
     });
 };
@@ -90,11 +91,14 @@ export const useCheckout = () => {
     });
 };
 
-export const useSagaStatus = (sagaId?: string, isCompleted = false) => {
+export const useSagaStatus = (sagaId?: string) => {
     return useQuery({
         queryKey: ['sagaStatus', sagaId],
         queryFn: () => getSagaStatus(sagaId!),
-        enabled: !!sagaId && !isCompleted,
-        refetchInterval: isCompleted ? false : 2000, // Poll every 2 seconds if not completed
+        enabled: !!sagaId,
+        refetchInterval: (query) => {
+            const status = query.state.data?.status;
+            return status === 'COMPLETED' || status === 'FAILED' ? false : 3000;
+        },
     });
 };
