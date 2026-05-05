@@ -110,7 +110,7 @@ describe('QualifyPage', () => {
     it('on success (Qualified): renders OfferingCard list with offeringName, price, currency, Add to Cart', async () => {
         const user = userEvent.setup();
         const mockAddToCart = vi.fn().mockImplementation((_, options) => {
-            if (options?.onSuccess) options.onSuccess({ cartId: 'cart-abc', items: [], totalPrice: 0, currency: 'EUR' });
+            if (options?.onSuccess) options.onSuccess({ cartId: 'cart-abc' });
         });
 
         vi.mocked(api.useCheckQualification).mockReturnValue({
@@ -145,7 +145,7 @@ describe('QualifyPage', () => {
     it('saves cartId to localStorage on add item success', async () => {
         const user = userEvent.setup();
         const mockAddToCart = vi.fn().mockImplementation((_, options) => {
-            if (options?.onSuccess) options.onSuccess({ cartId: 'returned-cart-id', items: [], totalPrice: 0, currency: 'EUR' });
+            if (options?.onSuccess) options.onSuccess({ cartId: 'returned-cart-id' });
         });
 
         vi.mocked(api.useCheckQualification).mockReturnValue({

@@ -53,7 +53,9 @@ export interface CartItemRequest {
     quantity: number;
 }
 
-export type AddCartItemResponse = Pick<Cart, 'id' | 'items' | 'totalPrice' | 'currency'>;
+export interface AddCartItemResponse {
+    cartId: string;
+}
 
 export interface CartItem {
     id: string;

@@ -135,20 +135,32 @@ func (h *OrderHandler) AddCartItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Ensure cartId is always a non-empty value before forwarding to the cart
+	// service. An empty cartId would cause the service to save a cart with ID ""
+	// creating a collision shared across all sessions.
+	cartID, _ := payload["cartId"].(string)
+	if cartID == "" {
+		cartID = uuid.New().String()
+		payload["cartId"] = cartID
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), cartRPCTimeout)
 	defer cancel()
 
-	responseBytes, err := h.rpcClient.CallRPC(ctx, cartExchange, cmdCartItemAdd, payload, getHeaders(r))
-	if err != nil {
-		slog.Error("error adding cart item", "error", err)
+	// cmd.cart.item.add is a fire-and-forget command; the cart service processes
+	// it asynchronously and does not publish an RPC reply.
+	if err := h.rpcClient.PublishCommand(ctx, cartExchange, cmdCartItemAdd, payload); err != nil {
+		slog.Error("error publishing add cart item command", "error", err)
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 
+	// Return the cartId so the UI can persist it in localStorage and use it for
+	// subsequent cart queries and the checkout flow.
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(responseBytes)
+	json.NewEncoder(w).Encode(map[string]string{"cartId": cartID})
 }
 
 func (h *OrderHandler) GetCart(w http.ResponseWriter, r *http.Request) {
