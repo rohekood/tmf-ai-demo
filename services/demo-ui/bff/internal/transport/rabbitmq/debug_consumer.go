@@ -40,6 +40,16 @@ func NewDebugConsumer(client *Client, broadcaster Broadcaster) *DebugConsumer {
 	}
 }
 
+// debugExchanges is the list of exchanges the debug consumer binds to.
+// Defined at package level so tests can assert the complete set without a live broker.
+var debugExchanges = []string{
+	"tmf.party",
+	"tmf.customer",
+	"ex.domain.market",   // Qualification service
+	"ex.domain.commerce", // Shopping Cart service
+	"ex.domain.order",    // POCV saga service
+}
+
 // StartSubscribing sets up a queue to listen to everything on the topic exchange
 func (dc *DebugConsumer) StartSubscribing(exchangeName string) error {
 	ch, err := dc.client.Connection().Channel()
@@ -61,17 +71,7 @@ func (dc *DebugConsumer) StartSubscribing(exchangeName string) error {
 	}
 
 	// Bind to all topics
-	// We assume a topic exchange "tmf.events" or similar is used for everything?
-	// Based on implementation we have "tmf.party" and "tmf.customer".
-	// We need to bind to specific exchanges.
-
-	exchanges := []string{
-		"tmf.party",
-		"tmf.customer",
-		"ex.domain.market",   // Qualification service
-		"ex.domain.commerce", // Shopping Cart service
-		"ex.domain.order",    // POCV saga service
-	}
+	exchanges := debugExchanges
 
 	for _, exchange := range exchanges {
 		// Ensure exchange exists (should be declared by services, but safer here)

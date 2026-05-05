@@ -210,6 +210,27 @@ func TestDebugConsumer_HandleMessages_OrderingExchanges(t *testing.T) {
 	}
 }
 
+func TestDebugConsumer_SubscribedExchanges(t *testing.T) {
+	// This test ensures ordering exchanges are present so a regression in
+	// StartSubscribing bindings is caught without a live broker.
+	required := []string{
+		"ex.domain.market",
+		"ex.domain.commerce",
+		"ex.domain.order",
+	}
+
+	exchangeSet := make(map[string]bool, len(debugExchanges))
+	for _, e := range debugExchanges {
+		exchangeSet[e] = true
+	}
+
+	for _, e := range required {
+		if !exchangeSet[e] {
+			t.Errorf("expected exchange %q to be in debugExchanges", e)
+		}
+	}
+}
+
 func TestDebugConsumer_NewDebugConsumer(t *testing.T) {
 	mockBroadcaster := &MockBroadcaster{}
 	consumer := NewDebugConsumer(nil, mockBroadcaster)
