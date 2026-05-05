@@ -54,5 +54,40 @@ describe('Sidebar', () => {
         expect(screen.queryByRole('group', { name: /user details/i })).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /log out/i })).not.toBeInTheDocument();
     });
-});
 
+    describe('Ordering section', () => {
+        it('renders "Ordering" section heading and both nav links', () => {
+            render(
+                <MemoryRouter>
+                    <Sidebar collapsed={false} mobileOpen={false} onToggleCollapse={() => { }} />
+                </MemoryRouter>
+            );
+
+            expect(screen.getByText('Ordering')).toBeInTheDocument();
+            expect(screen.getByRole('link', { name: /Check Availability/i })).toBeInTheDocument();
+            expect(screen.getByRole('link', { name: /Shopping Cart/i })).toBeInTheDocument();
+        });
+
+        it('renders "Check Availability" link pointing to /order/qualify', () => {
+            render(
+                <MemoryRouter>
+                    <Sidebar collapsed={false} mobileOpen={false} onToggleCollapse={() => { }} />
+                </MemoryRouter>
+            );
+
+            const link = screen.getByRole('link', { name: /Check Availability/i });
+            expect(link).toHaveAttribute('href', '/order/qualify');
+        });
+
+        it('renders "Shopping Cart" link pointing to /order/cart', () => {
+            render(
+                <MemoryRouter>
+                    <Sidebar collapsed={false} mobileOpen={false} onToggleCollapse={() => { }} />
+                </MemoryRouter>
+            );
+
+            const link = screen.getByRole('link', { name: /Shopping Cart/i });
+            expect(link).toHaveAttribute('href', '/order/cart');
+        });
+    });
+});

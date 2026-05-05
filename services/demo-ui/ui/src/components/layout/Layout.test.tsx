@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { Layout } from './Layout';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('../../auth/context', () => ({
     useAuth: () => ({
@@ -17,12 +18,18 @@ vi.mock('../../features/ordering/CartBadge', () => ({
     CartBadge: () => null,
 }));
 
+const createTestQueryClient = () => new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+});
+
 describe('Layout', () => {
     it('renders the layout with sidebar and headers', () => {
         render(
-            <MemoryRouter>
-                <Layout />
-            </MemoryRouter>
+            <QueryClientProvider client={createTestQueryClient()}>
+                <MemoryRouter>
+                    <Layout />
+                </MemoryRouter>
+            </QueryClientProvider>
         );
 
         // Check header
