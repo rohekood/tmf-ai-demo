@@ -88,11 +88,14 @@ export const useCheckout = () => {
     });
 };
 
-export const useSagaStatus = (sagaId?: string, isCompleted = false) => {
+export const useSagaStatus = (sagaId?: string) => {
     return useQuery({
         queryKey: ['sagaStatus', sagaId],
         queryFn: () => getSagaStatus(sagaId!),
-        enabled: !!sagaId && !isCompleted,
-        refetchInterval: isCompleted ? false : 2000, // Poll every 2 seconds if not completed
+        enabled: !!sagaId,
+        refetchInterval: (query) => {
+            const status = query.state.data?.status;
+            return status === 'COMPLETED' || status === 'FAILED' ? false : 3000;
+        },
     });
 };
