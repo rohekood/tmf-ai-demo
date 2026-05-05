@@ -31,10 +31,11 @@ beforeEach(() => {
 });
 
 describe('QualifyPage', () => {
-    it('renders qualification form', async () => {
+    it('renders qualification form and submits with typed address values', async () => {
         const user = userEvent.setup();
+        const mockCheckQualify = vi.fn();
         vi.mocked(api.useCheckQualification).mockReturnValue({
-            mutate: vi.fn(),
+            mutate: mockCheckQualify,
             isPending: false,
         } as any);
         vi.mocked(api.useAddCartItem).mockReturnValue({
@@ -53,7 +54,7 @@ describe('QualifyPage', () => {
         expect(screen.getByText('Service Qualification')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /Check Availability/i })).toBeInTheDocument();
         
-        // Test all inputs
+        // Test all inputs update correctly
         const [streetInput, cityInput, postcodeInput, countryInput] = screen.getAllByRole('textbox');
         await user.clear(streetInput);
         await user.type(streetInput, 'New Street');
@@ -70,6 +71,12 @@ describe('QualifyPage', () => {
         await user.clear(countryInput);
         await user.type(countryInput, 'FI');
         expect(countryInput).toHaveValue('FI');
+
+        // Submit and verify mutation called with the new address values
+        await user.click(screen.getByRole('button', { name: /Check Availability/i }));
+        expect(mockCheckQualify).toHaveBeenCalledWith({
+            address: { street: 'New Street', city: 'Helsinki', postcode: '00100', country: 'FI' }
+        });
     });
 
     it('submits form, shows offerings, and navigates on add to cart', async () => {
