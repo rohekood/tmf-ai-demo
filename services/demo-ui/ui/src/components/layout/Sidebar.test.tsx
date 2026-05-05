@@ -16,6 +16,13 @@ vi.mock("../../auth/context", () => ({
     })
 }));
 
+// Mock useCart
+vi.mock("../../features/ordering/api", () => ({
+    useCart: vi.fn(() => ({ data: undefined })),
+}));
+
+import * as orderingApi from "../../features/ordering/api";
+
 describe('Sidebar', () => {
     it('renders navigation links', () => {
         const props = {
@@ -50,5 +57,87 @@ describe('Sidebar', () => {
         expect(screen.queryByRole('group', { name: /user details/i })).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /log out/i })).not.toBeInTheDocument();
     });
-});
 
+    describe('Ordering section', () => {
+        it('renders "Ordering" section heading and both nav links', () => {
+            vi.mocked(orderingApi.useCart).mockReturnValue({ data: undefined } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+            render(
+                <MemoryRouter>
+                    <Sidebar collapsed={false} mobileOpen={false} onToggleCollapse={() => { }} />
+                </MemoryRouter>
+            );
+
+            expect(screen.getByText('Ordering')).toBeInTheDocument();
+            expect(screen.getByRole('link', { name: /Check Availability/i })).toBeInTheDocument();
+            expect(screen.getByRole('link', { name: /Shopping Cart/i })).toBeInTheDocument();
+        });
+
+        it('renders "Check Availability" link pointing to /order/qualify', () => {
+            vi.mocked(orderingApi.useCart).mockReturnValue({ data: undefined } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+            render(
+                <MemoryRouter>
+                    <Sidebar collapsed={false} mobileOpen={false} onToggleCollapse={() => { }} />
+                </MemoryRouter>
+            );
+
+            const link = screen.getByRole('link', { name: /Check Availability/i });
+            expect(link).toHaveAttribute('href', '/order/qualify');
+        });
+
+        it('renders "Shopping Cart" link pointing to /order/cart', () => {
+            vi.mocked(orderingApi.useCart).mockReturnValue({ data: undefined } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+            render(
+                <MemoryRouter>
+                    <Sidebar collapsed={false} mobileOpen={false} onToggleCollapse={() => { }} />
+                </MemoryRouter>
+            );
+
+            const link = screen.getByRole('link', { name: /Shopping Cart/i });
+            expect(link).toHaveAttribute('href', '/order/cart');
+        });
+
+        it('shows cart item count badge when cart has items', () => {
+            vi.mocked(orderingApi.useCart).mockReturnValue({
+                data: { id: 'default-cart', items: [{ id: 'i1' }, { id: 'i2' }] }
+            } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+            render(
+                <MemoryRouter>
+                    <Sidebar collapsed={false} mobileOpen={false} onToggleCollapse={() => { }} />
+                </MemoryRouter>
+            );
+
+            expect(screen.getByLabelText('2 items')).toBeInTheDocument();
+            expect(screen.getByLabelText('2 items')).toHaveTextContent('2');
+        });
+
+        it('does not show cart badge when cart is empty', () => {
+            vi.mocked(orderingApi.useCart).mockReturnValue({
+                data: { id: 'default-cart', items: [] }
+            } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+            render(
+                <MemoryRouter>
+                    <Sidebar collapsed={false} mobileOpen={false} onToggleCollapse={() => { }} />
+                </MemoryRouter>
+            );
+
+            expect(screen.queryByLabelText(/items/i)).not.toBeInTheDocument();
+        });
+
+        it('does not show cart badge when cart data is unavailable', () => {
+            vi.mocked(orderingApi.useCart).mockReturnValue({ data: undefined } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+            render(
+                <MemoryRouter>
+                    <Sidebar collapsed={false} mobileOpen={false} onToggleCollapse={() => { }} />
+                </MemoryRouter>
+            );
+
+            expect(screen.queryByLabelText(/items/i)).not.toBeInTheDocument();
+        });
+    });
+});

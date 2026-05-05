@@ -3,6 +3,7 @@ import { Users, Building2, Bug, ChevronRight, ChevronsLeft, ChevronsRight, BookO
 import { LoginButton } from '../auth/LoginButton';
 import { LogoutButton } from '../auth/LogoutButton';
 import { useAuth } from '../../auth/context';
+import { useCart } from '../../features/ordering/api';
 import '../../design-system/components/layout/Sidebar.css';
 
 interface NavItemProps {
@@ -10,9 +11,10 @@ interface NavItemProps {
     icon: React.ReactNode;
     label: string;
     title?: string;
+    badge?: number;
 }
 
-function NavItem({ to, icon, label, title }: NavItemProps) {
+function NavItem({ to, icon, label, title, badge }: NavItemProps) {
     return (
         <NavLink
             to={to}
@@ -23,6 +25,9 @@ function NavItem({ to, icon, label, title }: NavItemProps) {
         >
             <span className="sidebar-nav-icon">{icon}</span>
             {label && <span className="sidebar-nav-label">{label}</span>}
+            {badge !== undefined && badge > 0 && (
+                <span className="sidebar-nav-badge" aria-label={`${badge} items`}>{badge}</span>
+            )}
             {label && <ChevronRight className="sidebar-nav-arrow" size={16} />}
         </NavLink>
     );
@@ -36,6 +41,8 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, mobileOpen, onToggleCollapse }: SidebarProps) {
     const { user, isAuthenticated, isLoading } = useAuth();
+    const { data: cart } = useCart('default-cart');
+    const cartItemCount = cart?.items?.length ?? 0;
 
     return (
         <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''} ${mobileOpen ? 'sidebar--open' : ''}`}>
@@ -105,6 +112,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse }: SidebarProp
                         icon={<ShoppingBag size={20} />}
                         label={collapsed ? "" : "Shopping Cart"}
                         title={collapsed ? "Shopping Cart" : undefined}
+                        badge={cartItemCount}
                     />
                 </div>
 
