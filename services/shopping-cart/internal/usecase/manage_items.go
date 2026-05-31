@@ -36,6 +36,62 @@ func NewManageItemsUseCase(repo ports.CartRepository, qualClient QualificationCl
 	}
 }
 
+func (u *manageItemsUseCase) RemoveItem(ctx context.Context, cartID, itemID string) error {
+	// 1. Load Cart
+	cart, err := u.repo.Get(ctx, cartID)
+	if err != nil {
+		return err
+	}
+	if cart == nil {
+		return fmt.Errorf("cart %s not found", cartID)
+	}
+
+	// 2. Find and Remove Item
+	found := false
+	newItems := make([]domain.CartItem, 0, len(cart.Items))
+	for _, item := range cart.Items {
+		if item.ID == itemID {
+			found = true
+			continue
+		}
+		newItems = append(newItems, item)
+	}
+	if !found {
+		return fmt.Errorf("item %s not found in cart %s", itemID, cartID)
+	}
+	cart.Items = newItems
+
+	// 3. Recalculate Totals
+	var total float64
+	for _, item := range cart.Items {
+		total += item.UnitAmount * float64(item.Quantity)
+	}
+	cart.TotalPriceAmount = total
+	cart.Version++
+
+	// 4. Prepare Outbox Event
+	eventPayload, err := json.Marshal(cart)
+	if err != nil {
+		return fmt.Errorf("failed to marshal cart: %w", err)
+	}
+	events := []domain.OutboxEvent{
+		{
+			ID:        uuid.New().String(),
+			Topic:     rabbitmq.EvtCartSessionUpdated,
+			Payload:   eventPayload,
+			Status:    "PENDING",
+			CreatedAt: time.Now().UTC(),
+		},
+	}
+
+	// 5. Atomic Save
+	if err := u.repo.Save(ctx, cart, events); err != nil {
+		return fmt.Errorf("failed to save cart: %w", err)
+	}
+
+	return nil
+}
+
 func (u *manageItemsUseCase) AddItem(ctx context.Context, cartID, offeringID, qualificationSessionID string, qty int) error {
 	// 1. Load Cart
 	cart, err := u.repo.Get(ctx, cartID)

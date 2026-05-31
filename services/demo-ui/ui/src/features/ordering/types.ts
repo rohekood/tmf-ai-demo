@@ -1,11 +1,31 @@
 export interface QualificationRequest {
     address: {
         street: string;
+        number: string;
         city: string;
-        postcode: string;
-        country: string;
+        zip: string;
     };
-    categoryIds?: string[];
+    customerId?: string;
+    categoryFilter?: string[];
+}
+
+export interface QualifiedOffer {
+    offeringId: string;
+    offeringName: string;
+    price: {
+        amount: number;
+        currency: string;
+        taxIncluded: boolean;
+    };
+    eligibility: 'QUALIFIED' | 'NOT_AVAILABLE';
+    constraints?: string[];
+}
+
+export interface QualificationResult {
+    sessionId: string;
+    status: 'Qualified' | 'Unqualified' | 'Error';
+    qualifiedOffers: QualifiedOffer[];
+    unavailabilityReason?: string;
 }
 
 export interface QualificationSession {
