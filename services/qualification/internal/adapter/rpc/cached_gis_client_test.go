@@ -38,7 +38,7 @@ func TestCachedGISClient_CheckPolygon(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	mock := &mockNextGIS{result: true}
 
-	cachedClient := NewCachedGISClient(mock, rdb, logger)
+	cachedClient := NewCachedGISClient(mock, rdb, logger, "qualification:")
 	cachedClient.ttl = 1 * time.Hour
 
 	ctx := context.Background()

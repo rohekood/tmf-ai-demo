@@ -24,7 +24,7 @@ func TestNewRedisClient(t *testing.T) {
 		addr, err := redisContainer.Endpoint(ctx, "")
 		assert.NoError(t, err)
 
-		client, err := cache.NewRedisClient(addr, "", 0)
+		client, err := cache.NewRedisClient(addr, "", "")
 		assert.NoError(t, err)
 		assert.NotNil(t, client)
 
@@ -33,7 +33,7 @@ func TestNewRedisClient(t *testing.T) {
 	})
 
 	t.Run("Error", func(t *testing.T) {
-		_, err := cache.NewRedisClient("invalid-host:6379", "", 0)
+		_, err := cache.NewRedisClient("invalid-host:6379", "", "")
 		assert.Error(t, err)
 	})
 }

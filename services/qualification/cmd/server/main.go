@@ -87,9 +87,10 @@ func run(ctx context.Context, getEnv func(string) string) error {
 	if redisAddr == "" {
 		redisAddr = "localhost:6379"
 	}
+	redisUser := getEnv("REDIS_USER")
 	redisPassword := getEnv("REDIS_PASSWORD")
 
-	redisClient, err := cache.NewRedisClient(redisAddr, redisPassword, 0)
+	redisClient, err := cache.NewRedisClient(redisAddr, redisUser, redisPassword)
 	if err != nil {
 		logger.Warn("Redis not available, continuing without cache", "error", err)
 	} else {
@@ -105,7 +106,7 @@ func run(ctx context.Context, getEnv func(string) string) error {
 
 	gisClient := rpc.NewGISClient(rpcClient)
 	if redisClient != nil {
-		gisClient = rpc.NewCachedGISClient(gisClient, redisClient.Client, logger)
+		gisClient = rpc.NewCachedGISClient(gisClient, redisClient.Client, logger, "qualification:")
 	}
 
 	invClient := rpc.NewInventoryClient(rpcClient)
