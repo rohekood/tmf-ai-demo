@@ -95,18 +95,27 @@ func TestOrderHandler_GetQualificationSession(t *testing.T) {
 		}
 	})
 
-	t.Run("RPCError_ReturnsUnprocessableEntity", func(t *testing.T) {
+	t.Run("RPCError_ReturnsInternalServerError", func(t *testing.T) {
 		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
-			return nil, errors.New("not found or expired")
+			return nil, errors.New("rpc transport failure")
 		}
 		req := httptest.NewRequest("GET", "/api/qualification/session/sess1", nil)
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
-		if w.Code != http.StatusUnprocessableEntity {
-			t.Errorf("Expected status UnprocessableEntity, got %v", w.Code)
+		if w.Code != http.StatusInternalServerError {
+			t.Errorf("Expected status InternalServerError, got %v", w.Code)
 		}
-		if !strings.Contains(w.Body.String(), "SESSION_EXPIRED") {
-			t.Errorf("Expected body to contain SESSION_EXPIRED, got %s", w.Body.String())
+	})
+
+	t.Run("TimeoutError_ReturnsGatewayTimeout", func(t *testing.T) {
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
+			return nil, context.DeadlineExceeded
+		}
+		req := httptest.NewRequest("GET", "/api/qualification/session/sess1", nil)
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+		if w.Code != http.StatusGatewayTimeout {
+			t.Errorf("Expected status GatewayTimeout, got %v", w.Code)
 		}
 	})
 

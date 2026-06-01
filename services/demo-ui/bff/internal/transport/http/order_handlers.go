@@ -107,11 +107,12 @@ func (h *OrderHandler) GetQualificationSession(w http.ResponseWriter, r *http.Re
 
 	responseBytes, err := h.rpcClient.CallRPC(ctx, orderExchange, queryQualSessionGet, payload, getHeaders(r))
 	if err != nil {
-		// Could be 422 expired session
 		slog.Error("error getting qualification session", "error", err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		_, _ = w.Write([]byte(`{"error": "SESSION_EXPIRED"}`))
+		if errors.Is(err, context.DeadlineExceeded) {
+			http.Error(w, "Session lookup timed out", http.StatusGatewayTimeout)
+			return
+		}
+		http.Error(w, "Failed to get qualification session: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
