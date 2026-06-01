@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sync"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -55,15 +56,10 @@ func (p *rabbitPublisher) DeclareTopicExchange(name string, durable, autoDelete,
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	return p.ch.ExchangeDeclare(
-		name,       // name
-		"topic",    // type
-		durable,    // durable
-		autoDelete, // auto-deleted
-		internal,   // internal
-		noWait,     // no-wait
-		nil,        // arguments
-	)
+	if os.Getenv("RABBITMQ_PASSIVE_DECLARE") == "true" {
+		return p.ch.ExchangeDeclarePassive(name, "topic", durable, autoDelete, internal, noWait, nil)
+	}
+	return p.ch.ExchangeDeclare(name, "topic", durable, autoDelete, internal, noWait, nil)
 }
 
 func (p *rabbitPublisher) Publish(ctx context.Context, exchange, routingKey string, body any) error {

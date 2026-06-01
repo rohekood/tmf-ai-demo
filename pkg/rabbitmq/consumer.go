@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -43,19 +44,21 @@ func NewConsumerWithConnection(conn *amqp.Connection, exchangeName, queueName st
 		return nil, fmt.Errorf("failed to open channel: %w", err)
 	}
 
-	err = ch.ExchangeDeclare(exchangeName, "topic", true, false, false, false, nil)
+	if os.Getenv("RABBITMQ_PASSIVE_DECLARE") == "true" {
+		err = ch.ExchangeDeclarePassive(exchangeName, "topic", true, false, false, false, nil)
+	} else {
+		err = ch.ExchangeDeclare(exchangeName, "topic", true, false, false, false, nil)
+	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to declare exchange: %w", err)
 	}
 
-	q, err := ch.QueueDeclare(
-		queueName,
-		true,  // durable
-		false, // delete when unused
-		false, // exclusive
-		false, // no-wait
-		nil,   // arguments
-	)
+	var q amqp.Queue
+	if os.Getenv("RABBITMQ_PASSIVE_DECLARE") == "true" {
+		q, err = ch.QueueDeclarePassive(queueName, true, false, false, false, nil)
+	} else {
+		q, err = ch.QueueDeclare(queueName, true, false, false, false, nil)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to declare queue: %w", err)
 	}
