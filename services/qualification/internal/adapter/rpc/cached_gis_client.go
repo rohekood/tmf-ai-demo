@@ -14,24 +14,26 @@ import (
 
 // CachedGISClient decorates a GISClient with Redis caching
 type CachedGISClient struct {
-	next   ports.GISClient
-	redis  *redis.Client
-	logger *slog.Logger
-	ttl    time.Duration
+	next      ports.GISClient
+	redis     *redis.Client
+	logger    *slog.Logger
+	ttl       time.Duration
+	keyPrefix string
 }
 
-func NewCachedGISClient(next ports.GISClient, rdb *redis.Client, logger *slog.Logger) *CachedGISClient {
+func NewCachedGISClient(next ports.GISClient, rdb *redis.Client, logger *slog.Logger, keyPrefix string) *CachedGISClient {
 	return &CachedGISClient{
-		next:   next,
-		redis:  rdb,
-		logger: logger,
-		ttl:    24 * time.Hour,
+		next:      next,
+		redis:     rdb,
+		logger:    logger,
+		ttl:       24 * time.Hour,
+		keyPrefix: keyPrefix,
 	}
 }
 
 func (c *CachedGISClient) CheckPolygon(ctx context.Context, addr domain.Address) (bool, error) {
 	// Normalize Key (Composite of Zip+City+Street+Number)
-	key := fmt.Sprintf("gis:polygon:%s:%s:%s:%s", addr.Zip, addr.City, addr.Street, addr.Number)
+	key := fmt.Sprintf("%sgis:polygon:%s:%s:%s:%s", c.keyPrefix, addr.Zip, addr.City, addr.Street, addr.Number)
 
 	// Try Cache
 	val, err := c.redis.Get(ctx, key).Result()

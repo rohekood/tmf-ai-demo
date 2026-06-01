@@ -20,7 +20,7 @@ services:
     image: postgres:15
     container_name: tmf-postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -43,6 +43,11 @@ services:
         VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID}
         VITE_AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
         VITE_API_URL: ${VITE_API_URL}
+    environment:
+      AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN}
+      AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID}
+      AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
+      API_URL: ${VITE_API_URL}
     container_name: tmf-demo-ui
     ports:
       - "80:80"
@@ -51,8 +56,8 @@ services:
 
   bff:
     build:
-      context: ./services/demo-ui/bff
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/demo-ui/bff/Dockerfile
     container_name: tmf-bff
     ports:
       - "8080:8080"
@@ -66,14 +71,14 @@ services:
 
   customer-management:
     build:
-      context: ./services/customer-management
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/customer-management/Dockerfile
     container_name: tmf-customer-management
     ports:
       - "8081:8081"
     environment:
       - POSTGRES_URL=postgres://postgres:password@postgres:5432/tmf_customer_db?sslmode=disable
-      - RABBIT_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
     depends_on:
       postgres:
         condition: service_healthy
@@ -82,8 +87,8 @@ services:
 
   party-management:
     build:
-      context: ./services/party-management
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/party-management/Dockerfile
     container_name: tmf-party-management
     ports:
       - "8082:8080"
@@ -98,8 +103,8 @@ services:
 
   product-catalog-management:
     build:
-      context: ./services/product-catalog-management
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/product-catalog-management/Dockerfile
     container_name: tmf-product-catalog-management
     environment:
       - POSTGRES_URL=postgres://postgres:password@postgres:5432/tmf_catalog_db?sslmode=disable
@@ -109,6 +114,63 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+
+  pocv:
+    build:
+      context: .
+      dockerfile: services/pocv/Dockerfile
+    container_name: tmf-pocv
+    environment:
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/tmf_pocv_db?sslmode=disable
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  qualification:
+    build:
+      context: .
+      dockerfile: services/qualification/Dockerfile
+    container_name: tmf-qualification
+    environment:
+      - POSTGRES_URL=postgres://postgres:password@postgres:5432/tmf_qualification_db?sslmode=disable
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  shopping-cart:
+    build:
+      context: .
+      dockerfile: services/shopping-cart/Dockerfile
+    container_name: tmf-shopping-cart
+    environment:
+      - DB_URL=postgres://postgres:password@postgres:5432/tmf_cart_db?sslmode=disable
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: tmf-valkey
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 
 volumes:

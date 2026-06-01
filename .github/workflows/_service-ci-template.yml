@@ -68,22 +68,47 @@ jobs:
         shell: bash
         run: |
           SERVICE_NAME="${{ inputs.service_name }}"
+          SERVICE_PATH="${{ inputs.service_path }}"
           cat > .releaserc.json << EOF
           {
             "branches": ["main"],
             "tagFormat": "${SERVICE_NAME}-v\${version}",
+            "pkgRoot": "${SERVICE_PATH}",
             "plugins": [
               "@semantic-release/commit-analyzer",
               "@semantic-release/release-notes-generator",
-              "@semantic-release/github"
+              "@semantic-release/github",
+              "semantic-release-monorepo"
             ]
           }
           EOF
 
+      - name: Check if already tagged at this commit
+        id: tag_check
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          SERVICE_NAME="${{ inputs.service_name }}"
+          EXISTING_TAG=$(git tag -l "${SERVICE_NAME}-v*" --sort=-version:refname | head -1)
+          if [ -n "$EXISTING_TAG" ]; then
+            TAGGED_COMMIT=$(git rev-list -n 1 "$EXISTING_TAG")
+            if [ "$TAGGED_COMMIT" == "${{ github.sha }}" ]; then
+              echo "already_released=true" >> "$GITHUB_OUTPUT"
+              echo "version=${EXISTING_TAG#${SERVICE_NAME}-v}" >> "$GITHUB_OUTPUT"
+              echo "Commit already tagged as ${EXISTING_TAG}, skipping semantic-release."
+            else
+              echo "already_released=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "already_released=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Semantic Release
         id: semantic
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.tag_check.outputs.already_released != 'true'
         uses: cycjimmy/semantic-release-action@v4
+        with:
+          extra_plugins: semantic-release-monorepo
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -104,7 +129,10 @@ jobs:
         shell: bash
         run: |
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            if [ "${{ steps.semantic.outputs.new_release_published }}" == "true" ]; then
+            if [ "${{ steps.tag_check.outputs.already_released }}" == "true" ]; then
+              echo "next_tag=${{ inputs.service_name }}-v${{ steps.tag_check.outputs.version }}" >> "$GITHUB_OUTPUT"
+              echo "is_release=true" >> "$GITHUB_OUTPUT"
+            elif [ "${{ steps.semantic.outputs.new_release_published }}" == "true" ]; then
               echo "next_tag=${{ inputs.service_name }}-v${{ steps.semantic.outputs.new_release_version }}" >> "$GITHUB_OUTPUT"
               echo "is_release=true" >> "$GITHUB_OUTPUT"
             else

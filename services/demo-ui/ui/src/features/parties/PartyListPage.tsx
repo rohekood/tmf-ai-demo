@@ -112,16 +112,20 @@ export default function PartyListPage() {
             columnHelper.accessor((row) => row['@type'], {
                 id: 'type',
                 header: 'Type',
-                cell: (info) => (
-                    <button
-                        type="button"
-                        className={`party-type-badge ${info.getValue().toLowerCase()}`}
-                        aria-label={`Filter by ${info.getValue()}`}
-                    >
-                        {info.getValue() === 'Individual' ? <User size={14} /> : <Building2 size={14} />}
-                        {info.getValue()}
-                    </button>
-                ),
+                cell: (info) => {
+                    const value = info.getValue();
+                    const badgeClass = value ? value.toLowerCase() : 'unknown';
+                    return (
+                        <button
+                            type="button"
+                            className={`party-type-badge ${badgeClass}`}
+                            aria-label={`Filter by ${value}`}
+                        >
+                            {value === 'Individual' ? <User size={14} /> : <Building2 size={14} />}
+                            {value}
+                        </button>
+                    );
+                },
                 size: 140,
             }),
             columnHelper.accessor((row) => getPartyDisplayName(row), {
