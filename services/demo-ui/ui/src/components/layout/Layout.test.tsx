@@ -14,8 +14,8 @@ vi.mock('../../auth/context', () => ({
     }),
 }));
 
-vi.mock('../../features/ordering/api', () => ({
-    useCart: vi.fn(() => ({ data: undefined })),
+vi.mock('../../features/ordering/CartBadge', () => ({
+    CartBadge: () => null,
 }));
 
 const createTestQueryClient = () => new QueryClient({

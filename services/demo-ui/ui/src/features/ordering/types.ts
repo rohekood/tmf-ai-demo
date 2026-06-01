@@ -47,10 +47,14 @@ export interface QualificationSession {
 }
 
 export interface CartItemRequest {
-    cartId: string;
+    cartId?: string;
     offeringId: string;
     qualificationSessionId?: string;
     quantity: number;
+}
+
+export interface AddCartItemResponse {
+    cartId: string;
 }
 
 export interface CartItem {
