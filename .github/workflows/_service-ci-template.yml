@@ -83,6 +83,19 @@ jobs:
           }
           EOF
 
+      - name: Ensure semantic-release package manifest
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          if [ ! -f package.json ]; then
+            cat > package.json << EOF
+            {
+              "name": "tmf-ai-demo",
+              "private": true
+            }
+            EOF
+          fi
+
       - name: Check if already tagged at this commit
         id: tag_check
         if: github.ref == 'refs/heads/main'
