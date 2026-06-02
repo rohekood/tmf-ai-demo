@@ -112,7 +112,7 @@ jobs:
       - name: Semantic Release
         id: semantic
         if: github.ref == 'refs/heads/main' && steps.tag_check.outputs.already_released != 'true'
-        uses: cycjimmy/semantic-release-action@v4
+        uses: cycjimmy/semantic-release-action@v6
         with:
           extra_plugins: semantic-release-monorepo
         env:
