@@ -14,7 +14,7 @@ require (
 require (
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/testcontainers/testcontainers-go v0.42.0
-	github.com/testcontainers/testcontainers-go/modules/postgres v0.40.0
+	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/rabbitmq v0.42.0
 )
 
