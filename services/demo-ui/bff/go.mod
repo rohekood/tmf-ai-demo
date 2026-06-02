@@ -6,7 +6,7 @@ require (
 	github.com/auth0/go-jwt-middleware/v2 v2.3.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/rabbitmq/amqp091-go v1.10.0
+	github.com/rabbitmq/amqp091-go v1.11.0
 	tmf/pkg v0.0.0-00010101000000-000000000000
 )
 
