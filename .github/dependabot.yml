@@ -1,0 +1,99 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  # Go modules
+  - package-ecosystem: gomod
+    directory: /services/customer-management
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: gomod
+    directory: /services/demo-ui/bff
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: gomod
+    directory: /services/party-management
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: gomod
+    directory: /services/pocv
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: gomod
+    directory: /services/product-catalog-management
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: gomod
+    directory: /services/qualification
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: gomod
+    directory: /services/shopping-cart
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: gomod
+    directory: /pkg
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: gomod
+    directory: /tests/e2e
+    schedule:
+      interval: weekly
+
+  # npm (demo-ui frontend)
+  - package-ecosystem: npm
+    directory: /services/demo-ui/ui
+    schedule:
+      interval: weekly
+
+  # Docker
+  - package-ecosystem: docker
+    directory: /services/customer-management
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /services/demo-ui/bff
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /services/demo-ui/ui
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /services/party-management
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /services/pocv
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /services/product-catalog-management
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /services/qualification
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /services/shopping-cart
+    schedule:
+      interval: weekly
