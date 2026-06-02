@@ -1,5 +1,5 @@
 # Stage 1: Build the React application
-FROM node:22-slim AS builder
+FROM node:26-slim AS builder
 
 WORKDIR /app
 
