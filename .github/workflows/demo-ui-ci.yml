@@ -109,7 +109,7 @@ jobs:
 
       - name: Build and push BFF image
         if: steps.version.outputs.next_tag != ''
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./services/demo-ui/bff/Dockerfile
@@ -119,7 +119,7 @@ jobs:
 
       - name: Build and push UI image
         if: steps.version.outputs.next_tag != ''
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ./services/demo-ui/ui
           file: ./services/demo-ui/ui/Dockerfile
