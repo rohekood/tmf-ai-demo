@@ -170,7 +170,7 @@ jobs:
 
       - name: Build and push
         if: steps.version.outputs.next_tag != ''
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ${{ inputs.docker_context_path != '' && format('./{0}', inputs.docker_context_path) || format('./{0}', inputs.service_path) }}
           file: ${{ inputs.dockerfile_path != '' && format('./{0}', inputs.dockerfile_path) || format('./{0}/Dockerfile', inputs.service_path) }}
