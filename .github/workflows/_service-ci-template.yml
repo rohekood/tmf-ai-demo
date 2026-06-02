@@ -103,12 +103,6 @@ jobs:
             echo "already_released=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create package.json for semantic-release-monorepo
-        if: github.ref == 'refs/heads/main' && steps.tag_check.outputs.already_released != 'true'
-        shell: bash
-        run: |
-          echo "{\"name\": \"${{ inputs.service_name }}\", \"private\": true}" > "${{ inputs.service_path }}/package.json"
-
       - name: Semantic Release
         id: semantic
         if: github.ref == 'refs/heads/main' && steps.tag_check.outputs.already_released != 'true'
