@@ -74,11 +74,11 @@ jobs:
             "branches": ["main"],
             "tagFormat": "${SERVICE_NAME}-v\${version}",
             "pkgRoot": "${SERVICE_PATH}",
+            extends: "semantic-release-monorepo",
             "plugins": [
               "@semantic-release/commit-analyzer",
               "@semantic-release/release-notes-generator",
               "@semantic-release/github",
-              "semantic-release-monorepo"
             ]
           }
           EOF
@@ -108,7 +108,9 @@ jobs:
         if: github.ref == 'refs/heads/main' && steps.tag_check.outputs.already_released != 'true'
         uses: cycjimmy/semantic-release-action@v6
         with:
-          extra_plugins: semantic-release-monorepo
+          semantic_version: 24
+          extra_plugins: |
+            semantic-release-monorepo
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
