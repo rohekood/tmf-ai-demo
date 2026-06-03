@@ -4,7 +4,7 @@ FROM node:26-slim AS builder
 WORKDIR /app
 
 # Enable Yarn 2+
-RUN corepack enable
+RUN npm install -g corepack && corepack enable
 
 COPY package.json yarn.lock .yarnrc.yml* ./
 COPY .yarn ./.yarn
