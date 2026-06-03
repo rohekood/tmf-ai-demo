@@ -112,9 +112,6 @@ func run(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("failed to create publisher: %w", err)
 	}
-	if err := publisher.DeclareTopicExchange("tmf.events", true, false, false, false); err != nil {
-		return fmt.Errorf("failed to declare exchange: %w", err)
-	}
 	defer func() {
 		if err := publisher.Close(); err != nil {
 			slog.Error("Failed to close publisher", "error", err)

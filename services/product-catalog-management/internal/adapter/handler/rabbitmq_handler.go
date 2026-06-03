@@ -92,19 +92,6 @@ func NewRabbitMQHandler(
 
 func (h *RabbitMQHandler) Start(ctx context.Context) error {
 
-	err := h.channel.ExchangeDeclare(
-		"catalog_events", // name
-		"topic",          // type
-		true,             // durable
-		false,            // auto-deleted
-		false,            // internal
-		false,            // no-wait
-		nil,              // arguments
-	)
-	if err != nil {
-		return err
-	}
-
 	if err := h.setupConsumers(); err != nil {
 		return err
 	}

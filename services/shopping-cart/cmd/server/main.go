@@ -72,13 +72,6 @@ func run(ctx context.Context, getEnv func(string) string) error {
 	}
 	defer func() { _ = pub.Close() }()
 
-	if err := pub.DeclareTopicExchange("ex.domain.commerce", true, false, false, false); err != nil {
-		return fmt.Errorf("failed to declare exchange: %w", err)
-	}
-	if err := pub.DeclareTopicExchange("ex.domain.market", true, false, false, false); err != nil {
-		return fmt.Errorf("failed to declare market exchange: %w", err)
-	}
-
 	// 5. Layers
 	repo := repository.NewCartRepository(db)
 

@@ -54,10 +54,6 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 	defer func() { _ = rmqPub.Close() }()
 
-	if err := rmqPub.DeclareTopicExchange(cfg.Exchange, true, false, false, false); err != nil {
-		return fmt.Errorf("failed to declare exchange: %w", err)
-	}
-
 	// RPC Client
 	rpcClient, err := rabbitmq.NewRPCClient(cfg.RabbitMQURL, rabbitmq.WithExchange("ex.domain.commerce"))
 	if err != nil {

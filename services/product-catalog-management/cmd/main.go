@@ -98,12 +98,6 @@ func main() {
 		logger.Error("Failed to initialize shared rabbitmq publisher", "error", err)
 		os.Exit(1)
 	}
-	// Declare exchange explicitly
-	if err := sharedPublisher.DeclareTopicExchange("catalog_events", true, false, false, false); err != nil {
-		logger.Error("Failed to declare exchange", "error", err)
-		os.Exit(1)
-	}
-
 	// Wrap it in adapter
 	rabbitPublisher, err := publisher.NewRabbitMQPublisher(sharedPublisher, "catalog_events")
 	if err != nil {

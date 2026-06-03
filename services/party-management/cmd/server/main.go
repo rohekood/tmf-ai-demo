@@ -114,10 +114,6 @@ func run(
 	if err != nil {
 		return fmt.Errorf("failed to create publisher: %w", err)
 	}
-	if err := publisher.DeclareTopicExchange("tmf.events", true, false, false, false); err != nil {
-		return fmt.Errorf("failed to declare exchange (tmf.events): %w", err)
-	}
-
 	tm := infraPostgres.NewTransactionManager(db)
 	outboxRepo := infraPostgres.NewOutboxRepository(db)
 	outboxPublisher := infraPostgres.NewOutboxPublisher(outboxRepo)

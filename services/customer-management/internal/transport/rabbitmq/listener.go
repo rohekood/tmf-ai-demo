@@ -48,13 +48,7 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		}
 	}()
 
-	// Declare DLX and DLQ
-	err = ch.ExchangeDeclare(DeadLetterExchange, "fanout", true, false, false, false, nil)
-	if err != nil {
-		return fmt.Errorf("failed to declare DLX: %w", err)
-	}
-
-	_, err = ch.QueueDeclare(DeadLetterQueue, true, false, false, false, nil)
+	_, err = ch.QueueDeclarePassive(DeadLetterQueue, true, false, false, false, nil)
 	if err != nil {
 		return fmt.Errorf("failed to declare DLQ: %w", err)
 	}
@@ -64,31 +58,7 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		return fmt.Errorf("failed to bind DLQ to DLX: %w", err)
 	}
 
-	// Declare exchange
-	err = ch.ExchangeDeclare(
-		CommandExchange,
-		"topic",
-		true,
-		false,
-		false,
-		false,
-		nil,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to declare exchange: %w", err)
-	}
-
-	// Declare and bind Command Queue
-	q, err := ch.QueueDeclare(
-		CustomerQueue,
-		true,
-		false,
-		false,
-		false,
-		amqp.Table{
-			"x-dead-letter-exchange": DeadLetterExchange,
-		},
-	)
+	q, err := ch.QueueDeclarePassive(CustomerQueue, true, false, false, false, nil)
 	if err != nil {
 		return fmt.Errorf("failed to declare queue: %w", err)
 	}
@@ -110,24 +80,9 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		}
 	}
 
-	// Declare and bind Event Queue for Party events
-	eq, err := ch.QueueDeclare(
-		EventQueue,
-		true,
-		false,
-		false,
-		false,
-		amqp.Table{
-			"x-dead-letter-exchange": DeadLetterExchange,
-		},
-	)
+	eq, err := ch.QueueDeclarePassive(EventQueue, true, false, false, false, nil)
 	if err != nil {
 		return fmt.Errorf("failed to declare event queue: %w", err)
-	}
-
-	err = ch.ExchangeDeclare(EventExchange, "topic", true, false, false, false, nil)
-	if err != nil {
-		return fmt.Errorf("failed to declare event exchange: %w", err)
 	}
 
 	eventRoutingKeys := []string{

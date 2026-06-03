@@ -54,16 +54,6 @@ func run(ctx context.Context, getEnv func(string) string) error {
 	}
 	defer func() { _ = rmqPub.Close() }()
 
-	if err := rmqPub.DeclareTopicExchange("ex.domain.market", true, false, false, false); err != nil {
-		return fmt.Errorf("failed to declare exchange: %w", err)
-	}
-	if err := rmqPub.DeclareTopicExchange("catalog_events", true, false, false, false); err != nil {
-		return fmt.Errorf("failed to declare catalog_events: %w", err)
-	}
-	if err := rmqPub.DeclareTopicExchange("customer.events", true, false, false, false); err != nil {
-		return fmt.Errorf("failed to declare customer.events: %w", err)
-	}
-
 	eventPub := publisher.NewEventPublisher(rmqPub, "ex.domain.market")
 
 	if err := runMigrations(dbURL, logger); err != nil {
