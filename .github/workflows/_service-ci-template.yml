@@ -114,9 +114,34 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Force patch release
+        id: force_release
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          SERVICE_PREFIX="${{ inputs.service_name }}-v"
+          HEAD_TAG=$(git tag -l "${SERVICE_PREFIX}[0-9]*" --points-at HEAD | sort -V | tail -n1)
+          if [ -n "$HEAD_TAG" ]; then
+            echo "HEAD already tagged as ${HEAD_TAG}, reusing it."
+            echo "tag=${HEAD_TAG}" >> "$GITHUB_OUTPUT"
+          else
+            LATEST_TAG=$(git tag -l "${SERVICE_PREFIX}[0-9]*" | sort -V | tail -n1)
+            if [ -z "$LATEST_TAG" ]; then
+              NEW_TAG="${SERVICE_PREFIX}0.0.1"
+            else
+              VERSION="${LATEST_TAG#${SERVICE_PREFIX}}"
+              IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+              PATCH=$((PATCH + 1))
+              NEW_TAG="${SERVICE_PREFIX}${MAJOR}.${MINOR}.${PATCH}"
+            fi
+            git tag "$NEW_TAG"
+            git push origin "$NEW_TAG"
+            echo "tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Compute Dev Tag
         id: dev_tag
-        if: github.ref != 'refs/heads/main'
+        if: github.ref != 'refs/heads/main' && github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
           SERVICE_PREFIX="${{ inputs.service_name }}-v"
@@ -131,16 +156,8 @@ jobs:
         shell: bash
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            LATEST_TAG=$(git tag -l "${{ inputs.service_name }}-v[0-9]*" | sort -V | tail -n1)
-            if [ -z "$LATEST_TAG" ]; then
-              echo "No existing tag found for ${{ inputs.service_name }}. Cannot force build."
-              echo "next_tag=" >> "$GITHUB_OUTPUT"
-              echo "is_release=false" >> "$GITHUB_OUTPUT"
-            else
-              echo "Force run: using existing tag ${LATEST_TAG}"
-              echo "next_tag=${LATEST_TAG}" >> "$GITHUB_OUTPUT"
-              echo "is_release=false" >> "$GITHUB_OUTPUT"
-            fi
+            echo "next_tag=${{ steps.force_release.outputs.tag }}" >> "$GITHUB_OUTPUT"
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
             if [ "${{ steps.tag_check.outputs.already_released }}" == "true" ]; then
               echo "next_tag=${{ inputs.service_name }}-v${{ steps.tag_check.outputs.version }}" >> "$GITHUB_OUTPUT"
