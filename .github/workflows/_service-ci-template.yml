@@ -64,7 +64,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate semantic-release config
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
           SERVICE_NAME="${{ inputs.service_name }}"
@@ -85,7 +85,7 @@ jobs:
 
       - name: Check if already tagged at this commit
         id: tag_check
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
           SERVICE_NAME="${{ inputs.service_name }}"
@@ -105,7 +105,7 @@ jobs:
 
       - name: Semantic Release
         id: semantic
-        if: github.ref == 'refs/heads/main' && steps.tag_check.outputs.already_released != 'true'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch' && steps.tag_check.outputs.already_released != 'true'
         uses: cycjimmy/semantic-release-action@v6
         with:
           semantic_version: 24
@@ -130,7 +130,18 @@ jobs:
         id: version
         shell: bash
         run: |
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            LATEST_TAG=$(git tag -l "${{ inputs.service_name }}-v[0-9]*" | sort -V | tail -n1)
+            if [ -z "$LATEST_TAG" ]; then
+              echo "No existing tag found for ${{ inputs.service_name }}. Cannot force build."
+              echo "next_tag=" >> "$GITHUB_OUTPUT"
+              echo "is_release=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "Force run: using existing tag ${LATEST_TAG}"
+              echo "next_tag=${LATEST_TAG}" >> "$GITHUB_OUTPUT"
+              echo "is_release=false" >> "$GITHUB_OUTPUT"
+            fi
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
             if [ "${{ steps.tag_check.outputs.already_released }}" == "true" ]; then
               echo "next_tag=${{ inputs.service_name }}-v${{ steps.tag_check.outputs.version }}" >> "$GITHUB_OUTPUT"
               echo "is_release=true" >> "$GITHUB_OUTPUT"
