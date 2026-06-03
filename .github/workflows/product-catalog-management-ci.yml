@@ -2,6 +2,7 @@
 name: Product Catalog Management CI/CD
 
 'on':
+  workflow_dispatch:
   push:
     branches:
       - main
