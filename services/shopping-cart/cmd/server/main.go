@@ -112,7 +112,7 @@ func run(ctx context.Context, getEnv func(string) string) error {
 	}
 
 	// 8. Listener (Catalog Replication)
-	catalogConsumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.catalog", "q.cart.catalog.sync", rabbitmq.WithMessageTimeout(30*time.Second))
+	catalogConsumer, err := rabbitmq.NewConsumer(rabbitURL, "catalog_events", "q.cart.catalog.sync", rabbitmq.WithMessageTimeout(30*time.Second))
 	if err != nil {
 		return fmt.Errorf("failed to create catalog consumer: %w", err)
 	}
