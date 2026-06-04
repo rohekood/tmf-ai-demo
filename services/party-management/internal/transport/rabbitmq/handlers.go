@@ -315,14 +315,7 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 				return fmt.Errorf("failed to create individual: %w", err)
 			}
 
-			// Publish events
 			if err := h.publishEvent(txCtx, EvtPartyCreated, ind); err != nil {
-				return err
-			}
-			if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]any{
-				"id":       ind.ID,
-				"newState": ind.Status,
-			}); err != nil {
 				return err
 			}
 			return nil
@@ -375,12 +368,6 @@ func (h *Handlers) HandleCreateParty(ctx context.Context, d amqp.Delivery) error
 			}
 
 			if err := h.publishEvent(txCtx, EvtPartyCreated, org); err != nil {
-				return err
-			}
-			if err := h.publishEvent(txCtx, EvtPartyStateChange, map[string]any{
-				"id":       org.ID,
-				"newState": org.Status,
-			}); err != nil {
 				return err
 			}
 			return nil

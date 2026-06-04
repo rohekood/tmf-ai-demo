@@ -51,8 +51,8 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestRPCClient_ExclusiveReplyQueue(t *testing.T) {
-	// Test that each RPC client gets its own exclusive reply queue
+func TestRPCClient_DefaultDirectReplyTo(t *testing.T) {
+	// Default behavior uses RabbitMQ direct reply-to pseudo-queue.
 	client1, err := rabbitmq.NewRPCClient(amqpURL)
 	require.NoError(t, err)
 	defer func() { _ = client1.Close() }()
@@ -61,11 +61,8 @@ func TestRPCClient_ExclusiveReplyQueue(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = client2.Close() }()
 
-	// Verify each client has a unique reply queue
-	assert.NotEqual(t, client1.ReplyQueue(), client2.ReplyQueue(),
-		"Each RPC client should have its own unique reply queue")
-	assert.NotEmpty(t, client1.ReplyQueue())
-	assert.NotEmpty(t, client2.ReplyQueue())
+	assert.Equal(t, rabbitmq.DirectReplyToQueue, client1.ReplyQueue())
+	assert.Equal(t, rabbitmq.DirectReplyToQueue, client2.ReplyQueue())
 }
 
 func TestRPCClient_RequestReply(t *testing.T) {
@@ -237,7 +234,7 @@ func TestRPCClient_ContextCancellation(t *testing.T) {
 
 	_, err = client.RequestWithHeaders(ctx, "", "some.queue", map[string]string{}, nil)
 	require.Error(t, err)
-	assert.Equal(t, context.Canceled, err)
+	assert.ErrorIs(t, err, context.Canceled)
 }
 
 func TestRPCClient_MultipleClientsIsolation(t *testing.T) {

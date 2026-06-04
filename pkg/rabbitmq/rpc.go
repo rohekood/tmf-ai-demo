@@ -16,6 +16,9 @@ import (
 // DefaultRPCTimeout is the default timeout for RPC requests
 const DefaultRPCTimeout = 30 * time.Second
 
+// DirectReplyToQueue is RabbitMQ's pseudo-queue for direct reply-to RPC.
+const DirectReplyToQueue = "amq.rabbitmq.reply-to"
+
 // RPCClient handles Request-Reply messaging
 type RPCClient struct {
 	conn       *amqp.Connection
@@ -35,7 +38,22 @@ func WithExchange(exchange string) RPCClientOption {
 	}
 }
 
-// NewRPCClient creates a new RPC client with an exclusive reply queue
+// WithReplyQueue configures the reply target used by RPC requests.
+//
+// Supported values:
+//   - A pre-created named queue (must already exist; no configure permission needed).
+//   - DirectReplyToQueue (amq.rabbitmq.reply-to), which does not require queue declaration.
+func WithReplyQueue(name string) RPCClientOption {
+	return func(c *RPCClient) {
+		c.replyQueue = name
+	}
+}
+
+// NewRPCClient creates a new RPC client.
+//
+// By default it uses DirectReplyToQueue (amq.rabbitmq.reply-to), which does not
+// require queue declaration permissions. You can override this with
+// WithReplyQueue to use a specific pre-created queue.
 func NewRPCClient(url string, opts ...RPCClientOption) (*RPCClient, error) {
 	conn, err := amqp.Dial(url)
 	if err != nil {
@@ -48,47 +66,44 @@ func NewRPCClient(url string, opts ...RPCClientOption) (*RPCClient, error) {
 		return nil, fmt.Errorf("failed to open channel: %w", err)
 	}
 
-	q, err := ch.QueueDeclare(
-		"",    // name (empty = generated)
-		false, // durable
-		true,  // delete when unused
-		true,  // exclusive
-		false, // no-wait
-		nil,   // arguments
-	)
-	if err != nil {
-		_ = ch.Close()
-		_ = conn.Close()
-		return nil, fmt.Errorf("failed to declare reply queue: %w", err)
-	}
-
 	client := &RPCClient{
-		conn:       conn,
-		channel:    ch,
-		replyQueue: q.Name,
-		exchange:   "", // default to default exchange
+		conn:     conn,
+		channel:  ch,
+		exchange: "",
 	}
 
 	for _, opt := range opts {
 		opt(client)
 	}
 
-	msgs, err := ch.Consume(
-		q.Name, // queue
-		"",     // consumer tag
-		true,   // auto-ack
-		true,   // exclusive - ensures only this client reads from its reply queue
-		false,  // no-local
-		false,  // no-wait
-		nil,    // args
-	)
-	if err != nil {
-		_ = client.Close()
-		return nil, fmt.Errorf("failed to consume replies: %w", err)
+	if client.replyQueue == "" {
+		client.replyQueue = DirectReplyToQueue
+	}
+
+	var msgs <-chan amqp.Delivery
+
+	if client.replyQueue == DirectReplyToQueue {
+		msgs, err = ch.Consume(client.replyQueue, "", true, true, false, false, nil)
+		if err != nil {
+			_ = ch.Close()
+			_ = conn.Close()
+			return nil, fmt.Errorf("failed to consume from direct reply-to: %w", err)
+		}
+	} else {
+		if _, err = ch.QueueDeclarePassive(client.replyQueue, true, false, false, false, nil); err != nil {
+			_ = ch.Close()
+			_ = conn.Close()
+			return nil, fmt.Errorf("failed to verify reply queue %q: %w", client.replyQueue, err)
+		}
+		msgs, err = ch.Consume(client.replyQueue, "", true, false, false, false, nil)
+		if err != nil {
+			_ = ch.Close()
+			_ = conn.Close()
+			return nil, fmt.Errorf("failed to consume from reply queue: %w", err)
+		}
 	}
 
 	go client.handleReplies(msgs)
-
 	return client, nil
 }
 
@@ -126,7 +141,6 @@ func (c *RPCClient) RequestWithHeaders(ctx context.Context, exchange, routingKey
 	amqpHeaders := injectContextHeaders(ctx)
 	maps.Copy(amqpHeaders, headers)
 
-	fmt.Printf("[RPC] Publishing to Ex: %s, Key: %s, ReplyTo: %s, CorrID: %s\n", exchange, routingKey, c.replyQueue, correlationID)
 	err = c.channel.PublishWithContext(ctx,
 		exchange,   // Exchange
 		routingKey, // Routing Key

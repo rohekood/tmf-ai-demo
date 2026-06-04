@@ -88,7 +88,7 @@ func run(ctx context.Context, getEnv func(string) string) error {
 		logger.Info("Connected to Redis", "addr", redisAddr)
 	}
 
-	rpcClient, err := rabbitmq.NewRPCClient(rabbitURL, rabbitmq.WithExchange("ex.domain.market"))
+	rpcClient, err := rabbitmq.NewRPCClient(rabbitURL, rabbitmq.WithExchange("ex.domain.market"), rabbitmq.WithReplyQueue(rabbitmq.DirectReplyToQueue))
 	if err != nil {
 		return fmt.Errorf("failed to create RPC client: %w", err)
 	}
@@ -101,7 +101,7 @@ func run(ctx context.Context, getEnv func(string) string) error {
 
 	invClient := rpc.NewInventoryClient(rpcClient)
 
-	catalogPricingRPCClient, err := rabbitmq.NewRPCClient(rabbitURL, rabbitmq.WithExchange("catalog_events"))
+	catalogPricingRPCClient, err := rabbitmq.NewRPCClient(rabbitURL, rabbitmq.WithExchange("catalog_events"), rabbitmq.WithReplyQueue(rabbitmq.DirectReplyToQueue))
 	if err != nil {
 		return fmt.Errorf("failed to create catalog pricing RPC client: %w", err)
 	}
@@ -109,7 +109,7 @@ func run(ctx context.Context, getEnv func(string) string) error {
 
 	catClient := rpc.NewCatalogRPCClient(catalogPricingRPCClient)
 
-	customerPricingRPCClient, err := rabbitmq.NewRPCClient(rabbitURL, rabbitmq.WithExchange("customer.events"))
+	customerPricingRPCClient, err := rabbitmq.NewRPCClient(rabbitURL, rabbitmq.WithExchange("customer.events"), rabbitmq.WithReplyQueue(rabbitmq.DirectReplyToQueue))
 	if err != nil {
 		return fmt.Errorf("failed to create customer pricing RPC client: %w", err)
 	}

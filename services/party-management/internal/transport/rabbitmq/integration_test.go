@@ -163,12 +163,25 @@ func TestMain(m *testing.M) {
 		log.Fatalf("failed to create publisher: %s", err)
 	}
 
+	// Declare the exchanges and queues that K8s CRDs provide in production.
+	// The listener now uses QueueDeclarePassive and expects these to pre-exist.
 	ch, err := sharedConn.Channel()
 	if err != nil {
 		log.Fatalf("failed to open channel: %s", err)
 	}
-	if err := ch.ExchangeDeclare(EventExchange, "topic", true, false, false, false, nil); err != nil {
-		log.Fatalf("failed to declare exchange: %s", err)
+	for _, exchange := range []struct{ name, kind string }{
+		{EventExchange, "topic"},
+		{CommandExchange, "topic"},
+		{DeadLetterExchange, "fanout"},
+	} {
+		if err := ch.ExchangeDeclare(exchange.name, exchange.kind, true, false, false, false, nil); err != nil {
+			log.Fatalf("failed to declare exchange %s: %s", exchange.name, err)
+		}
+	}
+	for _, queue := range []string{DeadLetterQueue, PartyQueue, "party.events"} {
+		if _, err := ch.QueueDeclare(queue, true, false, false, false, nil); err != nil {
+			log.Fatalf("failed to declare queue %s: %s", queue, err)
+		}
 	}
 	_ = ch.Close()
 
@@ -209,6 +222,11 @@ func setupTestSuite(t *testing.T) *IntegrationTestSuite {
 	tm := postgres.NewTransactionManager(sharedDB)
 	outboxRepo := postgres.NewOutboxRepository(sharedDB)
 	outboxPublisher := postgres.NewOutboxPublisher(outboxRepo)
+
+	// Clear any pending outbox events left over from previous tests so their
+	// workers don't publish stale events into this test's event queue.
+	sharedDB.Exec("DELETE FROM outbox_events WHERE status = 'PENDING'")
+
 	worker := postgres.NewOutboxWorker(outboxRepo, sharedPublisher)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -259,13 +277,9 @@ func TestIntegration_CreateIndividual(t *testing.T) {
 	assert.Equal(t, "Test", saved.FamilyName)
 	assert.Equal(t, "Initialized", saved.Status)
 
-	evt1 := suite.waitForEvent(t, 2*time.Second)
-	require.NotNil(t, evt1, "Expected evt.party.created event")
-	assert.Equal(t, EvtPartyCreated, evt1.RoutingKey)
-
-	evt2 := suite.waitForEvent(t, 2*time.Second)
-	require.NotNil(t, evt2, "Expected evt.party.stateChange event")
-	assert.Equal(t, EvtPartyStateChange, evt2.RoutingKey)
+	evt := suite.waitForEvent(t, 2*time.Second)
+	require.NotNil(t, evt, "Expected evt.party.created event")
+	assert.Equal(t, EvtPartyCreated, evt.RoutingKey)
 }
 
 func TestIntegration_CreateOrganization(t *testing.T) {

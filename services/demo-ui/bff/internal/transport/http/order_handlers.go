@@ -74,23 +74,24 @@ func (h *OrderHandler) CheckQualification(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), qualRPCTimeout)
+	// Generate the session ID here so we can return it immediately.
+	// The qualification service uses this ID when storing the result, allowing
+	// the UI to poll GET /api/qualification/session/{sessionId} for the outcome.
+	sessionID := uuid.New().String()
+	payload["sessionId"] = sessionID
+
+	ctx, cancel := context.WithTimeout(r.Context(), cartRPCTimeout)
 	defer cancel()
 
-	responseBytes, err := h.rpcClient.CallRPC(ctx, orderExchange, cmdQualEligibilityCheck, payload, getHeaders(r))
-	if err != nil {
-		slog.Error("error checking qualification", "error", err)
-		if errors.Is(err, context.DeadlineExceeded) {
-			http.Error(w, "Qualification check timed out", http.StatusGatewayTimeout)
-			return
-		}
-		http.Error(w, "Failed to check qualification: "+err.Error(), http.StatusInternalServerError)
+	if err := h.rpcClient.PublishCommand(ctx, orderExchange, cmdQualEligibilityCheck, payload); err != nil {
+		slog.Error("error publishing qualification command", "error", err)
+		http.Error(w, "Failed to start qualification: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(responseBytes)
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(map[string]string{"sessionId": sessionID, "status": "PENDING"})
 }
 
 func (h *OrderHandler) GetQualificationSession(w http.ResponseWriter, r *http.Request) {

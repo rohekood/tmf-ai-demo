@@ -55,7 +55,7 @@ func Run(ctx context.Context, cfg Config) error {
 	defer func() { _ = rmqPub.Close() }()
 
 	// RPC Client
-	rpcClient, err := rabbitmq.NewRPCClient(cfg.RabbitMQURL, rabbitmq.WithExchange("ex.domain.commerce"))
+	rpcClient, err := rabbitmq.NewRPCClient(cfg.RabbitMQURL, rabbitmq.WithExchange("ex.domain.commerce"), rabbitmq.WithReplyQueue(rabbitmq.DirectReplyToQueue))
 	if err != nil {
 		return fmt.Errorf("failed to create RPC client: %w", err)
 	}

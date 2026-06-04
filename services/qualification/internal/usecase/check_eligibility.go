@@ -113,12 +113,22 @@ func (uc *CheckEligibility) Execute(ctx context.Context, cmd domain.CheckEligibi
 
 	// Wait for gathered results
 	if err := g.Wait(); err != nil {
-		// If any critical dependency failed, we publish an Error event
 		logger.Error("Scatter-Gather failed", "error", err)
-		return uc.publishResult(ctx, cmd, domain.EligibilityResult{
+		result := domain.EligibilityResult{
 			Status:               domain.StatusError,
 			UnavailabilityReason: fmt.Sprintf("System Dependency Failed: %v", err),
-		})
+		}
+		if cmd.SessionID != "" {
+			_, _ = uc.sessionRepo.Create(ctx, &domain.QualificationSession{
+				ID:        cmd.SessionID,
+				CustomerID: cmd.CustomerID,
+				Address:   cmd.Address,
+				Status:    string(domain.StatusError),
+				CreatedAt: time.Now().UTC(),
+				ExpiresAt: time.Now().UTC().Add(24 * time.Hour),
+			})
+		}
+		return uc.publishResult(ctx, cmd, result)
 	}
 
 	// 2. Logic: Rule Engine
@@ -144,21 +154,16 @@ func (uc *CheckEligibility) Execute(ctx context.Context, cmd domain.CheckEligibi
 
 	logger.Info("Eligibility determined", "status", status, "reason", reason)
 
-	// NEW: Create qualification session with pricing if qualified
 	var sessionID string
 	var qualifiedOffers []domain.QualifiedOffer
 
 	if isQualified && cmd.CustomerID != "" {
-		// Calculate prices for each eligible offering
 		for _, category := range eligible {
-			// For now, use category ID as offering ID
-			// In real implementation, get actual offerings from catalog
 			price, err := uc.pricingCalc.CalculatePrice(ctx, category.ID, cmd.CustomerID)
 			if err != nil {
 				logger.Warn("Failed to calculate price", "offeringId", category.ID, "error", err)
 				continue
 			}
-
 			qualifiedOffers = append(qualifiedOffers, domain.QualifiedOffer{
 				OfferingID:   category.ID,
 				OfferingName: category.Name,
@@ -166,25 +171,25 @@ func (uc *CheckEligibility) Execute(ctx context.Context, cmd domain.CheckEligibi
 				Eligibility:  "QUALIFIED",
 			})
 		}
+	}
 
-		// Create session
-		session := &domain.QualificationSession{
-			CustomerID:      cmd.CustomerID,
-			Address:         cmd.Address,
-			QualifiedOffers: qualifiedOffers,
-			Status:          "QUALIFIED",
-			CreatedAt:       time.Now().UTC(),
-			ExpiresAt:       time.Now().UTC().Add(24 * time.Hour),
-		}
-
-		var err error
-		sessionID, err = uc.sessionRepo.Create(ctx, session)
-		if err != nil {
-			logger.Error("Failed to create session", "error", err)
-			// Continue anyway - session creation is not critical for qualification
-		} else {
-			logger.Info("Created qualification session", "sessionId", sessionID)
-		}
+	// Always persist the session so async callers can poll for the result.
+	// Use cmd.SessionID if the caller pre-generated one (async flow).
+	session := &domain.QualificationSession{
+		ID:              cmd.SessionID,
+		CustomerID:      cmd.CustomerID,
+		Address:         cmd.Address,
+		QualifiedOffers: qualifiedOffers,
+		Status:          string(status),
+		CreatedAt:       time.Now().UTC(),
+		ExpiresAt:       time.Now().UTC().Add(24 * time.Hour),
+	}
+	var err error
+	sessionID, err = uc.sessionRepo.Create(ctx, session)
+	if err != nil {
+		logger.Error("Failed to create session", "error", err)
+	} else {
+		logger.Info("Created qualification session", "sessionId", sessionID)
 	}
 
 	result := domain.EligibilityResult{

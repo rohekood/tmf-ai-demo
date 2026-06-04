@@ -26,7 +26,7 @@ func NewClient(url string) (*Client, error) {
 		url = "amqp://guest:guest@localhost:5672/"
 	}
 
-	rpcClient, err := newRPCClientFunc(url)
+	rpcClient, err := newRPCClientFunc(url, pkgrmq.WithReplyQueue(pkgrmq.DirectReplyToQueue))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create RPC client: %w", err)
 	}

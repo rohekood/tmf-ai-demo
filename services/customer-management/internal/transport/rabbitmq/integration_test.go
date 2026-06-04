@@ -106,22 +106,25 @@ func TestMain(m *testing.M) {
 		log.Fatalf("failed to connect to rabbitmq: %v", err)
 	}
 
-	// Declare exchange to avoid channel closure errors
+	// Declare the exchanges and queues that K8s CRDs provide in production.
+	// The listener now uses QueueDeclarePassive and expects these to pre-exist.
 	ch, err := sharedConn.Channel()
 	if err != nil {
-		log.Fatalf("failed to open channel to declare exchange: %v", err)
+		log.Fatalf("failed to open channel: %v", err)
 	}
-	err = ch.ExchangeDeclare(
-		"tmf.events", // name
-		"topic",      // type
-		true,         // durable
-		false,        // auto-deleted
-		false,        // internal
-		false,        // no-wait
-		nil,          // arguments
-	)
-	if err != nil {
-		log.Fatalf("failed to declare exchange: %v", err)
+	for _, exchange := range []struct{ name, kind string }{
+		{EventExchange, "topic"},
+		{CommandExchange, "topic"},
+		{DeadLetterExchange, "fanout"},
+	} {
+		if err := ch.ExchangeDeclare(exchange.name, exchange.kind, true, false, false, false, nil); err != nil {
+			log.Fatalf("failed to declare exchange %s: %v", exchange.name, err)
+		}
+	}
+	for _, queue := range []string{DeadLetterQueue, CustomerQueue, EventQueue} {
+		if _, err := ch.QueueDeclare(queue, true, false, false, false, nil); err != nil {
+			log.Fatalf("failed to declare queue %s: %v", queue, err)
+		}
 	}
 	_ = ch.Close()
 

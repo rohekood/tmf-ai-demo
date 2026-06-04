@@ -17,10 +17,10 @@ type Address struct {
 
 type CheckEligibilityCommand struct {
 	Address        Address  `json:"address"`
-	CustomerID     string   `json:"customerId"` // NEW: For pricing calculation
+	CustomerID     string   `json:"customerId"`
 	CategoryFilter []string `json:"categoryFilter"`
 	CorrelationID  string   `json:"correlationId"`
-	ReplyTo        string   `json:"replyTo"`
+	SessionID      string   `json:"sessionId,omitempty"`
 }
 
 type EligibilityResult struct {

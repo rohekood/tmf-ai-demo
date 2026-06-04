@@ -76,7 +76,7 @@ func run(ctx context.Context, getEnv func(string) string) error {
 	repo := repository.NewCartRepository(db)
 
 	// 5.1 Create RPC client for qualification service
-	rpcClient, err := rabbitmq.NewRPCClient(rabbitURL)
+	rpcClient, err := rabbitmq.NewRPCClient(rabbitURL, rabbitmq.WithReplyQueue(rabbitmq.DirectReplyToQueue))
 	if err != nil {
 		return fmt.Errorf("failed to create RPC client: %w", err)
 	}

@@ -15,19 +15,49 @@ func TestOrderHandler_CheckQualification(t *testing.T) {
 	handler := NewOrderHandler(mockClient)
 
 	t.Run("Success", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
-			if routingKey != cmdQualEligibilityCheck {
-				t.Errorf("Unexpected routing key: %s", routingKey)
-			}
-			return []byte(`{"sessionId":"sess1", "status":"qualified"}`), nil
+		var publishedExchange string
+		var publishedRoutingKey string
+		var publishedPayload any
+
+		mockClient.PublishCommandFunc = func(ctx context.Context, exchange, routingKey string, payload any) error {
+			publishedExchange = exchange
+			publishedRoutingKey = routingKey
+			publishedPayload = payload
+			return nil
 		}
 
 		req := httptest.NewRequest("POST", "/api/qualification/check", strings.NewReader(`{"partyId":"p1"}`))
 		w := httptest.NewRecorder()
 		handler.CheckQualification(w, req)
 
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected status OK, got %v", w.Code)
+		if w.Code != http.StatusAccepted {
+			t.Errorf("Expected status Accepted, got %v", w.Code)
+		}
+		if publishedExchange != orderExchange {
+			t.Errorf("Expected exchange %q, got %q", orderExchange, publishedExchange)
+		}
+		if publishedRoutingKey != cmdQualEligibilityCheck {
+			t.Errorf("Expected routing key %q, got %q", cmdQualEligibilityCheck, publishedRoutingKey)
+		}
+
+		var resp map[string]string
+		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+			t.Fatalf("Failed to decode response: %v", err)
+		}
+		sessionID := resp["sessionId"]
+		if sessionID == "" {
+			t.Fatal("Expected non-empty sessionId in response")
+		}
+		if resp["status"] != "PENDING" {
+			t.Errorf("Expected status PENDING, got %q", resp["status"])
+		}
+
+		payloadMap, ok := publishedPayload.(map[string]any)
+		if !ok {
+			t.Fatalf("Published payload is not map[string]any: %T", publishedPayload)
+		}
+		if payloadMap["sessionId"] != sessionID {
+			t.Errorf("Expected published sessionId %q, got %v", sessionID, payloadMap["sessionId"])
 		}
 	})
 
@@ -40,9 +70,9 @@ func TestOrderHandler_CheckQualification(t *testing.T) {
 		}
 	})
 
-	t.Run("RPCError", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
-			return nil, errors.New("rpc error")
+	t.Run("PublishError", func(t *testing.T) {
+		mockClient.PublishCommandFunc = func(ctx context.Context, exchange, routingKey string, payload any) error {
+			return errors.New("publish error")
 		}
 		req := httptest.NewRequest("POST", "/api/qualification/check", strings.NewReader(`{"partyId":"p1"}`))
 		w := httptest.NewRecorder()
@@ -52,15 +82,15 @@ func TestOrderHandler_CheckQualification(t *testing.T) {
 		}
 	})
 
-	t.Run("Timeout", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
-			return nil, context.DeadlineExceeded
+	t.Run("PublishTimeout", func(t *testing.T) {
+		mockClient.PublishCommandFunc = func(ctx context.Context, exchange, routingKey string, payload any) error {
+			return context.DeadlineExceeded
 		}
 		req := httptest.NewRequest("POST", "/api/qualification/check", strings.NewReader(`{"address":{"street":"Main St"},"customerId":"c1"}`))
 		w := httptest.NewRecorder()
 		handler.CheckQualification(w, req)
-		if w.Code != http.StatusGatewayTimeout {
-			t.Errorf("Expected status GatewayTimeout (504), got %v", w.Code)
+		if w.Code != http.StatusInternalServerError {
+			t.Errorf("Expected status InternalServerError, got %v", w.Code)
 		}
 	})
 }
@@ -97,7 +127,7 @@ func TestOrderHandler_GetQualificationSession(t *testing.T) {
 
 	t.Run("RPCError_ReturnsInternalServerError", func(t *testing.T) {
 		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
-			return nil, errors.New("rpc transport failure")
+			return nil, errors.New("not found or expired")
 		}
 		req := httptest.NewRequest("GET", "/api/qualification/session/sess1", nil)
 		w := httptest.NewRecorder()
@@ -105,17 +135,8 @@ func TestOrderHandler_GetQualificationSession(t *testing.T) {
 		if w.Code != http.StatusInternalServerError {
 			t.Errorf("Expected status InternalServerError, got %v", w.Code)
 		}
-	})
-
-	t.Run("TimeoutError_ReturnsGatewayTimeout", func(t *testing.T) {
-		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
-			return nil, context.DeadlineExceeded
-		}
-		req := httptest.NewRequest("GET", "/api/qualification/session/sess1", nil)
-		w := httptest.NewRecorder()
-		mux.ServeHTTP(w, req)
-		if w.Code != http.StatusGatewayTimeout {
-			t.Errorf("Expected status GatewayTimeout, got %v", w.Code)
+		if !strings.Contains(w.Body.String(), "Failed to get qualification session") {
+			t.Errorf("Expected body to contain qualification session failure message, got %s", w.Body.String())
 		}
 	})
 
@@ -136,7 +157,7 @@ func TestOrderHandler_AddCartItem(t *testing.T) {
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
 
-	t.Run("Success_WithCartId", func(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
 		mockClient.PublishCommandFunc = func(ctx context.Context, exchange, routingKey string, payload any) error {
 			if exchange != cartExchange {
 				t.Errorf("Expected exchange %q, got %q", cartExchange, exchange)
@@ -144,64 +165,31 @@ func TestOrderHandler_AddCartItem(t *testing.T) {
 			if routingKey != cmdCartItemAdd {
 				t.Errorf("Expected routing key %q, got %q", cmdCartItemAdd, routingKey)
 			}
-			// Verify the provided cartId is forwarded unchanged.
-			m, ok := payload.(map[string]any)
+			payloadMap, ok := payload.(map[string]any)
 			if !ok {
-				t.Fatalf("Expected payload to be map[string]any, got %T", payload)
+				t.Errorf("Expected payload map[string]any, got %T", payload)
+				return nil
 			}
-			if m["cartId"] != "cart1" {
-				t.Errorf("Expected cartId=cart1 in payload, got %v", m["cartId"])
+			if payloadMap["cartId"] != "cart1" {
+				t.Errorf("Expected payload cartId cart1, got %v", payloadMap["cartId"])
 			}
 			return nil
 		}
 
-		req := httptest.NewRequest("POST", "/api/cart/items", strings.NewReader(`{"cartId":"cart1","offeringId":"o1","quantity":1}`))
+		req := httptest.NewRequest("POST", "/api/cart/items", strings.NewReader(`{"cartId":"cart1", "offerId":"o1"}`))
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
 
 		if w.Code != http.StatusOK {
 			t.Errorf("Expected status OK, got %v", w.Code)
 		}
+
 		var resp map[string]string
-		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-			t.Fatalf("Failed to parse response: %v", err)
+		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+			t.Fatalf("Failed to decode response: %v", err)
 		}
 		if resp["cartId"] != "cart1" {
-			t.Errorf("Expected cartId=cart1 in response, got %q", resp["cartId"])
-		}
-	})
-
-	t.Run("Success_AutoGeneratesCartId", func(t *testing.T) {
-		var capturedCartID string
-		mockClient.PublishCommandFunc = func(ctx context.Context, exchange, routingKey string, payload any) error {
-			m, ok := payload.(map[string]any)
-			if !ok {
-				t.Fatalf("Expected payload to be map[string]any, got %T", payload)
-			}
-			capturedCartID, _ = m["cartId"].(string)
-			return nil
-		}
-
-		// No cartId in the request body — BFF must generate one.
-		req := httptest.NewRequest("POST", "/api/cart/items", strings.NewReader(`{"offeringId":"o1","quantity":1}`))
-		w := httptest.NewRecorder()
-		mux.ServeHTTP(w, req)
-
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected status OK, got %v", w.Code)
-		}
-		if capturedCartID == "" {
-			t.Error("Expected BFF to generate a non-empty cartId when one is not provided")
-		}
-		var resp map[string]string
-		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-			t.Fatalf("Failed to parse response: %v", err)
-		}
-		if resp["cartId"] == "" {
-			t.Error("Expected auto-generated cartId in response")
-		}
-		if resp["cartId"] != capturedCartID {
-			t.Errorf("Response cartId %q does not match published cartId %q", resp["cartId"], capturedCartID)
+			t.Errorf("Expected response cartId cart1, got %v", resp["cartId"])
 		}
 	})
 
@@ -218,7 +206,7 @@ func TestOrderHandler_AddCartItem(t *testing.T) {
 		mockClient.PublishCommandFunc = func(ctx context.Context, exchange, routingKey string, payload any) error {
 			return errors.New("publish error")
 		}
-		req := httptest.NewRequest("POST", "/api/cart/items", strings.NewReader(`{"offeringId":"o1"}`))
+		req := httptest.NewRequest("POST", "/api/cart/items", strings.NewReader(`{"offerId":"o1"}`))
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
 		if w.Code != http.StatusInternalServerError {

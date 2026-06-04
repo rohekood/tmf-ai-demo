@@ -30,20 +30,6 @@ func TestHandleCreateParty_IndividualPublishCreatedError(t *testing.T) {
 	assert.Contains(t, err.Error(), "pub error")
 }
 
-func TestHandleCreateParty_IndividualPublishStateChangeError(t *testing.T) {
-	h, repo, pub := setupHandlerWithMocks()
-	ctx := context.Background()
-
-	repo.On("CreateIndividual", ctx, testifymock.Anything).Return(nil)
-	pub.On("Publish", ctx, EventExchange, EvtPartyCreated, testifymock.Anything).Return(nil)
-	pub.On("Publish", ctx, EventExchange, EvtPartyStateChange, testifymock.Anything).Return(errors.New("state error"))
-
-	body, _ := json.Marshal(map[string]any{
-		"@type": "Individual", "id": "pub-err-2", "givenName": "Test",
-	})
-	err := h.HandleCreateParty(ctx, amqp.Delivery{Body: body})
-	assert.Error(t, err)
-}
 
 func TestHandleCreateParty_OrgPublishError(t *testing.T) {
 	h, repo, pub := setupHandlerWithMocks()
@@ -59,20 +45,6 @@ func TestHandleCreateParty_OrgPublishError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestHandleCreateParty_OrgPublishStateChangeError(t *testing.T) {
-	h, repo, pub := setupHandlerWithMocks()
-	ctx := context.Background()
-
-	repo.On("CreateOrganization", ctx, testifymock.Anything).Return(nil)
-	pub.On("Publish", ctx, EventExchange, EvtPartyCreated, testifymock.Anything).Return(nil)
-	pub.On("Publish", ctx, EventExchange, EvtPartyStateChange, testifymock.Anything).Return(errors.New("state err"))
-
-	body, _ := json.Marshal(map[string]any{
-		"@type": "Organization", "id": "pub-err-4", "tradingName": "Corp",
-	})
-	err := h.HandleCreateParty(ctx, amqp.Delivery{Body: body})
-	assert.Error(t, err)
-}
 
 // ========== Update Party Error Paths ==========
 

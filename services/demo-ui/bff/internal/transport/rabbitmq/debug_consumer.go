@@ -74,22 +74,6 @@ func (dc *DebugConsumer) StartSubscribing(exchangeName string) error {
 	exchanges := debugExchanges
 
 	for _, exchange := range exchanges {
-		// Ensure exchange exists (should be declared by services, but safer here)
-		err = ch.ExchangeDeclare(
-			exchange,
-			"topic",
-			true,  // durable
-			false, // auto-deleted
-			false, // internal
-			false, // no-wait
-			nil,   // args
-		)
-		if err != nil {
-			// Ignore error as exchange might already exist with different config or service not up.
-			// Debug consumer will just fail to bind if exchange is missing.
-			_ = err
-		}
-
 		err = ch.QueueBind(
 			q.Name,
 			"#",      // routing key - listen to everything
