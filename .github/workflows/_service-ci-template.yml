@@ -63,17 +63,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Generate package.json for semantic-release-monorepo
+        if: github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch'
+        shell: bash
+        run: |
+          cat > "${{ inputs.service_path }}/package.json" << EOF
+          {"name":"${{ inputs.service_name }}","version":"0.0.0","private":true}
+          EOF
+
       - name: Generate semantic-release config
         if: github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
           SERVICE_NAME="${{ inputs.service_name }}"
           SERVICE_PATH="${{ inputs.service_path }}"
-          cat > .releaserc.json << EOF
+          cat > "${SERVICE_PATH}/.releaserc.json" << EOF
           {
             "branches": ["main"],
             "tagFormat": "${SERVICE_NAME}-v\${version}",
-            "pkgRoot": "${SERVICE_PATH}",
             "extends": "semantic-release-monorepo",
             "plugins": [
               "@semantic-release/commit-analyzer",
@@ -110,7 +117,8 @@ jobs:
         with:
           semantic_version: 24
           extra_plugins: |
-            semantic-release-monorepo@8.0.0
+            semantic-release-monorepo
+          working_directory: ${{ inputs.service_path }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

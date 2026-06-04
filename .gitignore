@@ -5,6 +5,8 @@
 !test_*.log
 docker-compose.override.yml
 
+node_modules/
+
 # Large binaries to ignore
 
 **/party_server
