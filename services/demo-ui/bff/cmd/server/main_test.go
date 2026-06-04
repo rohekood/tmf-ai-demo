@@ -36,7 +36,7 @@ func TestMain_Success(t *testing.T) {
 		// Return a client with a nil RPCClient. It will panic if used, but we don't use it.
 		return &bffrmq.Client{}, nil
 	}
-	newConsumerFunc = func(url, exchange, queue string) (rabbitmq.Consumer, error) {
+	newConsumerFunc = func(url, exchange, queue string, _ ...rabbitmq.ConsumerOption) (rabbitmq.Consumer, error) {
 		return &mockConsumer{}, nil
 	}
 	newAuthValidatorFunc = func(domain, audience string) (auth.TokenValidator, error) {

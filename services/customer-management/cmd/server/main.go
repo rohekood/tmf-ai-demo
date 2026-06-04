@@ -44,7 +44,7 @@ func main() {
 		rabbitmq.NewPublisherWithConnection,
 		transportRabbit.NewListener,
 		func(conn *amqp.Connection) (rabbitmq.Consumer, error) {
-			return rabbitmq.NewConsumerWithConnection(conn, "customer.events", "customer_rpc_queue")
+			return rabbitmq.NewConsumerWithConnection(conn, "customer.events", "customer_rpc_queue", rabbitmq.WithMessageTimeout(30*time.Second))
 		},
 		logger); err != nil {
 		slog.Error("service exited with error", "error", err)

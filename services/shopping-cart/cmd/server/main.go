@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"tmf/pkg/rabbitmq"
 	"tmf/services/shopping-cart/internal/adapter/handler"
@@ -96,7 +97,7 @@ func run(ctx context.Context, getEnv func(string) string) error {
 	outboxWorker := worker.NewOutboxWorker(db, pub, "ex.domain.commerce")
 
 	// 7. Listener (Commands)
-	consumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.commerce", "q.cart.commands")
+	consumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.commerce", "q.cart.commands", rabbitmq.WithMessageTimeout(30*time.Second))
 	if err != nil {
 		return fmt.Errorf("failed to create consumer: %w", err)
 	}
@@ -111,7 +112,7 @@ func run(ctx context.Context, getEnv func(string) string) error {
 	}
 
 	// 8. Listener (Catalog Replication)
-	catalogConsumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.catalog", "q.cart.catalog.sync")
+	catalogConsumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.catalog", "q.cart.catalog.sync", rabbitmq.WithMessageTimeout(30*time.Second))
 	if err != nil {
 		return fmt.Errorf("failed to create catalog consumer: %w", err)
 	}
@@ -122,7 +123,7 @@ func run(ctx context.Context, getEnv func(string) string) error {
 	}
 
 	// 9. Listener (RPC Queries)
-	rpcConsumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.commerce", "q.cart.rpc.v2")
+	rpcConsumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.commerce", "q.cart.rpc.v2", rabbitmq.WithMessageTimeout(30*time.Second))
 	if err != nil {
 		return fmt.Errorf("failed to create rpc consumer: %w", err)
 	}

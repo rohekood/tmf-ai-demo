@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"tmf/pkg/rabbitmq"
 	"tmf/services/qualification/internal/adapter/cache"
@@ -132,7 +133,7 @@ func run(ctx context.Context, getEnv func(string) string) error {
 	h := handler.NewRabbitMQHandler(checkUC, logger)
 	rpcHandler := handler.NewRPCHandler(sessionRepo, rmqPub, logger)
 
-	commandConsumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.market", "q.qual.command")
+	commandConsumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.market", "q.qual.command", rabbitmq.WithMessageTimeout(30*time.Second))
 	if err != nil {
 		return fmt.Errorf("failed to create command Consumer: %w", err)
 	}
@@ -143,7 +144,7 @@ func run(ctx context.Context, getEnv func(string) string) error {
 		return fmt.Errorf("failed to subscribe command: %w", err)
 	}
 
-	rpcConsumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.market", "q.qual.rpc")
+	rpcConsumer, err := rabbitmq.NewConsumer(rabbitURL, "ex.domain.market", "q.qual.rpc", rabbitmq.WithMessageTimeout(30*time.Second))
 	if err != nil {
 		return fmt.Errorf("failed to create RPC Consumer: %w", err)
 	}

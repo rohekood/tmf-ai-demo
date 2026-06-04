@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"tmf/pkg/rabbitmq"
 	"tmf/services/pocv/internal/adapter/handler"
@@ -73,7 +74,7 @@ func Run(ctx context.Context, cfg Config) error {
 	go outboxWorker.Start(ctx)
 
 	// Consumer
-	consumer, err := rabbitmq.NewConsumer(cfg.RabbitMQURL, cfg.Exchange, cfg.QueueName)
+	consumer, err := rabbitmq.NewConsumer(cfg.RabbitMQURL, cfg.Exchange, cfg.QueueName, rabbitmq.WithMessageTimeout(30*time.Second))
 	if err != nil {
 		return fmt.Errorf("failed to create consumer: %w", err)
 	}
@@ -84,7 +85,7 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 
 	// RPC Consumer for queries
-	rpcConsumer, err := rabbitmq.NewConsumer(cfg.RabbitMQURL, cfg.Exchange, "q.pocv.rpc")
+	rpcConsumer, err := rabbitmq.NewConsumer(cfg.RabbitMQURL, cfg.Exchange, "q.pocv.rpc", rabbitmq.WithMessageTimeout(30*time.Second))
 	if err != nil {
 		return fmt.Errorf("failed to create rpc consumer: %w", err)
 	}

@@ -168,7 +168,7 @@ func main() {
 	rpcHandler := handler.NewCatalogRPCHandler(offeringRepo, sharedPublisher, logger)
 
 	// 7.2 Create RPC consumer
-	rpcConsumer, err := rabbitmq.NewConsumerWithConnection(conn, "catalog_events", "catalog_rpc_queue")
+	rpcConsumer, err := rabbitmq.NewConsumerWithConnection(conn, "catalog_events", "catalog_rpc_queue", rabbitmq.WithMessageTimeout(30*time.Second))
 	if err != nil {
 		logger.Error("Failed to create RPC consumer", "error", err)
 		os.Exit(1)

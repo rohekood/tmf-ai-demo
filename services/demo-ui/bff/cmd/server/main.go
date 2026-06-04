@@ -28,7 +28,9 @@ var upgrader = websocket.Upgrader{
 
 var (
 	newClientFunc = rabbitmq.NewClient
-	newConsumerFunc = rabbitmqpkg.NewConsumer
+	newConsumerFunc = func(url, exchange, queue string, opts ...rabbitmqpkg.ConsumerOption) (rabbitmqpkg.Consumer, error) {
+		return rabbitmqpkg.NewConsumer(url, exchange, queue, append(opts, rabbitmqpkg.WithMessageTimeout(30*time.Second))...)
+	}
 	listenAndServeFunc = func(srv *http.Server) error { return srv.ListenAndServe() }
 	newAuthValidatorFunc = auth.NewAuth0Validator
 	startDebugConsumerFunc = func(dc *rabbitmq.DebugConsumer, exchange string) error { return dc.StartSubscribing(exchange) }
