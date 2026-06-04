@@ -27,6 +27,7 @@ import (
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	
 
 	if err := run(ctx, os.Getenv); err != nil {
 		slog.Error("Fatal error", "error", err)
