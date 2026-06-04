@@ -110,7 +110,7 @@ jobs:
         with:
           semantic_version: 24
           extra_plugins: |
-            semantic-release-monorepo
+            semantic-release-monorepo@8.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
