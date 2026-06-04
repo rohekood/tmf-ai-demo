@@ -29,8 +29,8 @@ COPY docker-entrypoint.d/40-generate-config.sh /docker-entrypoint.d/40-generate-
 RUN chmod +x /docker-entrypoint.d/40-generate-config.sh
 
 
-# Copy custom nginx config for API proxying and SPA fallback
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy nginx config as a template — BFF_HOST is substituted at container startup
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 EXPOSE 80
 

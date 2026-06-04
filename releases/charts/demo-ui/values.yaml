@@ -18,6 +18,7 @@ env:
   auth0AudienceKey: AUTH0_AUDIENCE
   apiUrl: /api
   apiBaseUrl: ""
+  bffHost: "bff"
 
 # Runtime variables are injected from Kubernetes into the container and rendered
 # into /config.js at startup.

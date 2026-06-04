@@ -27,6 +27,8 @@ spec:
               value: {{ .Values.env.apiUrl | quote }}
             - name: API_BASE_URL
               value: {{ .Values.env.apiBaseUrl | quote }}
+            - name: BFF_HOST
+              value: {{ .Values.env.bffHost | quote }}
             {{- if .Values.env.secretName }}
             - name: AUTH0_DOMAIN
               valueFrom:
