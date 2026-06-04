@@ -13,6 +13,7 @@ spec:
     metadata:
       labels:
         {{- include "demo-ui.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/endpoint-revision: "2"
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
