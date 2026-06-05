@@ -1,5 +1,5 @@
 # Build Stage
-FROM golang:1.26.3 AS builder
+FROM golang:1.26.4 AS builder
 WORKDIR /workspace
 COPY pkg ./pkg
 COPY services/party-management ./services/party-management
