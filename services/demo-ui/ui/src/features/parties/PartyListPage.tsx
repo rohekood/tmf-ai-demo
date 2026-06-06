@@ -10,7 +10,7 @@ import {
 } from '@tanstack/react-table';
 import { useReactTable } from '../../hooks/useReactTable';
 import { Plus, Search, User, Building2, ChevronUp, ChevronDown, Eye, Edit, Trash2, Loader2 } from 'lucide-react';
-import { useParties, useDeleteParty } from './api';
+import { useParties, useDeleteParty, usePurgeParty } from './api';
 import { type PartyUnion, getPartyDisplayName, isIndividual } from './types';
 import { useNotification } from '../../design-system/components/common/Toast';
 import { IconButton } from '../../design-system/components/common/IconButton';
@@ -24,15 +24,22 @@ export default function PartyListPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const [searchTerm, setSearchTerm] = useState('');
     const [sorting, setSorting] = useState<SortingState>([]);
+    const [showDeleted, setShowDeleted] = useState(false);
     const queryClient = useQueryClient();
 
     const searchQuery = searchParams.get('q') || '';
 
+    const queryParams = {
+        ...(searchQuery ? { search: searchQuery } : {}),
+        ...(!showDeleted ? { status: 'Active' } : {}),
+    };
+
     const { data: parties = [], isLoading, error } = useParties(
-        searchQuery ? { search: searchQuery } : undefined
+        Object.keys(queryParams).length > 0 ? queryParams : undefined
     );
 
     const deleteMutation = useDeleteParty();
+    const purgeMutation = usePurgeParty();
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -100,12 +107,31 @@ export default function PartyListPage() {
                     setDeletingId(id);
                     checkDeletionStatus(id);
                 },
-                onError: (err) => {
-                    showToast(`Failed to initiate deletion: ${err.message}`, 'error');
+                onError: (err: unknown) => {
+                    const axiosErr = err as { response?: { status?: number; data?: string } };
+                    if (axiosErr.response?.status === 409) {
+                        showToast(axiosErr.response.data || 'Cannot delete: party has linked customers.', 'error');
+                    } else {
+                        showToast(`Failed to initiate deletion: ${(err as Error).message}`, 'error');
+                    }
                 }
             });
         }
     }, [deleteMutation, showToast, checkDeletionStatus]);
+
+    const handlePurge = useCallback((id: string, name: string) => {
+        if (confirm(`Permanently delete "${name}"? This cannot be undone.`)) {
+            purgeMutation.mutate(id, {
+                onSuccess: () => {
+                    showToast('Party permanently deleted', 'success');
+                    queryClient.invalidateQueries({ queryKey: ['parties'] });
+                },
+                onError: (err) => {
+                    showToast(`Failed to permanently delete: ${err.message}`, 'error');
+                }
+            });
+        }
+    }, [purgeMutation, showToast, queryClient]);
 
     const columns = useMemo(
         () => [
@@ -162,31 +188,47 @@ export default function PartyListPage() {
             columnHelper.display({
                 id: 'actions',
                 header: '',
-                cell: (info) => (
-                    <IconButtonArea alignment="end">
-                        <IconButton
-                            to={`/parties/${info.row.original.id}`}
-                            icon={<Eye size={16} />}
-                            title="View"
-                        />
-                        <IconButton
-                            to={`/parties/${info.row.original.id}/edit`}
-                            icon={<Edit size={16} />}
-                            title="Edit"
-                        />
-                        <IconButton
-                            variant="danger"
-                            title="Delete"
-                            onClick={() => handleDelete(info.row.original.id, getPartyDisplayName(info.row.original))}
-                            disabled={deleteMutation.isPending || deletingId === info.row.original.id}
-                            icon={deletingId === info.row.original.id ? <Loader2 size={16} className="spin" /> : <Trash2 size={16} />}
-                        />
-                    </IconButtonArea>
-                ),
-                size: 120,
+                cell: (info) => {
+                    const party = info.row.original;
+                    const isDeleted = party.status === 'Deleted';
+                    return (
+                        <IconButtonArea alignment="end">
+                            <IconButton
+                                to={`/parties/${party.id}`}
+                                icon={<Eye size={16} />}
+                                title="View"
+                            />
+                            {!isDeleted && (
+                                <IconButton
+                                    to={`/parties/${party.id}/edit`}
+                                    icon={<Edit size={16} />}
+                                    title="Edit"
+                                />
+                            )}
+                            {isDeleted ? (
+                                <IconButton
+                                    variant="danger"
+                                    title="Permanently Delete"
+                                    onClick={() => handlePurge(party.id, getPartyDisplayName(party))}
+                                    disabled={purgeMutation.isPending}
+                                    icon={<Trash2 size={16} />}
+                                />
+                            ) : (
+                                <IconButton
+                                    variant="danger"
+                                    title="Delete"
+                                    onClick={() => handleDelete(party.id, getPartyDisplayName(party))}
+                                    disabled={deleteMutation.isPending || deletingId === party.id}
+                                    icon={deletingId === party.id ? <Loader2 size={16} className="spin" /> : <Trash2 size={16} />}
+                                />
+                            )}
+                        </IconButtonArea>
+                    );
+                },
+                size: 140,
             }),
         ],
-        [deleteMutation.isPending, handleDelete, deletingId]
+        [deleteMutation.isPending, purgeMutation.isPending, handleDelete, handlePurge, deletingId]
     );
 
     const table = useReactTable({
@@ -212,19 +254,29 @@ export default function PartyListPage() {
                 </Link>
             </div>
 
-            <form className="search-bar card" onSubmit={handleSearch}>
+            <div className="search-bar card" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <Search size={20} className="search-icon" />
-                <input
-                    type="text"
-                    placeholder="Search by name, ID, or identification..."
-                    className="search-input"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <button type="submit" className="btn btn-secondary">
-                    Search
-                </button>
-            </form>
+                <form style={{ display: 'contents' }} onSubmit={handleSearch}>
+                    <input
+                        type="text"
+                        placeholder="Search by name, ID, or identification..."
+                        className="search-input"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    <button type="submit" className="btn btn-secondary">
+                        Search
+                    </button>
+                </form>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap', fontSize: '0.875rem', cursor: 'pointer' }}>
+                    <input
+                        type="checkbox"
+                        checked={showDeleted}
+                        onChange={(e) => setShowDeleted(e.target.checked)}
+                    />
+                    Show deleted
+                </label>
+            </div>
 
             {error ? (
                 <div className="card error-card" role="alert">

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"sync"
 	"time"
 
 	"tmf/services/product-catalog-management/internal/core/domain"
@@ -13,8 +14,10 @@ import (
 )
 
 type RabbitMQHandler struct {
-	conn                         *amqp.Connection
-	channel                      *amqp.Channel
+	conn         *amqp.Connection
+	channel      *amqp.Channel
+	replyChannel *amqp.Channel
+	replyMu      sync.Mutex
 	createCatalogUC              ports.CreateCatalogUseCase
 	updateCatalogUC              ports.UpdateCatalogUseCase
 	deleteCatalogUC              ports.DeleteCatalogUseCase
@@ -64,9 +67,15 @@ func NewRabbitMQHandler(
 	if err != nil {
 		return nil, err
 	}
+	replyCh, err := conn.Channel()
+	if err != nil {
+		_ = ch.Close()
+		return nil, err
+	}
 	return &RabbitMQHandler{
 		conn:                         conn,
 		channel:                      ch,
+		replyChannel:                 replyCh,
 		createCatalogUC:              createCatalogUC,
 		updateCatalogUC:              updateCatalogUC,
 		deleteCatalogUC:              deleteCatalogUC,
@@ -105,6 +114,11 @@ func (h *RabbitMQHandler) Start(ctx context.Context) error {
 	if err := h.channel.Close(); err != nil {
 		log.Printf("Error closing RabbitMQ channel: %v", err)
 	}
+	h.replyMu.Lock()
+	if err := h.replyChannel.Close(); err != nil {
+		log.Printf("Error closing RabbitMQ reply channel: %v", err)
+	}
+	h.replyMu.Unlock()
 	return nil
 }
 
@@ -288,37 +302,17 @@ func (h *RabbitMQHandler) handleQuery(d amqp.Delivery) {
 }
 
 func (h *RabbitMQHandler) handleListCatalogs(d amqp.Delivery) {
-
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	catalogs, err := h.listCatalogsUC.Execute(ctx, ports.ListCatalogsInput{Filters: nil})
 	if err != nil {
 		log.Printf("Error executing ListCatalogs: %v", err)
+		h.reply(ctx, d, map[string]string{"error": err.Error()})
 		return
 	}
 
-	// Reply
-	responseBody, err := json.Marshal(catalogs)
-	if err != nil {
-		log.Printf("Error marshalling response: %v", err)
-		return
-	}
-
-	err = h.channel.PublishWithContext(ctx,
-		"",        // exchange
-		d.ReplyTo, // routing key (reply queue)
-		false,
-		false,
-		amqp.Publishing{
-			ContentType:   "application/json",
-			CorrelationId: d.CorrelationId,
-			Body:          responseBody,
-		},
-	)
-	if err != nil {
-		log.Printf("Failed to publish query response: %v", err)
-	}
+	h.reply(ctx, d, catalogs)
 }
 
 func (h *RabbitMQHandler) handleCreateCatalog(d amqp.Delivery) {
@@ -329,9 +323,10 @@ func (h *RabbitMQHandler) handleCreateCatalog(d amqp.Delivery) {
 	}
 
 	input := ports.CreateCatalogInput{
-		Name:        event.Name,
-		Description: event.Description,
-		ValidFor:    event.ValidFor,
+		Name:            event.Name,
+		Description:     event.Description,
+		ValidFor:        event.ValidFor,
+		LifecycleStatus: event.LifecycleStatus,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -411,12 +406,13 @@ func (h *RabbitMQHandler) handleCreateCategory(d amqp.Delivery) {
 	}
 
 	input := ports.CreateCategoryInput{
-		Name:        event.Name,
-		Description: event.Description,
-		ParentID:    event.ParentID,
-		IsRoot:      event.IsRoot,
-		CatalogID:   event.CatalogID,
-		ValidFor:    event.ValidFor,
+		Name:            event.Name,
+		Description:     event.Description,
+		ParentID:        event.ParentID,
+		IsRoot:          event.IsRoot,
+		CatalogID:       event.CatalogID,
+		ValidFor:        event.ValidFor,
+		LifecycleStatus: event.LifecycleStatus,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -689,7 +685,8 @@ func (h *RabbitMQHandler) reply(ctx context.Context, d amqp.Delivery, response a
 		return
 	}
 
-	err = h.channel.PublishWithContext(ctx,
+	h.replyMu.Lock()
+	err = h.replyChannel.PublishWithContext(ctx,
 		"",        // exchange
 		d.ReplyTo, // routing key (reply queue)
 		false,
@@ -700,6 +697,7 @@ func (h *RabbitMQHandler) reply(ctx context.Context, d amqp.Delivery, response a
 			Body:          responseBody,
 		},
 	)
+	h.replyMu.Unlock()
 	if err != nil {
 		log.Printf("Failed to publish response: %v", err)
 	}

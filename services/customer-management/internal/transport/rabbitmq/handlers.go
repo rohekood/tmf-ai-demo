@@ -13,13 +13,18 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// Handlers manages command and query handling
+// PartyChecker validates a party's existence and status before customer onboarding.
+type PartyChecker interface {
+	CheckParty(ctx context.Context, partyID string) error
+}
+
 // Handlers manages command and query handling
 type Handlers struct {
 	repo           domain.Repository
 	publisher      rabbitmq.Publisher
 	tm             domain.TransactionManager
 	eventPublisher domain.EventPublisher
+	partyChecker   PartyChecker
 }
 
 func NewHandlers(repo domain.Repository, publisher rabbitmq.Publisher, tm domain.TransactionManager, eventPublisher domain.EventPublisher) *Handlers {
@@ -29,6 +34,12 @@ func NewHandlers(repo domain.Repository, publisher rabbitmq.Publisher, tm domain
 		tm:             tm,
 		eventPublisher: eventPublisher,
 	}
+}
+
+// WithPartyChecker injects the optional party checker dependency.
+func (h *Handlers) WithPartyChecker(c PartyChecker) *Handlers {
+	h.partyChecker = c
+	return h
 }
 
 // Payloads
@@ -167,6 +178,13 @@ func (h *Handlers) HandleOnboardCustomer(ctx context.Context, d amqp.Delivery) e
 
 	if payload.ID == "" {
 		payload.ID = uuid.New().String()
+	}
+
+	// Validate party exists and is not deleted.
+	if h.partyChecker != nil && payload.PartyID != "" {
+		if err := h.partyChecker.CheckParty(ctx, payload.PartyID); err != nil {
+			return h.replyTo(ctx, d, map[string]string{"error": err.Error()})
+		}
 	}
 
 	customer := &domain.Customer{

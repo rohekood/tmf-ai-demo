@@ -25,6 +25,11 @@ func NewCreateCatalog(repo ports.CatalogRepository, publisher ports.EventPublish
 }
 
 func (uc *CreateCatalog) Execute(ctx context.Context, input ports.CreateCatalogInput) (*domain.Catalog, error) {
+	lifecycleStatus := input.LifecycleStatus
+	if lifecycleStatus == "" {
+		lifecycleStatus = "Draft"
+	}
+
 	// 1. Create Domain Entity
 	catalog := &domain.Catalog{
 		ID:              uuid.New().String(),
@@ -32,7 +37,7 @@ func (uc *CreateCatalog) Execute(ctx context.Context, input ports.CreateCatalogI
 		Description:     input.Description,
 		ValidFor:        input.ValidFor,
 		LastUpdate:      time.Now().UTC(),
-		LifecycleStatus: "Active", // Default to Active for now, or "Draft"
+		LifecycleStatus: lifecycleStatus,
 	}
 
 	// 2. Validate

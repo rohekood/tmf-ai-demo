@@ -153,6 +153,7 @@ export default function CategoryEditPage() {
     const { id } = useParams<{ id: string }>();
     const isNew = !id;
     const navigate = useNavigate();
+    const [formError, setFormError] = useState<string | null>(null);
 
     const { data: category, isLoading: isCategoryLoading } = useCategory(id);
     const { data: allCategories = [] } = useCategories();
@@ -161,6 +162,7 @@ export default function CategoryEditPage() {
     const updateMutation = useUpdateCategory();
 
     const handleSubmit = async (payload: CreateCategoryPayload | Partial<Category>) => {
+        setFormError(null);
         try {
             if (isNew) {
                 await createMutation.mutateAsync(payload as CreateCategoryPayload);
@@ -171,8 +173,9 @@ export default function CategoryEditPage() {
                 });
             }
             navigate('/catalog/categories');
-        } catch (err) {
-            console.error('Failed to save category:', err);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to save category.';
+            setFormError(message);
         }
     };
 
@@ -210,6 +213,12 @@ export default function CategoryEditPage() {
                     <span>{isNew ? 'Create Category' : 'Save Changes'}</span>
                 </button>
             </div>
+
+            {formError && (
+                <div className="alert alert-danger" role="alert" style={{ marginBottom: '1rem' }}>
+                    {formError}
+                </div>
+            )}
 
             <CategoryForm
                 initialData={category}

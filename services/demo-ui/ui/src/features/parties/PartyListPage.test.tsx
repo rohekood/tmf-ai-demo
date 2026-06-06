@@ -56,6 +56,10 @@ describe('PartyListPage', () => {
             mutate: vi.fn(),
             isPending: false
         } as unknown as ReturnType<typeof api.useDeleteParty>);
+        vi.mocked(api.usePurgeParty).mockReturnValue({
+            mutate: vi.fn(),
+            isPending: false
+        } as unknown as ReturnType<typeof api.usePurgeParty>);
     });
 
 

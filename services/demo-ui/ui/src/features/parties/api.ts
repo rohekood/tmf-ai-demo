@@ -13,6 +13,7 @@ async function fetchParties(params?: SearchPartyParams): Promise<PartyUnion[]> {
     if (params?.familyName) searchParams.set('familyName', params.familyName);
     if (params?.tradingName) searchParams.set('tradingName', params.tradingName);
     if (params?.type) searchParams.set('type', params.type);
+    if (params?.status) searchParams.set('status', params.status);
 
     const response = await apiClient.get<PartyUnion[]>(`/api/parties?${searchParams.toString()}`);
     return response.data;
@@ -39,6 +40,11 @@ async function updateParty(payload: UpdatePartyPayload): Promise<PartyUnion> {
 // Delete party
 async function deleteParty(id: string): Promise<void> {
     await apiClient.delete(`/api/parties/${id}`);
+}
+
+// Permanently delete a soft-deleted party
+async function purgeParty(id: string): Promise<void> {
+    await apiClient.delete(`/api/parties/${id}/purge`);
 }
 
 // React Query Hooks
@@ -86,6 +92,17 @@ export function useDeleteParty() {
 
     return useMutation({
         mutationFn: deleteParty,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: [PARTIES_KEY] });
+        },
+    });
+}
+
+export function usePurgeParty() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: purgeParty,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: [PARTIES_KEY] });
         },

@@ -382,6 +382,9 @@ func (r *PartyRepository) SearchParties(ctx context.Context, criteria map[string
 	if val, ok := criteria["type"]; ok {
 		query = query.Where("parties.type = ?", val)
 	}
+	if val, ok := criteria["status"]; ok {
+		query = query.Where("parties.status = ?", val)
+	}
 
 	joinedIndividual := false
 	joinedOrganization := false

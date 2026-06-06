@@ -44,15 +44,22 @@ const (
 	// Saga Commands
 	CmdPartyFinalizeDeletion = "cmd.party.finalize_deletion"
 	CmdPartyCancelDeletion   = "cmd.party.cancel_deletion"
+	CmdPartyPurge            = "cmd.party.purge"
 )
 
-// Handlers manages command and query handling
+// CustomerChecker is a port for checking whether a party has linked customers.
+// Implemented by an adapter in main.go using the shared RPC client.
+type CustomerChecker interface {
+	HasCustomers(ctx context.Context, partyID string) (bool, error)
+}
+
 // Handlers manages command and query handling
 type Handlers struct {
-	repo           domain.Repository
-	eventPublisher domain.EventPublisher
-	rpcPublisher   rabbitmq.Publisher
-	tm             domain.TransactionManager
+	repo            domain.Repository
+	eventPublisher  domain.EventPublisher
+	rpcPublisher    rabbitmq.Publisher
+	tm              domain.TransactionManager
+	customerChecker CustomerChecker
 }
 
 func NewHandlers(repo domain.Repository, eventPublisher domain.EventPublisher, rpcPublisher rabbitmq.Publisher, tm domain.TransactionManager) *Handlers {
@@ -62,6 +69,12 @@ func NewHandlers(repo domain.Repository, eventPublisher domain.EventPublisher, r
 		rpcPublisher:   rpcPublisher,
 		tm:             tm,
 	}
+}
+
+// WithCustomerChecker injects the optional customer checker dependency.
+func (h *Handlers) WithCustomerChecker(c CustomerChecker) *Handlers {
+	h.customerChecker = c
+	return h
 }
 
 // --- Command Payloads ---
@@ -193,6 +206,7 @@ type SearchPartyPayload struct {
 	TradingName       *string `json:"tradingName,omitempty"`
 	Type              *string `json:"type,omitempty"`
 	ExternalReference *string `json:"externalReference,omitempty"`
+	Status            *string `json:"status,omitempty"`
 }
 
 type ContactMediumDTO struct {
@@ -670,6 +684,16 @@ func (h *Handlers) HandleDeleteParty(ctx context.Context, d amqp.Delivery) error
 		return domain.ErrIDRequired
 	}
 
+	// Pre-check: reject immediately if the party has linked customers.
+	if h.customerChecker != nil {
+		hasCustomers, err := h.customerChecker.HasCustomers(ctx, payload.ID)
+		if err != nil {
+			slog.Warn("customer pre-check failed, proceeding with saga", "party_id", payload.ID, "error", err)
+		} else if hasCustomers {
+			return h.replyTo(ctx, d, map[string]string{"error": "party has linked customers and cannot be deleted"})
+		}
+	}
+
 	// 1. Get current party
 	if err := h.tm.Run(ctx, func(txCtx context.Context) error {
 		party, err := h.repo.GetParty(txCtx, payload.ID)
@@ -909,6 +933,34 @@ func (h *Handlers) HandleGetParty(ctx context.Context, d amqp.Delivery) error {
 	}
 }
 
+func (h *Handlers) HandlePurgeParty(ctx context.Context, d amqp.Delivery) error {
+	ctx = h.extractUser(ctx, d)
+	var payload DeletePartyPayload
+	if err := json.Unmarshal(d.Body, &payload); err != nil {
+		return fmt.Errorf("failed to unmarshal PurgePartyPayload: %w", err)
+	}
+	if payload.ID == "" {
+		return domain.ErrIDRequired
+	}
+
+	party, err := h.repo.GetParty(ctx, payload.ID)
+	if err != nil {
+		return h.replyTo(ctx, d, map[string]string{"error": err.Error()})
+	}
+	if party.Status != string(domain.PartyStatusDeleted) {
+		return h.replyTo(ctx, d, map[string]string{"error": "party must be in Deleted status to be permanently removed"})
+	}
+
+	if err := h.tm.Run(ctx, func(txCtx context.Context) error {
+		return h.repo.DeleteParty(txCtx, payload.ID)
+	}); err != nil {
+		return h.replyTo(ctx, d, map[string]string{"error": err.Error()})
+	}
+
+	slog.Info("party permanently deleted", "party_id", payload.ID)
+	return h.replyTo(ctx, d, map[string]string{"status": "purged", "id": payload.ID})
+}
+
 func (h *Handlers) HandleSearchParty(ctx context.Context, d amqp.Delivery) error {
 	ctx = h.extractUser(ctx, d)
 	var payload SearchPartyPayload
@@ -937,6 +989,9 @@ func (h *Handlers) HandleSearchParty(ctx context.Context, d amqp.Delivery) error
 	}
 	if payload.ExternalReference != nil {
 		criteria["externalReference"] = *payload.ExternalReference
+	}
+	if payload.Status != nil {
+		criteria["status"] = *payload.Status
 	}
 
 	parties, err := h.repo.SearchParties(ctx, criteria)

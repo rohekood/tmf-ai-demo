@@ -249,6 +249,14 @@ func (h *CatalogHandler) handleCommand(w http.ResponseWriter, r *http.Request, t
 		return
 	}
 
+	var errCheck map[string]any
+	if json.Unmarshal(responseBytes, &errCheck) == nil {
+		if errMsg, ok := errCheck["error"].(string); ok {
+			http.Error(w, errMsg, http.StatusUnprocessableEntity)
+			return
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_, _ = w.Write(responseBytes)
@@ -285,6 +293,14 @@ func (h *CatalogHandler) handleCommandWithID(w http.ResponseWriter, r *http.Requ
 		slog.Error("error "+msg, "error", err)
 		http.Error(w, "Failed to "+msg+": "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	var errCheck map[string]any
+	if json.Unmarshal(responseBytes, &errCheck) == nil {
+		if errMsg, ok := errCheck["error"].(string); ok {
+			http.Error(w, errMsg, http.StatusUnprocessableEntity)
+			return
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

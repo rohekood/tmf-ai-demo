@@ -10,9 +10,10 @@ type CreateCatalogUseCase interface {
 }
 
 type CreateCatalogInput struct {
-	Name        string
-	Description string
-	ValidFor    domain.TimePeriod
+	Name            string
+	Description     string
+	ValidFor        domain.TimePeriod
+	LifecycleStatus string
 }
 
 type ListCatalogsUseCase interface {
@@ -36,12 +37,13 @@ type CreateCategoryUseCase interface {
 }
 
 type CreateCategoryInput struct {
-	Name        string
-	Description string
-	ParentID    *string
-	IsRoot      bool
-	CatalogID   *string
-	ValidFor    domain.TimePeriod
+	Name            string
+	Description     string
+	ParentID        *string
+	IsRoot          bool
+	CatalogID       *string
+	ValidFor        domain.TimePeriod
+	LifecycleStatus string
 }
 
 type ListCategoriesUseCase interface {

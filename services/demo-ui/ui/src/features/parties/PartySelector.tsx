@@ -26,9 +26,11 @@ export default function PartySelector({ selectedPartyId, onSelect }: PartySelect
     const [searchTerm, setSearchTerm] = useState('');
     const [sorting, setSorting] = useState<SortingState>([]);
 
-    // Fetch parties filtered by search term
+    // Fetch only Active parties (never show Deleted or DeletionPending)
     const { data: parties = [], isLoading } = useParties(
-        searchTerm ? { givenName: searchTerm, tradingName: searchTerm } : undefined
+        searchTerm
+            ? { givenName: searchTerm, tradingName: searchTerm, status: 'Active' }
+            : { status: 'Active' }
     );
 
     const columns = useMemo(

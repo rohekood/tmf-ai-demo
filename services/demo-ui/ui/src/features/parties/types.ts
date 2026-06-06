@@ -176,6 +176,7 @@ export interface SearchPartyParams {
     familyName?: string;
     tradingName?: string;
     type?: PartyType;
+    status?: string;
 }
 
 // Helper to get display name

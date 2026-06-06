@@ -35,6 +35,8 @@ func (l *Listener) GetHandler(routingKey string, h *Handlers) (func(context.Cont
 		return h.HandleFinalizeDeletion, true
 	case CmdPartyCancelDeletion:
 		return h.HandleCancelDeletion, true
+	case CmdPartyPurge:
+		return h.HandlePurgeParty, true
 	default:
 		return nil, false
 	}
@@ -69,6 +71,7 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		CmdPartyDelete,
 		CmdPartyFinalizeDeletion,
 		CmdPartyCancelDeletion,
+		CmdPartyPurge,
 		QueryPartyGet,
 		QueryPartySearch,
 	}

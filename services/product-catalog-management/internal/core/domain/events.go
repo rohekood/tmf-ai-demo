@@ -1,19 +1,21 @@
 package domain
 
 type CatalogCreateEvent struct {
-	Name        string     `json:"name"`
-	Description string     `json:"description,omitempty"`
-	ValidFor    TimePeriod `json:"validFor"`
+	Name            string     `json:"name"`
+	Description     string     `json:"description,omitempty"`
+	ValidFor        TimePeriod `json:"validFor"`
+	LifecycleStatus string     `json:"lifecycleStatus,omitempty"`
 }
 
 // Add other event structs as needed
 type CategoryCreateEvent struct {
-	Name        string     `json:"name"`
-	Description string     `json:"description,omitempty"`
-	ParentID    *string    `json:"parentId,omitempty"`
-	IsRoot      bool       `json:"isRoot"`
-	CatalogID   *string    `json:"catalogId,omitempty"`
-	ValidFor    TimePeriod `json:"validFor"`
+	Name            string     `json:"name"`
+	Description     string     `json:"description,omitempty"`
+	ParentID        *string    `json:"parentId,omitempty"`
+	IsRoot          bool       `json:"isRoot"`
+	CatalogID       *string    `json:"catalogId,omitempty"`
+	ValidFor        TimePeriod `json:"validFor"`
+	LifecycleStatus string     `json:"lifecycleStatus,omitempty"`
 }
 
 type ProductSpecificationCreateEvent struct {

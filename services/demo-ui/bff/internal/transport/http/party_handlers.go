@@ -16,6 +16,7 @@ const (
 	cmdPartyUpdate   = "cmd.party.update"
 	cmdPartyPatch    = "cmd.party.patch"
 	cmdPartyDelete   = "cmd.party.delete"
+	cmdPartyPurge    = "cmd.party.purge"
 	queryPartyGet    = "query.party.get"
 	queryPartySearch = "query.party.search"
 
@@ -40,6 +41,7 @@ func (h *PartyHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/parties/{id}", h.UpdateParty)
 	mux.HandleFunc("PATCH /api/parties/{id}", h.PatchParty)
 	mux.HandleFunc("DELETE /api/parties/{id}", h.DeleteParty)
+	mux.HandleFunc("DELETE /api/parties/{id}/purge", h.PurgeParty)
 }
 
 // SearchParties handles GET /api/parties
@@ -64,6 +66,9 @@ func (h *PartyHandler) SearchParties(w http.ResponseWriter, r *http.Request) {
 	}
 	if v := r.URL.Query().Get("type"); v != "" {
 		payload["type"] = &v
+	}
+	if v := r.URL.Query().Get("status"); v != "" {
+		payload["status"] = &v
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), defaultRPCTimeout)
@@ -232,11 +237,50 @@ func (h *PartyHandler) DeleteParty(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), defaultRPCTimeout)
 	defer cancel()
 
-	_, err := h.rpcClient.CallRPC(ctx, partyExchange, cmdPartyDelete, payload, getHeaders(r))
+	responseBytes, err := h.rpcClient.CallRPC(ctx, partyExchange, cmdPartyDelete, payload, getHeaders(r))
 	if err != nil {
 		slog.Error("error deleting party", "error", err)
 		http.Error(w, "Failed to delete party: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	var errCheck map[string]any
+	if json.Unmarshal(responseBytes, &errCheck) == nil {
+		if errMsg, ok := errCheck["error"].(string); ok {
+			http.Error(w, errMsg, http.StatusConflict)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// PurgeParty handles DELETE /api/parties/:id/purge — permanently removes a soft-deleted party
+func (h *PartyHandler) PurgeParty(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "Party ID is required", http.StatusBadRequest)
+		return
+	}
+
+	payload := map[string]string{"id": id}
+
+	ctx, cancel := context.WithTimeout(r.Context(), defaultRPCTimeout)
+	defer cancel()
+
+	responseBytes, err := h.rpcClient.CallRPC(ctx, partyExchange, cmdPartyPurge, payload, getHeaders(r))
+	if err != nil {
+		slog.Error("error purging party", "error", err)
+		http.Error(w, "Failed to purge party: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var errCheck map[string]any
+	if json.Unmarshal(responseBytes, &errCheck) == nil {
+		if errMsg, ok := errCheck["error"].(string); ok {
+			http.Error(w, errMsg, http.StatusUnprocessableEntity)
+			return
+		}
 	}
 
 	w.WriteHeader(http.StatusNoContent)

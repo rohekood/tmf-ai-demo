@@ -15,6 +15,7 @@ export default function CatalogEditForm({ catalog, isNew }: CatalogEditFormProps
     const navigate = useNavigate();
     const createCatalogMutation = useCreateCatalog();
     const updateCatalogMutation = useCatalogUpdate();
+    const [formError, setFormError] = useState<string | null>(null);
 
     const [name, setName] = useState(catalog?.name || '');
     const [description, setDescription] = useState(catalog?.description || '');
@@ -42,6 +43,7 @@ export default function CatalogEditForm({ catalog, isNew }: CatalogEditFormProps
             },
         };
 
+        setFormError(null);
         try {
             if (isNew) {
                 const result = await createCatalogMutation.mutateAsync(payload as CreateCatalogPayload);
@@ -53,8 +55,9 @@ export default function CatalogEditForm({ catalog, isNew }: CatalogEditFormProps
                 });
                 navigate(`/catalog/catalogs/${catalog.id}`);
             }
-        } catch (err) {
-            console.error('Failed to save catalog:', err);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to save catalog.';
+            setFormError(message);
         }
     };
 
@@ -79,6 +82,12 @@ export default function CatalogEditForm({ catalog, isNew }: CatalogEditFormProps
                     <span>{isNew ? 'Create Catalog' : 'Save Changes'}</span>
                 </button>
             </div>
+
+            {formError && (
+                <div className="card error-card" role="alert" style={{ marginBottom: '1rem' }}>
+                    <p>{formError}</p>
+                </div>
+            )}
 
             <form id="catalog-form" className="form-container" onSubmit={handleSubmit}>
                 <div className="card form-section">

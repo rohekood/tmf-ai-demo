@@ -18,6 +18,7 @@ func (h *RabbitMQHandler) handleGetCatalog(d amqp.Delivery) {
 	var payload GetPayload
 	if err := json.Unmarshal(d.Body, &payload); err != nil {
 		log.Printf("Error unmarshalling event: %v", err)
+		h.publishResponse(context.Background(), d, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -27,6 +28,7 @@ func (h *RabbitMQHandler) handleGetCatalog(d amqp.Delivery) {
 	result, err := h.getCatalogUC.Execute(ctx, ports.GetCatalogInput{ID: payload.ID})
 	if err != nil {
 		log.Printf("Error executing GetCatalog: %v", err)
+		h.publishResponse(ctx, d, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -40,6 +42,7 @@ func (h *RabbitMQHandler) handleListCategories(d amqp.Delivery) {
 	results, err := h.listCategoriesUC.Execute(ctx, ports.ListCategoriesInput{Filters: nil})
 	if err != nil {
 		log.Printf("Error executing ListCategories: %v", err)
+		h.publishResponse(ctx, d, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -53,6 +56,7 @@ func (h *RabbitMQHandler) handleGetCategory(d amqp.Delivery) {
 	var payload GetPayload
 	if err := json.Unmarshal(d.Body, &payload); err != nil {
 		log.Printf("Error unmarshalling event: %v", err)
+		h.publishResponse(context.Background(), d, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -62,6 +66,7 @@ func (h *RabbitMQHandler) handleGetCategory(d amqp.Delivery) {
 	result, err := h.getCategoryUC.Execute(ctx, ports.GetCategoryInput{ID: payload.ID})
 	if err != nil {
 		log.Printf("Error executing GetCategory: %v", err)
+		h.publishResponse(ctx, d, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -75,6 +80,7 @@ func (h *RabbitMQHandler) handleListProductSpecifications(d amqp.Delivery) {
 	results, err := h.listProductSpecificationsUC.Execute(ctx, ports.ListProductSpecificationsInput{Filters: nil})
 	if err != nil {
 		log.Printf("Error executing ListProductSpecifications: %v", err)
+		h.publishResponse(ctx, d, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -88,6 +94,7 @@ func (h *RabbitMQHandler) handleGetProductSpecification(d amqp.Delivery) {
 	var payload GetPayload
 	if err := json.Unmarshal(d.Body, &payload); err != nil {
 		log.Printf("Error unmarshalling event: %v", err)
+		h.publishResponse(context.Background(), d, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -97,6 +104,7 @@ func (h *RabbitMQHandler) handleGetProductSpecification(d amqp.Delivery) {
 	result, err := h.getProductSpecificationUC.Execute(ctx, ports.GetProductSpecificationInput{ID: payload.ID})
 	if err != nil {
 		log.Printf("Error executing GetProductSpecification: %v", err)
+		h.publishResponse(ctx, d, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -132,6 +140,7 @@ func (h *RabbitMQHandler) handleListProductOfferings(d amqp.Delivery) {
 	results, err := h.listProductOfferingsUC.Execute(ctx, ports.ListProductOfferingsInput{Filters: filters})
 	if err != nil {
 		log.Printf("Error executing ListProductOfferings: %v", err)
+		h.publishResponse(ctx, d, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -161,6 +170,7 @@ func (h *RabbitMQHandler) handleGetProductOffering(d amqp.Delivery) {
 	result, err := h.getProductOfferingUC.Execute(ctx, ports.GetProductOfferingInput{ID: id, Enrich: payload.Enrich})
 	if err != nil {
 		log.Printf("Error executing GetProductOffering: %v", err)
+		h.publishResponse(ctx, d, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -174,7 +184,8 @@ func (h *RabbitMQHandler) publishResponse(ctx context.Context, d amqp.Delivery, 
 		return
 	}
 
-	err = h.channel.PublishWithContext(ctx,
+	h.replyMu.Lock()
+	err = h.replyChannel.PublishWithContext(ctx,
 		"",        // exchange
 		d.ReplyTo, // routing key (reply queue)
 		false,
@@ -185,6 +196,7 @@ func (h *RabbitMQHandler) publishResponse(ctx context.Context, d amqp.Delivery, 
 			Body:          responseBody,
 		},
 	)
+	h.replyMu.Unlock()
 	if err != nil {
 		log.Printf("Failed to publish query response: %v", err)
 	}

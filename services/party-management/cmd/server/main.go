@@ -13,6 +13,7 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 
+	pkgrmq "tmf/pkg/rabbitmq"
 	"tmf/pkg/rabbitmq"
 	"tmf/services/party-management/internal/config"
 	infraPostgres "tmf/services/party-management/internal/infrastructure/postgres"
@@ -120,6 +121,15 @@ func run(
 	outboxWorker := infraPostgres.NewOutboxWorker(outboxRepo, publisher)
 
 	handlers := rabbitTransport.NewHandlers(repo, outboxPublisher, publisher, tm)
+
+	// Wire customer checker for pre-deletion validation.
+	customerRPCClient, err := pkgrmq.NewRPCClient(cfg.RabbitMQURL)
+	if err != nil {
+		logger.Warn("failed to create customer RPC client, deletion pre-check disabled", "error", err)
+	} else {
+		handlers.WithCustomerChecker(infraRabbit.NewCustomerCheckerRPC(customerRPCClient))
+	}
+
 	listener, err := newListenerFn(connMgr)
 	if err != nil {
 		return fmt.Errorf("failed to create listener: %w", err)

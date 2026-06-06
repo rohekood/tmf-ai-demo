@@ -25,6 +25,11 @@ func NewCreateCategory(repo ports.CategoryRepository, publisher ports.EventPubli
 }
 
 func (uc *CreateCategory) Execute(ctx context.Context, input ports.CreateCategoryInput) (*domain.Category, error) {
+	lifecycleStatus := input.LifecycleStatus
+	if lifecycleStatus == "" {
+		lifecycleStatus = "Draft"
+	}
+
 	category := &domain.Category{
 		ID:              uuid.New().String(),
 		Name:            input.Name,
@@ -34,7 +39,7 @@ func (uc *CreateCategory) Execute(ctx context.Context, input ports.CreateCategor
 		CatalogID:       input.CatalogID,
 		ValidFor:        input.ValidFor,
 		LastUpdate:      time.Now().UTC(),
-		LifecycleStatus: "Active",
+		LifecycleStatus: lifecycleStatus,
 	}
 
 	if err := category.Validate(); err != nil {

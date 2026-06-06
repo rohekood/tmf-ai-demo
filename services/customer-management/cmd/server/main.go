@@ -11,8 +11,10 @@ import (
 	"syscall"
 	"time"
 
+	pkgrmq "tmf/pkg/rabbitmq"
 	"tmf/pkg/rabbitmq"
 	"tmf/services/customer-management/internal/infrastructure/postgres"
+	infraRabbit "tmf/services/customer-management/internal/infrastructure/rabbitmq"
 	"tmf/services/customer-management/internal/infrastructure/telemetry"
 	transportHttp "tmf/services/customer-management/internal/transport/http"
 	transportRabbit "tmf/services/customer-management/internal/transport/rabbitmq"
@@ -122,6 +124,15 @@ func run(ctx context.Context,
 
 	// 4. Handlers & Listener
 	handlers := transportRabbit.NewHandlers(repo, publisher, tm, eventPublisher)
+
+	// Wire party checker for onboarding validation.
+	partyRPCClient, err := pkgrmq.NewRPCClient(rabbitURL)
+	if err != nil {
+		slog.Warn("failed to create party RPC client, onboarding party check disabled", "error", err)
+	} else {
+		handlers.WithPartyChecker(infraRabbit.NewPartyCheckerRPC(partyRPCClient))
+	}
+
 	listener, err := newListenerFn(conn)
 	if err != nil {
 		return fmt.Errorf("failed to create listener: %w", err)
