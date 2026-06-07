@@ -35,26 +35,16 @@ func TestRabbitMQHandler_Spec_CRUD(t *testing.T) {
 	getUC := specification.NewGetProductSpecification(repo)
 	listUC := specification.NewListProductSpecifications(repo)
 
-	h, err := handler.NewRabbitMQHandler(
-		rabbitConn,
+	h := handler.NewRabbitMQHandler(
+		sharedPub,
 		nil, nil, nil, nil, nil,
 		nil, nil, nil, nil, nil,
-		createUC,
-		updateUC,
-		deleteUC,
-		getUC,
-		listUC,
+		createUC, updateUC, deleteUC, getUC, listUC,
 		nil, nil, nil, nil, nil,
 	)
-	require.NoError(t, err)
+	bindTestHandler(t, h)
 
 	ctx := t.Context()
-
-	go func() {
-		_ = h.Start(ctx)
-	}()
-
-	time.Sleep(1 * time.Second)
 
 	ch, err := rabbitConn.Channel()
 	require.NoError(t, err)
@@ -66,7 +56,8 @@ func TestRabbitMQHandler_Spec_CRUD(t *testing.T) {
 
 	updateMsg := map[string]any{"id": spec.ID, "name": "Updated Spec"}
 	body, _ := json.Marshal(updateMsg)
-	err = ch.Publish("catalog_events", "cmd.catalog.specification.update", false, false, amqp.Publishing{ContentType: "application/json", Body: body})
+	err = ch.Publish("catalog_events", "cmd.catalog.specification.update", false, false,
+		amqp.Publishing{ContentType: "application/json", Body: body})
 	require.NoError(t, err)
 
 	assert.Eventually(t, func() bool {
@@ -79,7 +70,8 @@ func TestRabbitMQHandler_Spec_CRUD(t *testing.T) {
 
 	getMsg := map[string]any{"id": spec.ID}
 	body, _ = json.Marshal(getMsg)
-	err = ch.Publish("catalog_events", "query.catalog.specification.get", false, false, amqp.Publishing{ContentType: "application/json", Body: body, ReplyTo: replyQueue.Name, CorrelationId: "get-spec"})
+	err = ch.Publish("catalog_events", "query.catalog.specification.get", false, false,
+		amqp.Publishing{ContentType: "application/json", Body: body, ReplyTo: replyQueue.Name, CorrelationId: "get-spec"})
 	require.NoError(t, err)
 
 	select {
@@ -92,9 +84,8 @@ func TestRabbitMQHandler_Spec_CRUD(t *testing.T) {
 		t.Fatal("Timeout waiting for GET reply")
 	}
 
-	listMsg := map[string]any{"name": "Updated Spec"}
-	body, _ = json.Marshal(listMsg)
-	err = ch.Publish("catalog_events", "query.catalog.specification.list", false, false, amqp.Publishing{ContentType: "application/json", Body: body, ReplyTo: replyQueue.Name, CorrelationId: "list-spec"})
+	err = ch.Publish("catalog_events", "query.catalog.specification.list", false, false,
+		amqp.Publishing{ContentType: "application/json", Body: []byte("{}"), ReplyTo: replyQueue.Name, CorrelationId: "list-spec"})
 	require.NoError(t, err)
 
 	select {
@@ -109,7 +100,8 @@ func TestRabbitMQHandler_Spec_CRUD(t *testing.T) {
 
 	deleteMsg := map[string]any{"id": spec.ID}
 	body, _ = json.Marshal(deleteMsg)
-	err = ch.Publish("catalog_events", "cmd.catalog.specification.delete", false, false, amqp.Publishing{ContentType: "application/json", Body: body})
+	err = ch.Publish("catalog_events", "cmd.catalog.specification.delete", false, false,
+		amqp.Publishing{ContentType: "application/json", Body: body})
 	require.NoError(t, err)
 
 	assert.Eventually(t, func() bool {
@@ -130,17 +122,14 @@ func TestRabbitMQHandler_Spec_Errors(t *testing.T) {
 	getUC := specification.NewGetProductSpecification(repo)
 	listUC := specification.NewListProductSpecifications(repo)
 
-	h, _ := handler.NewRabbitMQHandler(
-		rabbitConn,
+	h := handler.NewRabbitMQHandler(
+		sharedPub,
 		nil, nil, nil, nil, nil,
 		nil, nil, nil, nil, nil,
 		createUC, updateUC, deleteUC, getUC, listUC,
 		nil, nil, nil, nil, nil,
 	)
-
-	ctx := t.Context()
-	go func() { _ = h.Start(ctx) }()
-	time.Sleep(1 * time.Second)
+	bindTestHandler(t, h)
 
 	ch, _ := rabbitConn.Channel()
 	defer func() { _ = ch.Close() }()

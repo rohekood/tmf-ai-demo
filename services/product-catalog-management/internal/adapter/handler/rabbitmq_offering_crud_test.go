@@ -36,8 +36,8 @@ func TestRabbitMQHandler_Offering_CRUD(t *testing.T) {
 	getUC := offering.NewGetProductOffering(repo, specRepo, repository.NewCategoryRepo(sharedDB))
 	listUC := offering.NewListProductOfferings(repo)
 
-	h, err := handler.NewRabbitMQHandler(
-		rabbitConn,
+	h := handler.NewRabbitMQHandler(
+		sharedPub,
 		nil, nil, nil, nil, nil,
 		nil, nil, nil, nil, nil,
 		nil, nil, nil, nil, nil,
@@ -47,22 +47,14 @@ func TestRabbitMQHandler_Offering_CRUD(t *testing.T) {
 		getUC,
 		listUC,
 	)
-	require.NoError(t, err)
-
-	ctx := t.Context()
-
-	go func() {
-		_ = h.Start(ctx)
-	}()
-
-	time.Sleep(1 * time.Second)
+	bindTestHandler(t, h)
 
 	ch, err := rabbitConn.Channel()
 	require.NoError(t, err)
 	defer func() { _ = ch.Close() }()
 
 	off := &domain.ProductOffering{Name: "Seed Offering", LifecycleStatus: "Active", IsSellable: true}
-	err = repo.Create(ctx, off)
+	err = repo.Create(context.Background(), off)
 	require.NoError(t, err)
 
 	updateMsg := map[string]any{"id": off.ID, "name": "Updated Offering"}
@@ -132,17 +124,14 @@ func TestRabbitMQHandler_Offering_Errors(t *testing.T) {
 	getUC := offering.NewGetProductOffering(repo, specRepo, repository.NewCategoryRepo(sharedDB))
 	listUC := offering.NewListProductOfferings(repo)
 
-	h, _ := handler.NewRabbitMQHandler(
-		rabbitConn,
+	h := handler.NewRabbitMQHandler(
+		sharedPub,
 		nil, nil, nil, nil, nil,
 		nil, nil, nil, nil, nil,
 		nil, nil, nil, nil, nil,
 		createUC, updateUC, deleteUC, getUC, listUC,
 	)
-
-	ctx := t.Context()
-	go func() { _ = h.Start(ctx) }()
-	time.Sleep(1 * time.Second)
+	bindTestHandler(t, h)
 
 	ch, _ := rabbitConn.Channel()
 	defer func() { _ = ch.Close() }()

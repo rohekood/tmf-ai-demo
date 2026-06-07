@@ -36,6 +36,7 @@ type rabbitConsumer struct {
 	channel   *amqp.Channel
 	exName    string
 	queueName string
+	ownsConn  bool
 
 	msgTimeout time.Duration
 
@@ -55,7 +56,7 @@ func NewConsumer(url, exchangeName, queueName string, opts ...ConsumerOption) (C
 		return nil, fmt.Errorf("failed to connect to rabbitmq: %w", err)
 	}
 
-	consumer, err := NewConsumerWithConnection(conn, exchangeName, queueName, opts...)
+	consumer, err := newConsumer(conn, exchangeName, queueName, true, opts...)
 	if err != nil {
 		_ = conn.Close()
 		return nil, err
@@ -64,8 +65,13 @@ func NewConsumer(url, exchangeName, queueName string, opts ...ConsumerOption) (C
 }
 
 // NewConsumerWithConnection creates a Consumer using an existing AMQP connection.
-// The caller is responsible for closing the connection when done.
+// The caller is responsible for closing the connection when done; Close() will
+// only close the channel, not the shared connection.
 func NewConsumerWithConnection(conn *amqp.Connection, exchangeName, queueName string, opts ...ConsumerOption) (Consumer, error) {
+	return newConsumer(conn, exchangeName, queueName, false, opts...)
+}
+
+func newConsumer(conn *amqp.Connection, exchangeName, queueName string, ownsConn bool, opts ...ConsumerOption) (Consumer, error) {
 	ch, err := conn.Channel()
 	if err != nil {
 		return nil, fmt.Errorf("failed to open channel: %w", err)
@@ -77,6 +83,7 @@ func NewConsumerWithConnection(conn *amqp.Connection, exchangeName, queueName st
 		err = ch.ExchangeDeclare(exchangeName, "topic", true, false, false, false, nil)
 	}
 	if err != nil {
+		_ = ch.Close()
 		return nil, fmt.Errorf("failed to declare exchange: %w", err)
 	}
 
@@ -87,6 +94,7 @@ func NewConsumerWithConnection(conn *amqp.Connection, exchangeName, queueName st
 		q, err = ch.QueueDeclare(queueName, true, false, false, false, nil)
 	}
 	if err != nil {
+		_ = ch.Close()
 		return nil, fmt.Errorf("failed to declare queue: %w", err)
 	}
 
@@ -95,6 +103,7 @@ func NewConsumerWithConnection(conn *amqp.Connection, exchangeName, queueName st
 		channel:   ch,
 		exName:    exchangeName,
 		queueName: q.Name,
+		ownsConn:  ownsConn,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -255,5 +264,8 @@ func (c *rabbitConsumer) Close() error {
 	if err := c.channel.Close(); err != nil {
 		return err
 	}
-	return c.conn.Close()
+	if c.ownsConn {
+		return c.conn.Close()
+	}
+	return nil
 }

@@ -22,7 +22,6 @@ import (
 )
 
 func TestRabbitMQHandler_CreateProductSpecification(t *testing.T) {
-	// Setup Dependencies
 	repo := repository.NewCatalogRepo(sharedDB)
 	catRepo := repository.NewCategoryRepo(sharedDB)
 	specRepo := repository.NewProductSpecificationRepo(sharedDB)
@@ -38,50 +37,18 @@ func TestRabbitMQHandler_CreateProductSpecification(t *testing.T) {
 	createSpecUC := specification.NewCreateProductSpecification(specRepo, pub, &repository.NoOpTransactionManager{})
 	createOfferingUC := offering.NewCreateProductOffering(repository.NewProductOfferingRepo(sharedDB), specRepo, pub, &repository.NoOpTransactionManager{})
 
-	// Init Handler
-	h, err := handler.NewRabbitMQHandler(
-		rabbitConn,
-		createUC,
-		nil, // updateCatalogUC
-		nil, // deleteCatalogUC
-		listUC,
-		nil, // getCatalogUC
-		createCatUC,
-		nil, // updateCategoryUC
-		nil, // deleteCategoryUC
-		nil, // getCategoryUC
-		nil, // listCategoriesUC
-		createSpecUC,
-		nil, // updateProductSpecificationUC
-		nil, // deleteProductSpecificationUC
-		nil, // getProductSpecificationUC
-		nil, // listProductSpecificationsUC
-		createOfferingUC,
-		nil, // updateProductOfferingUC
-		nil, // deleteProductOfferingUC
-		nil, // getProductOfferingUC
-		nil, // listProductOfferingsUC
+	h := handler.NewRabbitMQHandler(
+		sharedPub,
+		createUC, nil, nil, listUC, nil,
+		createCatUC, nil, nil, nil, nil,
+		createSpecUC, nil, nil, nil, nil,
+		createOfferingUC, nil, nil, nil, nil,
 	)
-	require.NoError(t, err)
+	bindTestHandler(t, h)
 
-	ctx := t.Context()
-
-	// Start Handler in background
-	go func() {
-		_ = h.Start(ctx)
-	}()
-
-	// Wait for handler to initialize queues
-	time.Sleep(1 * time.Second)
-
-	// Publish Command
 	ch, err := rabbitConn.Channel()
 	require.NoError(t, err)
-	defer func() {
-		if err := ch.Close(); err != nil {
-			t.Logf("Error closing channel: %v", err)
-		}
-	}()
+	defer func() { _ = ch.Close() }()
 
 	cmd := domain.ProductSpecificationCreateEvent{
 		Name:            "Async Spec",
@@ -93,19 +60,10 @@ func TestRabbitMQHandler_CreateProductSpecification(t *testing.T) {
 	}
 	body, _ := json.Marshal(cmd)
 
-	err = ch.Publish(
-		"catalog_events",                   // exchange
-		"cmd.catalog.specification.create", // routing key
-		false,
-		false,
-		amqp.Publishing{
-			ContentType: "application/json",
-			Body:        body,
-		},
-	)
+	err = ch.Publish("catalog_events", "cmd.catalog.specification.create", false, false,
+		amqp.Publishing{ContentType: "application/json", Body: body})
 	require.NoError(t, err)
 
-	// Wait for processing using Eventually
 	assert.Eventually(t, func() bool {
 		list, err := specRepo.List(context.Background(), map[string]any{"name": "Async Spec"})
 		return err == nil && len(list) == 1 && list[0].Name == "Async Spec" && list[0].ProductNumber == "ASYNC-001"

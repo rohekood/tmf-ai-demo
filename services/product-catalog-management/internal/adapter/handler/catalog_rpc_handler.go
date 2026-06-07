@@ -111,6 +111,21 @@ func (h *CatalogRPCHandler) HandleGetOffersByCategory(ctx context.Context, paylo
 	return h.publisher.PublishToQueue(ctx, replyTo.(string), correlationID.(string), response)
 }
 
+func (h *CatalogRPCHandler) HandleListOfferings(ctx context.Context, _ []byte) error {
+	offerings, err := h.offeringRepo.List(ctx, nil)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "Failed to list offerings", "error", err)
+		return h.replyError(ctx, err)
+	}
+
+	replyTo := ctx.Value(rabbitmq.ContextKeyReplyTo)
+	correlationID := ctx.Value(rabbitmq.ContextKeyAMQPCorrelationID)
+	if replyTo == nil || correlationID == nil {
+		return fmt.Errorf("missing replyTo or correlationId in context")
+	}
+	return h.publisher.PublishToQueue(ctx, replyTo.(string), correlationID.(string), offerings)
+}
+
 func (h *CatalogRPCHandler) replyError(ctx context.Context, err error) error {
 	replyTo := ctx.Value(rabbitmq.ContextKeyReplyTo)
 	correlationID := ctx.Value(rabbitmq.ContextKeyAMQPCorrelationID)
@@ -143,6 +158,8 @@ func (h *CatalogRPCHandler) HandleDispatch(ctx context.Context, payload []byte) 
 		return h.HandleGetOffering(ctx, payload)
 	case "query.catalog.offering.by_category":
 		return h.HandleGetOffersByCategory(ctx, payload)
+	case "query.catalog.offering.list":
+		return h.HandleListOfferings(ctx, payload)
 	default:
 		h.logger.DebugContext(ctx, "Ignoring unknown RPC routing key", "key", routingKey)
 		return nil

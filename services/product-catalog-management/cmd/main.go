@@ -136,8 +136,8 @@ func main() {
 	listProductOfferingsUC := offering.NewListProductOfferings(offeringRepo)
 
 	// 7. Init Handlers
-	rabbitHandler, err := handler.NewRabbitMQHandler(
-		conn,
+	rabbitHandler := handler.NewRabbitMQHandler(
+		sharedPublisher,
 		createCatalogUC,
 		updateCatalogUC,
 		deleteCatalogUC,
@@ -159,22 +159,39 @@ func main() {
 		getProductOfferingUC,
 		listProductOfferingsUC,
 	)
+
+	// 7.1 Create CRUD consumers
+	cmdConsumer, err := rabbitmq.NewConsumerWithConnection(conn, "catalog_events", "catalog_commands")
 	if err != nil {
-		logger.Error("Failed to initialize RabbitMQ handler", "error", err)
+		logger.Error("Failed to create command consumer", "error", err)
+		os.Exit(1)
+	}
+	defer func() { _ = cmdConsumer.Close() }()
+
+	queryConsumer, err := rabbitmq.NewConsumerWithConnection(conn, "catalog_events", "catalog_queries")
+	if err != nil {
+		logger.Error("Failed to create query consumer", "error", err)
+		os.Exit(1)
+	}
+	defer func() { _ = queryConsumer.Close() }()
+
+	if err := rabbitHandler.BindHandlers(cmdConsumer, queryConsumer); err != nil {
+		logger.Error("Failed to bind CRUD handlers", "error", err)
 		os.Exit(1)
 	}
 
-	// 7.1 Init RPC Handler for pricing queries
+	// 7.2 Init RPC Handler for pricing queries
 	rpcHandler := handler.NewCatalogRPCHandler(offeringRepo, sharedPublisher, logger)
 
-	// 7.2 Create RPC consumer
+	// 7.3 Create RPC consumer
 	rpcConsumer, err := rabbitmq.NewConsumerWithConnection(conn, "catalog_events", "catalog_rpc_queue", rabbitmq.WithMessageTimeout(30*time.Second))
 	if err != nil {
 		logger.Error("Failed to create RPC consumer", "error", err)
 		os.Exit(1)
 	}
+	defer func() { _ = rpcConsumer.Close() }()
 
-	// 7.3 Bind RPC handlers
+	// 7.4 Bind RPC handlers
 	if err := rpcHandler.BindRPCHandlers(rpcConsumer); err != nil {
 		logger.Error("Failed to bind RPC handlers", "error", err)
 		os.Exit(1)
@@ -183,13 +200,6 @@ func main() {
 	// 8. Start
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	go func() {
-		if err := rabbitHandler.Start(ctx); err != nil {
-			logger.Error("RabbitMQ handler error", "error", err)
-			cancel() // Shutdown on error
-		}
-	}()
 
 	go outboxWorker.Start(ctx)
 

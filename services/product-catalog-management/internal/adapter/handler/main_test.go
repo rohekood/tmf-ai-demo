@@ -8,11 +8,14 @@ import (
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/rabbitmq"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	pkgrabbit "tmf/pkg/rabbitmq"
+	"tmf/services/product-catalog-management/internal/adapter/handler"
 	"tmf/services/product-catalog-management/internal/adapter/repository"
 
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -91,7 +94,6 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	// 4. Cleanup
-	// 4. Cleanup
 	if err := rabbitConn.Close(); err != nil {
 		log.Printf("failed to close rabbitConn: %v", err)
 	}
@@ -103,4 +105,19 @@ func TestMain(m *testing.M) {
 	}
 
 	os.Exit(code)
+}
+
+// bindTestHandler creates command/query consumers, binds h to them, and registers
+// cleanup so the consumers are closed (channel only, not shared conn) when t ends.
+func bindTestHandler(t *testing.T, h *handler.RabbitMQHandler) {
+	t.Helper()
+	cmdConsumer, err := pkgrabbit.NewConsumerWithConnection(rabbitConn, "catalog_events", "catalog_commands")
+	require.NoError(t, err)
+	queryConsumer, err := pkgrabbit.NewConsumerWithConnection(rabbitConn, "catalog_events", "catalog_queries")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = cmdConsumer.Close()
+		_ = queryConsumer.Close()
+	})
+	require.NoError(t, h.BindHandlers(cmdConsumer, queryConsumer))
 }

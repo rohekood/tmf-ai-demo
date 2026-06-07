@@ -18,11 +18,8 @@ import (
 )
 
 func TestRabbitMQHandler_Reply(t *testing.T) {
-	// Setup Dependencies
 	repo := repository.NewCatalogRepo(sharedDB)
-	// Create Publisher
-	// Create Publisher
-	// Create Publisher
+
 	sharedPub, err := rabbitmq.NewPublisherWithConnection(rabbitConn)
 	require.NoError(t, err)
 	pub, err := publisher.NewRabbitMQPublisher(sharedPub, "catalog_events")
@@ -31,75 +28,38 @@ func TestRabbitMQHandler_Reply(t *testing.T) {
 	createUC := catalog.NewCreateCatalog(repo, pub, &repository.NoOpTransactionManager{})
 	listUC := catalog.NewListCatalogs(repo)
 
-	// Init Handler
-	h, err := handler.NewRabbitMQHandler(
-		rabbitConn,
-		createUC,
-		nil, nil,
-		listUC,
-		nil,
+	h := handler.NewRabbitMQHandler(
+		sharedPub,
+		createUC, nil, nil, listUC, nil,
 		nil, nil, nil, nil, nil,
 		nil, nil, nil, nil, nil,
 		nil, nil, nil, nil, nil,
 	)
-	require.NoError(t, err)
-
-	ctx := t.Context()
-
-	// Start Handler
-	go func() { _ = h.Start(ctx) }()
-	time.Sleep(1 * time.Second)
+	bindTestHandler(t, h)
 
 	ch, err := rabbitConn.Channel()
 	require.NoError(t, err)
 	defer func() { _ = ch.Close() }()
 
-	// Create a temporary reply queue
-	q, err := ch.QueueDeclare(
-		"",    // name (empty = auto-generated)
-		false, // durable
-		true,  // delete when unused
-		true,  // exclusive
-		false, // no-wait
-		nil,   // arguments
-	)
+	q, err := ch.QueueDeclare("", false, true, true, false, nil)
 	require.NoError(t, err)
 
-	// Consume from reply queue
-	msgs, err := ch.Consume(
-		q.Name, // queue
-		"",     // consumer
-		true,   // auto-ack
-		false,  // exclusive
-		false,  // no-local
-		false,  // no-wait
-		nil,    // args
-	)
+	msgs, err := ch.Consume(q.Name, "", true, false, false, false, nil)
 	require.NoError(t, err)
 
-	// Publish Command with ReplyTo
-	cmd := domain.CatalogCreateEvent{
-		Name:        "RPC Catalog",
-		Description: "Testing RPC Reply",
-	}
+	cmd := domain.CatalogCreateEvent{Name: "RPC Catalog", Description: "Testing RPC Reply"}
 	body, _ := json.Marshal(cmd)
 	corrId := "123456789"
 
-	err = ch.Publish(
-		"catalog_events",             // exchange
-		"cmd.catalog.catalog.create", // routing key
-		false,
-		false,
+	err = ch.Publish("catalog_events", "cmd.catalog.catalog.create", false, false,
 		amqp.Publishing{
 			ContentType:   "application/json",
 			Body:          body,
 			ReplyTo:       q.Name,
 			CorrelationId: corrId,
-		},
-	)
+		})
 	require.NoError(t, err)
 
-	// Wait for response
 	select {
 	case d := <-msgs:
 		assert.Equal(t, corrId, d.CorrelationId)

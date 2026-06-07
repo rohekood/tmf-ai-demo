@@ -3,201 +3,175 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"fmt"
+	"log/slog"
 	"time"
 
 	"tmf/services/product-catalog-management/internal/core/ports"
-
-	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func (h *RabbitMQHandler) handleGetCatalog(d amqp.Delivery) {
-	type GetPayload struct {
+func (h *RabbitMQHandler) handleGetCatalog(ctx context.Context, payload []byte) error {
+	var p struct {
 		ID string `json:"id"`
 	}
-	var payload GetPayload
-	if err := json.Unmarshal(d.Body, &payload); err != nil {
-		log.Printf("Error unmarshalling event: %v", err)
-		h.publishResponse(context.Background(), d, map[string]string{"error": err.Error()})
-		return
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("unmarshal: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	result, err := h.getCatalogUC.Execute(ctx, ports.GetCatalogInput{ID: payload.ID})
+	result, err := h.getCatalogUC.Execute(ctx, ports.GetCatalogInput{ID: p.ID})
 	if err != nil {
-		log.Printf("Error executing GetCatalog: %v", err)
-		h.publishResponse(ctx, d, map[string]string{"error": err.Error()})
-		return
+		slog.ErrorContext(ctx, "Error executing GetCatalog", "error", err)
+		h.reply(ctx, map[string]string{"error": err.Error()})
+		return nil
 	}
-
-	h.publishResponse(ctx, d, result)
+	h.reply(ctx, result)
+	return nil
 }
 
-func (h *RabbitMQHandler) handleListCategories(d amqp.Delivery) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func (h *RabbitMQHandler) handleListCatalogs(ctx context.Context, _ []byte) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	results, err := h.listCatalogsUC.Execute(ctx, ports.ListCatalogsInput{Filters: nil})
+	if err != nil {
+		slog.ErrorContext(ctx, "Error executing ListCatalogs", "error", err)
+		h.reply(ctx, map[string]string{"error": err.Error()})
+		return nil
+	}
+	h.reply(ctx, results)
+	return nil
+}
+
+func (h *RabbitMQHandler) handleListCategories(ctx context.Context, _ []byte) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	results, err := h.listCategoriesUC.Execute(ctx, ports.ListCategoriesInput{Filters: nil})
 	if err != nil {
-		log.Printf("Error executing ListCategories: %v", err)
-		h.publishResponse(ctx, d, map[string]string{"error": err.Error()})
-		return
+		slog.ErrorContext(ctx, "Error executing ListCategories", "error", err)
+		h.reply(ctx, map[string]string{"error": err.Error()})
+		return nil
 	}
-
-	h.publishResponse(ctx, d, results)
+	h.reply(ctx, results)
+	return nil
 }
 
-func (h *RabbitMQHandler) handleGetCategory(d amqp.Delivery) {
-	type GetPayload struct {
+func (h *RabbitMQHandler) handleGetCategory(ctx context.Context, payload []byte) error {
+	var p struct {
 		ID string `json:"id"`
 	}
-	var payload GetPayload
-	if err := json.Unmarshal(d.Body, &payload); err != nil {
-		log.Printf("Error unmarshalling event: %v", err)
-		h.publishResponse(context.Background(), d, map[string]string{"error": err.Error()})
-		return
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("unmarshal: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	result, err := h.getCategoryUC.Execute(ctx, ports.GetCategoryInput{ID: payload.ID})
+	result, err := h.getCategoryUC.Execute(ctx, ports.GetCategoryInput{ID: p.ID})
 	if err != nil {
-		log.Printf("Error executing GetCategory: %v", err)
-		h.publishResponse(ctx, d, map[string]string{"error": err.Error()})
-		return
+		slog.ErrorContext(ctx, "Error executing GetCategory", "error", err)
+		h.reply(ctx, map[string]string{"error": err.Error()})
+		return nil
 	}
-
-	h.publishResponse(ctx, d, result)
+	h.reply(ctx, result)
+	return nil
 }
 
-func (h *RabbitMQHandler) handleListProductSpecifications(d amqp.Delivery) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func (h *RabbitMQHandler) handleListProductSpecifications(ctx context.Context, _ []byte) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	results, err := h.listProductSpecificationsUC.Execute(ctx, ports.ListProductSpecificationsInput{Filters: nil})
 	if err != nil {
-		log.Printf("Error executing ListProductSpecifications: %v", err)
-		h.publishResponse(ctx, d, map[string]string{"error": err.Error()})
-		return
+		slog.ErrorContext(ctx, "Error executing ListProductSpecifications", "error", err)
+		h.reply(ctx, map[string]string{"error": err.Error()})
+		return nil
 	}
-
-	h.publishResponse(ctx, d, results)
+	h.reply(ctx, results)
+	return nil
 }
 
-func (h *RabbitMQHandler) handleGetProductSpecification(d amqp.Delivery) {
-	type GetPayload struct {
+func (h *RabbitMQHandler) handleGetProductSpecification(ctx context.Context, payload []byte) error {
+	var p struct {
 		ID string `json:"id"`
 	}
-	var payload GetPayload
-	if err := json.Unmarshal(d.Body, &payload); err != nil {
-		log.Printf("Error unmarshalling event: %v", err)
-		h.publishResponse(context.Background(), d, map[string]string{"error": err.Error()})
-		return
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("unmarshal: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	result, err := h.getProductSpecificationUC.Execute(ctx, ports.GetProductSpecificationInput{ID: payload.ID})
+	result, err := h.getProductSpecificationUC.Execute(ctx, ports.GetProductSpecificationInput{ID: p.ID})
 	if err != nil {
-		log.Printf("Error executing GetProductSpecification: %v", err)
-		h.publishResponse(ctx, d, map[string]string{"error": err.Error()})
-		return
+		slog.ErrorContext(ctx, "Error executing GetProductSpecification", "error", err)
+		h.reply(ctx, map[string]string{"error": err.Error()})
+		return nil
 	}
-
-	h.publishResponse(ctx, d, result)
+	h.reply(ctx, result)
+	return nil
 }
 
-func (h *RabbitMQHandler) handleListProductOfferings(d amqp.Delivery) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	type ListPayload struct {
+func (h *RabbitMQHandler) handleListProductOfferings(ctx context.Context, payload []byte) error {
+	var p struct {
 		Name     *string  `json:"name"`
 		Category *string  `json:"category"`
 		MinPrice *float64 `json:"minPrice"`
 		MaxPrice *float64 `json:"maxPrice"`
 	}
-
-	var payload ListPayload
-	if len(d.Body) > 0 {
-		if err := json.Unmarshal(d.Body, &payload); err != nil {
-			log.Printf("Error unmarshalling event: %v", err)
-			return
+	if len(payload) > 0 {
+		if err := json.Unmarshal(payload, &p); err != nil {
+			return fmt.Errorf("unmarshal: %w", err)
 		}
 	}
 
-	filters := ports.ProductOfferingFilters{
-		Name:     payload.Name,
-		Category: payload.Category,
-		MinPrice: payload.MinPrice,
-		MaxPrice: payload.MaxPrice,
-	}
-
-	results, err := h.listProductOfferingsUC.Execute(ctx, ports.ListProductOfferingsInput{Filters: filters})
-	if err != nil {
-		log.Printf("Error executing ListProductOfferings: %v", err)
-		h.publishResponse(ctx, d, map[string]string{"error": err.Error()})
-		return
-	}
-
-	h.publishResponse(ctx, d, results)
-}
-
-func (h *RabbitMQHandler) handleGetProductOffering(d amqp.Delivery) {
-	type GetPayload struct {
-		ID         string `json:"id"`
-		OfferingID string `json:"offeringId"` // Support alternate key
-		Enrich     bool   `json:"enrich"`
-	}
-	var payload GetPayload
-	if err := json.Unmarshal(d.Body, &payload); err != nil {
-		log.Printf("Error unmarshalling event: %v", err)
-		return
-	}
-
-	id := payload.ID
-	if id == "" {
-		id = payload.OfferingID
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	result, err := h.getProductOfferingUC.Execute(ctx, ports.GetProductOfferingInput{ID: id, Enrich: payload.Enrich})
+	results, err := h.listProductOfferingsUC.Execute(ctx, ports.ListProductOfferingsInput{
+		Filters: ports.ProductOfferingFilters{
+			Name:     p.Name,
+			Category: p.Category,
+			MinPrice: p.MinPrice,
+			MaxPrice: p.MaxPrice,
+		},
+	})
 	if err != nil {
-		log.Printf("Error executing GetProductOffering: %v", err)
-		h.publishResponse(ctx, d, map[string]string{"error": err.Error()})
-		return
+		slog.ErrorContext(ctx, "Error executing ListProductOfferings", "error", err)
+		h.reply(ctx, map[string]string{"error": err.Error()})
+		return nil
 	}
-
-	h.publishResponse(ctx, d, result)
+	h.reply(ctx, results)
+	return nil
 }
 
-func (h *RabbitMQHandler) publishResponse(ctx context.Context, d amqp.Delivery, response any) {
-	responseBody, err := json.Marshal(response)
-	if err != nil {
-		log.Printf("Error marshalling response: %v", err)
-		return
+func (h *RabbitMQHandler) handleGetProductOffering(ctx context.Context, payload []byte) error {
+	var p struct {
+		ID         string `json:"id"`
+		OfferingID string `json:"offeringId"`
+		Enrich     bool   `json:"enrich"`
+	}
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return fmt.Errorf("unmarshal: %w", err)
 	}
 
-	h.replyMu.Lock()
-	err = h.replyChannel.PublishWithContext(ctx,
-		"",        // exchange
-		d.ReplyTo, // routing key (reply queue)
-		false,
-		false,
-		amqp.Publishing{
-			ContentType:   "application/json",
-			CorrelationId: d.CorrelationId,
-			Body:          responseBody,
-		},
-	)
-	h.replyMu.Unlock()
-	if err != nil {
-		log.Printf("Failed to publish query response: %v", err)
+	id := p.ID
+	if id == "" {
+		id = p.OfferingID
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	result, err := h.getProductOfferingUC.Execute(ctx, ports.GetProductOfferingInput{ID: id, Enrich: p.Enrich})
+	if err != nil {
+		slog.ErrorContext(ctx, "Error executing GetProductOffering", "error", err)
+		h.reply(ctx, map[string]string{"error": err.Error()})
+		return nil
+	}
+	h.reply(ctx, result)
+	return nil
 }

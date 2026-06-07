@@ -22,12 +22,9 @@ import (
 )
 
 func TestRabbitMQHandler_CreateCatalog(t *testing.T) {
-	// Setup Dependencies
 	repo := repository.NewCatalogRepo(sharedDB)
 	catRepo := repository.NewCategoryRepo(sharedDB)
-	// Create Publisher
-	// Create Publisher
-	// Create Publisher
+
 	sharedPub, err := rabbitmq.NewPublisherWithConnection(rabbitConn)
 	require.NoError(t, err)
 	err = sharedPub.DeclareTopicExchange("catalog_events", true, false, false, false)
@@ -42,50 +39,18 @@ func TestRabbitMQHandler_CreateCatalog(t *testing.T) {
 	createSpecUC := specification.NewCreateProductSpecification(repository.NewProductSpecificationRepo(sharedDB), pub, &repository.NoOpTransactionManager{})
 	createOfferingUC := offering.NewCreateProductOffering(repository.NewProductOfferingRepo(sharedDB), repository.NewProductSpecificationRepo(sharedDB), pub, &repository.NoOpTransactionManager{})
 
-	// Init Handler
-	h, err := handler.NewRabbitMQHandler(
-		rabbitConn,
-		createUC,
-		nil, // updateCatalogUC
-		nil, // deleteCatalogUC
-		listUC,
-		nil, // getCatalogUC
-		createCatUC,
-		nil, // updateCategoryUC
-		nil, // deleteCategoryUC
-		nil, // getCategoryUC
-		nil, // listCategoriesUC
-		createSpecUC,
-		nil, // updateProductSpecificationUC
-		nil, // deleteProductSpecificationUC
-		nil, // getProductSpecificationUC
-		nil, // listProductSpecificationsUC
-		createOfferingUC,
-		nil, // updateProductOfferingUC
-		nil, // deleteProductOfferingUC
-		nil, // getProductOfferingUC
-		nil, // listProductOfferingsUC
+	h := handler.NewRabbitMQHandler(
+		sharedPub,
+		createUC, nil, nil, listUC, nil,
+		createCatUC, nil, nil, nil, nil,
+		createSpecUC, nil, nil, nil, nil,
+		createOfferingUC, nil, nil, nil, nil,
 	)
-	require.NoError(t, err)
+	bindTestHandler(t, h)
 
-	ctx := t.Context()
-
-	// Start Handler in background
-	go func() {
-		_ = h.Start(ctx)
-	}()
-
-	// Wait for handler to initialize queues
-	time.Sleep(1 * time.Second)
-
-	// Publish Command
 	ch, err := rabbitConn.Channel()
 	require.NoError(t, err)
-	defer func() {
-		if err := ch.Close(); err != nil {
-			t.Logf("Error closing channel: %v", err)
-		}
-	}()
+	defer func() { _ = ch.Close() }()
 
 	cmd := domain.CatalogCreateEvent{
 		Name:        "Async Catalog",
@@ -94,19 +59,10 @@ func TestRabbitMQHandler_CreateCatalog(t *testing.T) {
 	}
 	body, _ := json.Marshal(cmd)
 
-	err = ch.Publish(
-		"catalog_events",             // exchange
-		"cmd.catalog.catalog.create", // routing key
-		false,
-		false,
-		amqp.Publishing{
-			ContentType: "application/json",
-			Body:        body,
-		},
-	)
+	err = ch.Publish("catalog_events", "cmd.catalog.catalog.create", false, false,
+		amqp.Publishing{ContentType: "application/json", Body: body})
 	require.NoError(t, err)
 
-	// Wait for processing using Eventually
 	assert.Eventually(t, func() bool {
 		list, err := repo.List(context.Background(), map[string]any{"name": "Async Catalog"})
 		return err == nil && len(list) == 1 && list[0].Name == "Async Catalog" && list[0].Description == "Created via RabbitMQ"
