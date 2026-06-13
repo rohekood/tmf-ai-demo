@@ -3,6 +3,7 @@ import { User, Building2, Pencil } from 'lucide-react';
 import type { PartyUnion } from '../types';
 import PartySelector from '../PartySelector';
 import { getPartyDisplayName } from '../types';
+import './PartyPicker.css';
 
 interface PartyPickerProps {
     value: PartyUnion | { id: string; name?: string; '@type'?: string } | null;
@@ -43,10 +44,10 @@ export default function PartyPicker({ value, onChange, readOnly = false, placeho
                     selectedPartyId={value?.id}
                     onSelect={handleSelect}
                 />
-                <div className="mt-2 text-right">
+                <div className="party-picker-selector__actions">
                     <button
                         type="button"
-                        className="btn btn-sm btn-secondary"
+                        className="btn btn-secondary btn--sm"
                         onClick={() => setIsSelecting(false)}
                     >
                         Cancel
@@ -57,13 +58,13 @@ export default function PartyPicker({ value, onChange, readOnly = false, placeho
     }
 
     if (!value) {
-        if (readOnly) return <div className="text-muted">No party selected</div>;
+        if (readOnly) return <div className="muted">No party selected</div>;
 
         return (
             <div className="party-picker-empty">
                 <button
                     type="button"
-                    className="btn btn-secondary w-100 d-flex align-items-center justify-content-center gap-2 p-3"
+                    className="btn btn-secondary"
                     onClick={() => setIsSelecting(true)}
                 >
                     <User size={18} />
@@ -74,26 +75,26 @@ export default function PartyPicker({ value, onChange, readOnly = false, placeho
     }
 
     return (
-        <div className="party-picker-card border rounded p-3 bg-light mb-0">
-            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '1rem', alignItems: 'center' }}>
+        <div className="party-picker-card">
+            <div className="party-picker-card__grid">
                 <div className={`party-icon-circle ${displayInfo?.type?.toLowerCase() || 'unknown'}`}>
                     {displayInfo?.type === 'Individual' ? <User size={20} /> : <Building2 size={20} />}
                 </div>
 
-                <div className="d-flex flex-row align-items-center flex-wrap gap-3 overflow-hidden">
-                    <span className="fw-bold fs-5 text-nowrap">{displayInfo?.name || 'Unknown Party'}</span>
+                <div className="party-picker-card__info">
+                    <span className="party-picker-card__name">{displayInfo?.name || 'Unknown Party'}</span>
 
-                    <div className="d-flex align-items-center text-muted small text-nowrap">
-                        <span className="fw-semibold me-1">ID:</span>
-                        <span className="font-monospace text-truncate" style={{ maxWidth: '150px' }} title={displayInfo?.id}>
+                    <div className="party-picker-card__meta">
+                        <span style={{ fontWeight: 600 }}>ID:</span>
+                        <span className="party-picker-card__meta-id" title={displayInfo?.id}>
                             {displayInfo?.id}
                         </span>
                     </div>
 
                     {displayInfo?.type && (
-                        <div className="d-flex align-items-center text-nowrap">
-                            <span className="text-muted small fw-semibold me-1">Type:</span>
-                            <span className={`badge badge-outline ${displayInfo.type.toLowerCase()}`}>
+                        <div className="party-picker-card__meta">
+                            <span style={{ fontWeight: 600 }}>Type:</span>
+                            <span className={`badge badge-primary ${displayInfo.type.toLowerCase()}`}>
                                 {displayInfo.type}
                             </span>
                         </div>
@@ -101,16 +102,16 @@ export default function PartyPicker({ value, onChange, readOnly = false, placeho
                 </div>
 
                 {!readOnly && (
-                    <div className="d-flex flex-row align-items-center gap-2 text-nowrap">
+                    <div className="party-picker-card__actions">
                         {customActions}
                         <button
                             type="button"
-                            className="btn btn-sm btn-outline-secondary d-flex align-items-center"
+                            className="btn btn-secondary btn--sm"
                             title="Change Party"
                             aria-label="Change Party"
                             onClick={() => setIsSelecting(true)}
                         >
-                            <Pencil size={14} className="me-2" />
+                            <Pencil size={14} />
                             <span>Change</span>
                         </button>
                     </div>

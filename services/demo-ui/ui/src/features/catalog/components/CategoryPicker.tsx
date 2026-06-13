@@ -49,30 +49,30 @@ export default function CategoryPicker({
     if (variant === 'list') {
         return (
             <div className="category-picker-list">
-                <div className="section-header d-flex justify-content-between align-items-center mb-3">
+                <div className="section-header">
                     <h4 className="m-0">Categories</h4>
                     {!isSelecting ? (
                         <button
                             type="button"
-                            className="btn btn-secondary btn-sm"
+                            className="btn btn-secondary btn--sm"
                             onClick={() => setIsSelecting(true)}
                             disabled={isLoading}
                         >
-                            <LinkIcon size={16} className="me-2" />
+                            <LinkIcon size={16} />
                             <span>Link Category</span>
                         </button>
                     ) : (
-                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setIsSelecting(false)}>
-                            <X size={16} className="me-2" />
+                        <button type="button" className="btn btn-secondary btn--sm" onClick={() => setIsSelecting(false)}>
+                            <X size={16} />
                             <span>Cancel</span>
                         </button>
                     )}
                 </div>
 
                 {isSelecting && (
-                    <div className="mb-3 p-3 border rounded bg-light">
-                        <div className="input-group mb-2">
-                            <span className="input-group-text bg-white">
+                    <div className="picker-dropdown" style={{ marginBottom: '1rem' }}>
+                        <div className="input-group">
+                            <span className="input-group-text">
                                 <Search size={16} />
                             </span>
                             <input
@@ -84,15 +84,16 @@ export default function CategoryPicker({
                                 autoFocus
                             />
                         </div>
-                        <div className="list-group" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                        <div className="picker-list" style={{ maxHeight: '200px', overflowY: 'auto' }}>
                             {availableCategories.length === 0 ? (
-                                <div className="p-2 text-muted text-center">No available categories found</div>
+                                <div className="p-2 text-muted" style={{ textAlign: 'center' }}>No available categories found</div>
                             ) : (
                                 availableCategories.map(cat => (
                                     <button
                                         key={cat.id}
                                         type="button"
-                                        className="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                                        className="picker-item"
+                                        style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
                                         onClick={() => handleSelect(cat.id)}
                                     >
                                         <span>{cat.name}</span>
@@ -107,7 +108,7 @@ export default function CategoryPicker({
                 <div className="category-list">
                     {selectedCategories.length === 0 ? (
                         <div className="category-list-empty">
-                            <p className="text-muted fst-italic m-0">No categories linked.</p>
+                            <p className="text-muted m-0" style={{ fontStyle: 'italic' }}>No categories linked.</p>
                         </div>
                     ) : (
                         selectedCategories.map(cat => (

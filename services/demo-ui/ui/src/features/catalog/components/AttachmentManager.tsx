@@ -43,12 +43,12 @@ export default function AttachmentManager({ attachments, onChange }: AttachmentM
                 <div className="repeatable-list">
                     {attachments.map((a, index) => (
                         <div key={index} className="repeatable-item">
-                            <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-2">
-                                    <Paperclip size={16} className="text-muted" />
-                                    <div className="flex flex-col">
-                                        <span className="font-medium">{a.name}</span>
-                                        <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary flex items-center gap-1">
+                            <div className="row-between">
+                                <div className="row" style={{ minWidth: 0 }}>
+                                    <Paperclip size={16} className="muted" />
+                                    <div className="stack-sm" style={{ gap: '0.15rem', minWidth: 0 }}>
+                                        <span style={{ fontWeight: 600 }}>{a.name}</span>
+                                        <a href={a.url} target="_blank" rel="noopener noreferrer" className="row" style={{ gap: '0.35rem', fontSize: '0.8125rem' }}>
                                             <LinkIcon size={12} />
                                             {a.url}
                                         </a>

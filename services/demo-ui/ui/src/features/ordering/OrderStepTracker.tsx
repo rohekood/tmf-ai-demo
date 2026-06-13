@@ -1,4 +1,5 @@
 import type { SagaStatusResponse } from './types';
+import './ordering.css';
 
 type StepId = 'inventory' | 'payment' | 'order';
 type StepStatus = 'pending' | 'current' | 'completed' | 'failed';
@@ -33,37 +34,30 @@ function getStepStatus(stepId: StepId, sagaStatus: SagaStatusResponse['status'] 
     }
 }
 
-function stepColor(status: StepStatus): string {
-    if (status === 'completed') return 'bg-green-500 border-green-500';
-    if (status === 'current') return 'bg-blue-500 border-blue-500 animate-pulse';
-    if (status === 'failed') return 'bg-red-500 border-red-500';
-    return 'bg-gray-200 border-gray-200';
-}
-
 interface Props {
     sagaStatus?: SagaStatusResponse['status'];
 }
 
 export default function OrderStepTracker({ sagaStatus }: Props) {
     return (
-        <div className="space-y-8">
+        <div className="step-tracker">
             {STEPS.map((step) => {
                 const status = getStepStatus(step.id, sagaStatus);
                 return (
-                    <div key={step.id} className="flex items-center">
+                    <div key={step.id} className="step">
                         <div
-                            className={`flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center ${stepColor(status)}`}
+                            className={`step__marker step__marker--${status}`}
                             data-testid={`step-${step.id}`}
                             data-status={status}
                         >
-                            {status === 'completed' && <span className="text-white font-bold">✓</span>}
-                            {status === 'failed' && <span className="text-white font-bold">✕</span>}
+                            {status === 'completed' && <span>✓</span>}
+                            {status === 'failed' && <span>✕</span>}
                         </div>
-                        <div className="ml-4 flex-1">
-                            <h3 className={`text-lg font-medium ${status === 'current' ? 'text-blue-600' : 'text-gray-900'}`}>
+                        <div className="spacer">
+                            <h3 className={`step__label ${status === 'current' ? 'step__label--current' : ''}`}>
                                 {step.label}
                             </h3>
-                            {status === 'current' && <p className="text-sm text-gray-500">In progress...</p>}
+                            {status === 'current' && <p className="step__hint">In progress...</p>}
                         </div>
                     </div>
                 );

@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Edit, Trash2, ChevronRight, ChevronDown, FolderTree } from 'lucide-react';
 import { useCategories, useDeleteCategory } from './api';
 import type { Category } from './types';
-import '../../App.css';
 import './CategoryListPage.css';
 
 interface CategoryNode extends Category {

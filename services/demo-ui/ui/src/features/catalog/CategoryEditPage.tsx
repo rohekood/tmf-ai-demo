@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Save, Loader2, ArrowLeft } from 'lucide-react';
 import { useCategory, useCreateCategory, useUpdateCategory, useCategories } from './api';
 import type { Category, CreateCategoryPayload, LifecycleStatus } from './types';
-import '../../App.css';
 import '../parties/PartyFormPage.css'; // Reusing styles
 import './CategoryEditPage.css';
 

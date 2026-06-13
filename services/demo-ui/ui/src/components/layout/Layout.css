@@ -81,9 +81,29 @@
     flex: 1;
 }
 
+/* Full-screen loading state */
+.layout-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+}
+
 /* Mobile Toggle Default Hidden */
 .mobile-menu-toggle {
     display: none;
+    padding: 0.5rem;
+    border-radius: var(--r-md);
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.mobile-menu-toggle:hover {
+    background: var(--surface-2);
+    color: var(--text);
 }
 
 /* Mobile Overlay */

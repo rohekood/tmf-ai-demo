@@ -7,6 +7,7 @@ import { OfferingCard } from './OfferingCard';
 import { PageLoader } from '../../design-system/components/common/PageLoader';
 import { useNotification } from '../../design-system/components/common/Toast';
 import { CART_ID_KEY } from './storage';
+import './ordering.css';
 
 export default function QualifyPage() {
     const navigate = useNavigate();
@@ -65,20 +66,25 @@ export default function QualifyPage() {
     };
 
     return (
-        <div className="p-8 max-w-4xl mx-auto space-y-8">
-            <div>
-                <h1 className="text-3xl font-bold">Service Qualification</h1>
-                <p className="text-gray-500 mt-2">Enter your address to see available services.</p>
+        <div className="page page--narrow">
+            <div className="page-header">
+                <div>
+                    <h1 className="page-title">Service Qualification</h1>
+                    <p className="page-subtitle">Enter your address to see available services.</p>
+                </div>
             </div>
 
             {sessionExpired && (
-                <div role="alert" className="bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-3 rounded flex items-center justify-between">
-                    <span>Session expired – please <button onClick={handleRecheck} className="underline font-medium">re-check availability</button>.</span>
-                    <button onClick={() => setSessionExpired(false)} aria-label="Dismiss" className="ml-4 text-yellow-600 hover:text-yellow-800">✕</button>
+                <div role="alert" className="alert alert-warning">
+                    <span>
+                        Session expired – please{' '}
+                        <button onClick={handleRecheck} className="btn-link">re-check availability</button>.
+                    </span>
+                    <button onClick={() => setSessionExpired(false)} aria-label="Dismiss" className="btn-link">✕</button>
                 </div>
             )}
 
-            <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
+            <div className="card">
                 <AddressForm
                     address={address}
                     onChange={setAddress}
@@ -86,12 +92,9 @@ export default function QualifyPage() {
                     isPending={isPending}
                 />
                 {error && (
-                    <div className="mt-4 space-y-2">
-                        <p className="text-red-600">Failed to check qualification. Please try again.</p>
-                        <button
-                            onClick={handleRecheck}
-                            className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"
-                        >
+                    <div className="stack-sm" style={{ marginTop: '1rem' }}>
+                        <p className="field-error">Failed to check qualification. Please try again.</p>
+                        <button onClick={handleRecheck} className="btn btn-primary" style={{ alignSelf: 'flex-start' }}>
                             Retry
                         </button>
                     </div>
@@ -99,27 +102,24 @@ export default function QualifyPage() {
             </div>
 
             {result && result.status === 'Unqualified' && (
-                <div className="bg-yellow-50 p-6 rounded-lg shadow border border-yellow-200 space-y-3">
-                    <h2 className="text-xl font-semibold text-yellow-800">Service Not Available</h2>
-                    <p className="text-yellow-700">
+                <div className="card stack">
+                    <h2 className="section-title">Service Not Available</h2>
+                    <p className="muted">
                         {result.unavailabilityReason ?? 'The service is not available at the provided address.'}
                     </p>
-                    <button
-                        onClick={handleRecheck}
-                        className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"
-                    >
+                    <button onClick={handleRecheck} className="btn btn-primary" style={{ alignSelf: 'flex-start' }}>
                         Check Another Address
                     </button>
                 </div>
             )}
 
             {result && result.status === 'Qualified' && (
-                <div className="space-y-4">
-                    <h2 className="text-2xl font-bold">Available Offerings</h2>
+                <div className="stack">
+                    <h2 className="section-title">Available Offerings</h2>
                     {result.qualifiedOffers.length === 0 ? (
-                        <p className="text-gray-500">No offerings available for this address.</p>
+                        <p className="muted">No offerings available for this address.</p>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid-auto">
                             {result.qualifiedOffers.map((off) => (
                                 <OfferingCard
                                     key={off.offeringId}

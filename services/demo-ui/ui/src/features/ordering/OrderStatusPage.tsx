@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useSagaStatus } from './api';
 import { PageLoader } from '../../design-system/components/common/PageLoader';
 import OrderStepTracker from './OrderStepTracker';
+import './ordering.css';
 
 export default function OrderStatusPage() {
     const { sagaId } = useParams<{ sagaId: string }>();
@@ -22,26 +23,23 @@ export default function OrderStatusPage() {
 
     if (isLoading && !statusData) return <PageLoader />;
 
-    if (error) return <div className="p-8 text-red-600 text-center">Error fetching status.</div>;
+    if (error) return <div className="page"><div className="alert alert-danger">Error fetching status.</div></div>;
 
     return (
-        <div className="p-8 max-w-2xl mx-auto space-y-12">
-            <div className="text-center">
-                <h1 className="text-3xl font-bold">Processing Order</h1>
-                <p className="text-gray-500 mt-2">Saga ID: {sagaId}</p>
+        <div className="page page--narrow">
+            <div style={{ textAlign: 'center' }}>
+                <h1 className="page-title">Processing Order</h1>
+                <p className="page-subtitle mono">Saga ID: {sagaId}</p>
             </div>
 
-            <div className="bg-white p-8 rounded-lg shadow border border-gray-100">
+            <div className="card">
                 <OrderStepTracker sagaStatus={statusData?.status} />
 
                 {statusData?.status === 'FAILED' && (
-                    <div className="mt-8 p-4 bg-red-50 border border-red-200 rounded-md text-red-700">
-                        <p className="font-bold">Order processing failed</p>
-                        <p className="text-sm mt-1">{statusData.errorReason}</p>
-                        <Link
-                            to="/order/cart"
-                            className="inline-block mt-3 text-sm font-medium text-red-700 underline hover:text-red-900"
-                        >
+                    <div className="alert alert-danger" style={{ marginTop: '1.5rem', display: 'block' }}>
+                        <p style={{ fontWeight: 700 }}>Order processing failed</p>
+                        <p style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>{statusData.errorReason}</p>
+                        <Link to="/order/cart" className="btn-link" style={{ display: 'inline-block', marginTop: '0.75rem', color: 'inherit', textDecoration: 'underline' }}>
                             Modify Cart
                         </Link>
                     </div>

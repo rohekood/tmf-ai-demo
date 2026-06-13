@@ -20,7 +20,7 @@ function NavItem({ to, icon, label, title, badge }: NavItemProps) {
             to={to}
             title={title}
             className={({ isActive }) =>
-                `sidebar-nav-item ${isActive ? 'sidebar-nav-item--active' : ''} ${!label ? 'justify-center px-0' : ''}`
+                `sidebar-nav-item ${isActive ? 'sidebar-nav-item--active' : ''}`
             }
         >
             <span className="sidebar-nav-icon">{icon}</span>
@@ -128,7 +128,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse }: SidebarProp
                     {!isLoading && (
                         isAuthenticated ? (
                             <div className="sidebar-user-card">
-                                <div className={`sidebar-user-avatar-wrapper ${collapsed ? 'mx-auto' : ''}`}>
+                                <div className="sidebar-user-avatar-wrapper">
                                     <div className="sidebar-user-avatar">
                                         {user?.picture ? (
                                             <img src={user.picture} alt={user.name || 'User'} className="sidebar-user-avatar-img" />
@@ -160,13 +160,13 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse }: SidebarProp
                     )}
                 </div>
 
-                <div className={`sidebar-status ${collapsed ? 'justify-center' : ''}`} role="status">
+                <div className={`sidebar-status ${collapsed ? 'sidebar-status--center' : ''}`} role="status">
                     <span className="sidebar-status-dot sidebar-status-dot--connected"></span>
                     {!collapsed && <span className="sidebar-status-text">Connected</span>}
                 </div>
 
                 <button
-                    className="sidebar-collapse-toggle hidden md:flex"
+                    className="sidebar-collapse-toggle"
                     onClick={onToggleCollapse}
                     title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
                 >

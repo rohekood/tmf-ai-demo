@@ -271,6 +271,10 @@
     color: #64748b;
 }
 
+.sidebar-status--center {
+    justify-content: center;
+}
+
 .sidebar-status-dot {
     width: 8px;
     height: 8px;

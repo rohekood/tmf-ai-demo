@@ -13,10 +13,10 @@ export function Layout() {
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-sm text-slate-500 font-medium">Loading session...</p>
+            <div className="layout-loading">
+                <div className="page-loader">
+                    <div className="loader-spinner"></div>
+                    <p>Loading session...</p>
                 </div>
             </div>
         );
@@ -54,7 +54,7 @@ export function Layout() {
                         </div>
                         {!isMobileMenuOpen && (
                             <button
-                                className="mobile-menu-toggle p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
+                                className="mobile-menu-toggle"
                                 onClick={toggleMobileMenu}
                                 aria-label="Toggle menu"
                             >
