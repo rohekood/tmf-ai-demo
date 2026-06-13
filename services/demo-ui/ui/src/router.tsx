@@ -23,6 +23,7 @@ const CategoryListPage = lazy(() => import('./features/catalog/CategoryListPage'
 const CategoryEditPage = lazy(() => import('./features/catalog/CategoryEditPage'));
 
 const OfferingListPage = lazy(() => import('./features/catalog/OfferingListPage'));
+const OfferingDetailPage = lazy(() => import('./features/catalog/OfferingDetailPage'));
 const OfferingEditPage = lazy(() => import('./features/catalog/OfferingEditPage'));
 
 const QualifyPage = lazy(() => import('./features/ordering/QualifyPage'));
@@ -260,7 +261,7 @@ export const router = createBrowserRouter([
                                 path: ':id',
                                 element: (
                                     <Suspense fallback={<PageLoader />}>
-                                        <OfferingEditPage />
+                                        <OfferingDetailPage />
                                     </Suspense>
                                 ),
                             },
