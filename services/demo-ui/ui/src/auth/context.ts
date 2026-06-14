@@ -10,6 +10,10 @@ type LoginOptions = {
   authorizationParams?: {
     screen_hint?: string;
   };
+  /** Arbitrary state restored after the login redirect (e.g. returnTo path). */
+  appState?: {
+    returnTo?: string;
+  };
 };
 
 type LogoutOptions = {

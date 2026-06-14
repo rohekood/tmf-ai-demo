@@ -51,49 +51,55 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse }: SidebarProp
             </div>
 
             <nav className="sidebar-nav">
-                <div className="sidebar-nav-section">
-                    {!collapsed && <h3 className="sidebar-nav-title">Management</h3>}
-                    <NavItem
-                        to="/parties"
-                        icon={<Users size={20} />}
-                        label={collapsed ? "" : "Parties"}
-                        title={collapsed ? "Parties" : undefined}
-                    />
-                    <NavItem
-                        to="/customers"
-                        icon={<Building2 size={20} />}
-                        label={collapsed ? "" : "Customers"}
-                        title={collapsed ? "Customers" : undefined}
-                    />
-                </div>
+                {/* Management & Product Catalog are authenticated-only. Anonymous
+                    visitors only see the public Check Availability entry. */}
+                {isAuthenticated && (
+                    <>
+                        <div className="sidebar-nav-section">
+                            {!collapsed && <h3 className="sidebar-nav-title">Management</h3>}
+                            <NavItem
+                                to="/parties"
+                                icon={<Users size={20} />}
+                                label={collapsed ? "" : "Parties"}
+                                title={collapsed ? "Parties" : undefined}
+                            />
+                            <NavItem
+                                to="/customers"
+                                icon={<Building2 size={20} />}
+                                label={collapsed ? "" : "Customers"}
+                                title={collapsed ? "Customers" : undefined}
+                            />
+                        </div>
 
-                <div className="sidebar-nav-section">
-                    {!collapsed && <h3 className="sidebar-nav-title">Product Catalog</h3>}
-                    <NavItem
-                        to="/catalog/catalogs"
-                        icon={<BookOpen size={20} />}
-                        label={collapsed ? "" : "Catalogs"}
-                        title={collapsed ? "Catalogs" : undefined}
-                    />
-                    <NavItem
-                        to="/catalog/categories"
-                        icon={<FolderTree size={20} />}
-                        label={collapsed ? "" : "Categories"}
-                        title={collapsed ? "Categories" : undefined}
-                    />
-                    <NavItem
-                        to="/catalog/specifications"
-                        icon={<Package size={20} />}
-                        label={collapsed ? "" : "Specifications"}
-                        title={collapsed ? "Specifications" : undefined}
-                    />
-                    <NavItem
-                        to="/catalog/offerings"
-                        icon={<ShoppingCart size={20} />}
-                        label={collapsed ? "" : "Offerings"}
-                        title={collapsed ? "Offerings" : undefined}
-                    />
-                </div>
+                        <div className="sidebar-nav-section">
+                            {!collapsed && <h3 className="sidebar-nav-title">Product Catalog</h3>}
+                            <NavItem
+                                to="/catalog/catalogs"
+                                icon={<BookOpen size={20} />}
+                                label={collapsed ? "" : "Catalogs"}
+                                title={collapsed ? "Catalogs" : undefined}
+                            />
+                            <NavItem
+                                to="/catalog/categories"
+                                icon={<FolderTree size={20} />}
+                                label={collapsed ? "" : "Categories"}
+                                title={collapsed ? "Categories" : undefined}
+                            />
+                            <NavItem
+                                to="/catalog/specifications"
+                                icon={<Package size={20} />}
+                                label={collapsed ? "" : "Specifications"}
+                                title={collapsed ? "Specifications" : undefined}
+                            />
+                            <NavItem
+                                to="/catalog/offerings"
+                                icon={<ShoppingCart size={20} />}
+                                label={collapsed ? "" : "Offerings"}
+                                title={collapsed ? "Offerings" : undefined}
+                            />
+                        </div>
+                    </>
+                )}
 
                 <div className="sidebar-nav-section">
                     {!collapsed && <h3 className="sidebar-nav-title">Ordering</h3>}
@@ -103,24 +109,28 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse }: SidebarProp
                         label={collapsed ? "" : "Check Availability"}
                         title={collapsed ? "Check Availability" : undefined}
                     />
-                    <NavItem
-                        to="/order/cart"
-                        icon={<ShoppingBag size={20} />}
-                        label={collapsed ? "" : "Shopping Cart"}
-                        title={collapsed ? "Shopping Cart" : undefined}
-                        badge={!collapsed && <CartBadge />}
-                    />
+                    {isAuthenticated && (
+                        <NavItem
+                            to="/order/cart"
+                            icon={<ShoppingBag size={20} />}
+                            label={collapsed ? "" : "Shopping Cart"}
+                            title={collapsed ? "Shopping Cart" : undefined}
+                            badge={!collapsed && <CartBadge />}
+                        />
+                    )}
                 </div>
 
-                <div className="sidebar-nav-section">
-                    {!collapsed && <h3 className="sidebar-nav-title">Developer</h3>}
-                    <NavItem
-                        to="/debug"
-                        icon={<Bug size={20} />}
-                        label={collapsed ? "" : "Debug Console"}
-                        title={collapsed ? "Debug Console" : undefined}
-                    />
-                </div>
+                {isAuthenticated && (
+                    <div className="sidebar-nav-section">
+                        {!collapsed && <h3 className="sidebar-nav-title">Developer</h3>}
+                        <NavItem
+                            to="/debug"
+                            icon={<Bug size={20} />}
+                            label={collapsed ? "" : "Debug Console"}
+                            title={collapsed ? "Debug Console" : undefined}
+                        />
+                    </div>
+                )}
             </nav>
 
             <div className="sidebar-footer">

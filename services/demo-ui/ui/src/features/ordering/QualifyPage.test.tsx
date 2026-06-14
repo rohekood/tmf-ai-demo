@@ -11,6 +11,22 @@ vi.mock('./api', () => ({
     useAddCartItem: vi.fn(),
 }));
 
+const { mockLoginWithRedirect, authState } = vi.hoisted(() => ({
+    mockLoginWithRedirect: vi.fn(),
+    authState: { isAuthenticated: true, enabled: true },
+}));
+vi.mock('../../auth/context', () => ({
+    useAuth: () => ({
+        isAuthenticated: authState.isAuthenticated,
+        isLoading: false,
+        enabled: authState.enabled,
+        loginWithRedirect: mockLoginWithRedirect,
+        logout: vi.fn(),
+        getAccessTokenSilently: vi.fn(),
+        user: undefined,
+    }),
+}));
+
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
     const actual = await vi.importActual('react-router-dom');
@@ -34,6 +50,9 @@ const sessionWithOfferings = {
 beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    sessionStorage.clear();
+    authState.isAuthenticated = true;
+    authState.enabled = true;
 });
 
 describe('QualifyPage', () => {
@@ -170,6 +189,41 @@ describe('QualifyPage', () => {
 
         await user.click(screen.getByRole('button', { name: /Add to Cart/i }));
         expect(localStorage.getItem('cartId')).toBe('returned-cart-id');
+    });
+
+    it('anonymous add-to-cart starts login and stashes the address instead of adding', async () => {
+        authState.isAuthenticated = false;
+        const user = userEvent.setup();
+        const mockAddToCart = vi.fn();
+
+        vi.mocked(api.useCheckQualification).mockReturnValue({
+            mutate: vi.fn(),
+            isPending: false,
+            reset: vi.fn(),
+            data: sessionWithOfferings,
+        } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+        vi.mocked(api.useAddCartItem).mockReturnValue({
+            mutate: mockAddToCart,
+            isPending: false,
+        } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+        render(
+            <NotificationProvider>
+                <MemoryRouter>
+                    <QualifyPage />
+                </MemoryRouter>
+            </NotificationProvider>
+        );
+
+        await user.click(screen.getByRole('button', { name: /Add to Cart/i }));
+
+        expect(mockAddToCart).not.toHaveBeenCalled();
+        expect(mockNavigate).not.toHaveBeenCalled();
+        expect(mockLoginWithRedirect).toHaveBeenCalledWith(
+            expect.objectContaining({ appState: { returnTo: '/order/qualify' } })
+        );
+        expect(sessionStorage.getItem('qualifyResumeAddress')).not.toBeNull();
     });
 
     it('shows session expired banner when 422 SESSION_EXPIRED error is returned', async () => {

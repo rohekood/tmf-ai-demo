@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 	rabbitmqpkg "tmf/pkg/rabbitmq"
@@ -114,16 +115,23 @@ func main() {
 	handler.RegisterRoutes(mux)
 
 	// 9. Construct Middleware Chain
-	// Conditional Auth Middleware: Only applies to routes starting with /api/
+	// Auth applies only to /api routes. Within /api, the Check Availability
+	// (qualification) endpoints are public: anonymous callers are allowed, while
+	// an authenticated caller still has their identity parsed (best-effort) for
+	// customer-specific pricing. Every other /api route requires a valid JWT.
 	authMiddleware := auth.EnsureValidToken(authValidator, cfg.Auth0Domain, cfg.Auth0Audience)
+	optionalAuth := auth.OptionalToken(authValidator)
 
 	// Wrap mux with Auth middleware selectively
 	var authenticatedHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Simple prefix check: if path starts with /api, require auth
-		if len(r.URL.Path) >= 4 && r.URL.Path[:4] == "/api" {
-			authMiddleware(mux).ServeHTTP(w, r)
-		} else {
+		switch {
+		case !strings.HasPrefix(r.URL.Path, "/api"):
+			// Non-API routes (e.g. WebSocket upgrades) are not auth-gated here.
 			mux.ServeHTTP(w, r)
+		case auth.IsPublicRoute(r.Method, r.URL.Path):
+			optionalAuth(mux).ServeHTTP(w, r)
+		default:
+			authMiddleware(mux).ServeHTTP(w, r)
 		}
 	})
 

@@ -186,6 +186,42 @@ func TestPricingCalculator_CalculatePrice(t *testing.T) {
 	})
 }
 
+func TestPricingCalculator_CalculateGenericPrice(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns base price without customer lookup", func(t *testing.T) {
+		catalogClient := &mockCatalogPricingClient{
+			offering: &ports.Offering{
+				ID:        "offer-1",
+				Name:      "Fiber 100",
+				BasePrice: 100.0,
+				Currency:  "EUR",
+			},
+		}
+		// Nil customer client proves no customer lookup happens on this path.
+		calc := NewPricingCalculator(catalogClient, nil)
+		price, err := calc.CalculateGenericPrice(ctx, "offer-1")
+
+		assert.NoError(t, err)
+		assert.NotNil(t, price)
+		assert.Equal(t, 100.0, price.Amount) // base price, no discount
+		assert.Equal(t, "EUR", price.Currency)
+		assert.False(t, price.TaxIncluded)
+	})
+
+	t.Run("catalog client error is propagated", func(t *testing.T) {
+		catalogClient := &mockCatalogPricingClient{
+			err: errors.New("catalog service unavailable"),
+		}
+		calc := NewPricingCalculator(catalogClient, nil)
+		price, err := calc.CalculateGenericPrice(ctx, "offer-1")
+
+		assert.Error(t, err)
+		assert.Nil(t, price)
+		assert.Contains(t, err.Error(), "catalog service unavailable")
+	})
+}
+
 func TestGetTierDiscount(t *testing.T) {
 	tests := []struct {
 		name     string

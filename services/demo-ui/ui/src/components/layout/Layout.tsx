@@ -2,15 +2,17 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Menu } from 'lucide-react';
-import { LoginPage } from '../../features/auth/LoginPage';
 import { useAuth } from '../../auth/context';
 import './Layout.css';
 
 export function Layout() {
-    const { isAuthenticated, isLoading } = useAuth();
+    const { isLoading } = useAuth();
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+    // The shell renders for both anonymous and authenticated users; per-route
+    // <RequireAuth> guards protect non-public pages. We only wait here while the
+    // session is still resolving.
     if (isLoading) {
         return (
             <div className="layout-loading">
@@ -20,10 +22,6 @@ export function Layout() {
                 </div>
             </div>
         );
-    }
-
-    if (!isAuthenticated) {
-        return <LoginPage />;
     }
 
     const toggleSidebarCollapse = () => {

@@ -17,6 +17,8 @@ export interface QualifiedOffer {
         currency: string;
         taxIncluded: boolean;
     };
+    /** "generic" = anonymous base price; "customer" = segment/tier price. */
+    priceType?: 'generic' | 'customer';
     eligibility: 'QUALIFIED' | 'NOT_AVAILABLE';
     constraints?: string[];
 }

@@ -14,12 +14,22 @@ type QualificationSession struct {
 	ExpiresAt       time.Time        `json:"expiresAt"`
 }
 
-// QualifiedOffer represents an offering that passed qualification
-// with customer-specific pricing
+// Price type discriminators. "generic" is the catalog base price shown to
+// anonymous (unauthenticated) users; "customer" is the segment/tier-adjusted
+// price computed for an authenticated customer.
+const (
+	PriceTypeGeneric  = "generic"
+	PriceTypeCustomer = "customer"
+)
+
+// QualifiedOffer represents an offering that passed qualification.
+// Price is either the generic catalog price (anonymous) or the
+// customer-specific price (authenticated), indicated by PriceType.
 type QualifiedOffer struct {
 	OfferingID   string   `json:"offeringId"`
 	OfferingName string   `json:"offeringName"`
 	Price        Price    `json:"price"`
+	PriceType    string   `json:"priceType"` // "generic" | "customer"
 	Eligibility  string   `json:"eligibility"` // "QUALIFIED", "NOT_AVAILABLE"
 	Constraints  []string `json:"constraints,omitempty"`
 }

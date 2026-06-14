@@ -74,6 +74,67 @@ func TestCheckEligibilityUseCase_Check(t *testing.T) {
 		mockPub.AssertExpectations(t)
 	})
 
+	t.Run("Anonymous caller gets generic-priced offers", func(t *testing.T) {
+		mockGIS := new(MockGISClient)
+		mockInv := new(MockInventoryClient)
+		mockCat := new(MockCatalogClient)
+		mockPub := new(MockEventPublisher)
+
+		mockSessionRepo := &MockSessionRepository{}
+		mockCustomerClient := &MockCustomerPricingClient{}
+		mockCatalogPricing := &MockCatalogPricingClient{}
+		uc := NewCheckEligibility(mockGIS, mockInv, mockCat, mockPub, mockSessionRepo, mockCustomerClient, mockCatalogPricing, logger)
+
+		mockGIS.On("CheckPolygon", mock.Anything, cmd.Address).Return(true, nil)
+		mockInv.On("GetPortCapacity", mock.Anything, cmd.Address).Return(5, nil)
+		mockCat.On("GetOffersByCategory", mock.Anything, "Fiber").Return(offers, nil)
+
+		var published domain.EligibilityResult
+		mockPub.On("PublishEligibilityChecked", mock.Anything, mock.MatchedBy(func(result domain.EligibilityResult) bool {
+			published = result
+			return true
+		})).Return(nil)
+
+		// cmd has no CustomerID -> anonymous path.
+		err := uc.Execute(context.Background(), cmd)
+
+		assert.NoError(t, err)
+		assert.Len(t, published.QualifiedOffers, 1)
+		assert.Equal(t, domain.PriceTypeGeneric, published.QualifiedOffers[0].PriceType)
+		assert.Equal(t, 100.0, published.QualifiedOffers[0].Price.Amount) // base price, no discount
+	})
+
+	t.Run("Authenticated caller gets customer-priced offers", func(t *testing.T) {
+		mockGIS := new(MockGISClient)
+		mockInv := new(MockInventoryClient)
+		mockCat := new(MockCatalogClient)
+		mockPub := new(MockEventPublisher)
+
+		mockSessionRepo := &MockSessionRepository{}
+		mockCustomerClient := &MockCustomerPricingClient{}
+		mockCatalogPricing := &MockCatalogPricingClient{}
+		uc := NewCheckEligibility(mockGIS, mockInv, mockCat, mockPub, mockSessionRepo, mockCustomerClient, mockCatalogPricing, logger)
+
+		authCmd := cmd
+		authCmd.CustomerID = "cust-1"
+
+		mockGIS.On("CheckPolygon", mock.Anything, authCmd.Address).Return(true, nil)
+		mockInv.On("GetPortCapacity", mock.Anything, authCmd.Address).Return(5, nil)
+		mockCat.On("GetOffersByCategory", mock.Anything, "Fiber").Return(offers, nil)
+
+		var published domain.EligibilityResult
+		mockPub.On("PublishEligibilityChecked", mock.Anything, mock.MatchedBy(func(result domain.EligibilityResult) bool {
+			published = result
+			return true
+		})).Return(nil)
+
+		err := uc.Execute(context.Background(), authCmd)
+
+		assert.NoError(t, err)
+		assert.Len(t, published.QualifiedOffers, 1)
+		assert.Equal(t, domain.PriceTypeCustomer, published.QualifiedOffers[0].PriceType)
+	})
+
 	t.Run("Scenario 2: Success (Unqualified)", func(t *testing.T) {
 		// Arrange
 		mockGIS := new(MockGISClient)

@@ -19,6 +19,9 @@ export function OfferingCard({ offering, onAddToCart, isAddingToCart }: Offering
                 {offering.price.taxIncluded && (
                     <p className="offering-card__tax">Tax included</p>
                 )}
+                {offering.priceType === 'generic' && (
+                    <p className="offering-card__price-note">Standard price — sign in for your pricing</p>
+                )}
             </div>
             <button
                 onClick={() => onAddToCart(offering.offeringId)}

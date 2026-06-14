@@ -32,6 +32,13 @@
   color: var(--text-faint);
 }
 
+.offering-card__price-note {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  font-style: italic;
+}
+
 /* ---- Cart ---- */
 .cart-item__name {
   font-size: 1.0625rem;

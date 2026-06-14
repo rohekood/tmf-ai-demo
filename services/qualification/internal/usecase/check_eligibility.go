@@ -157,17 +157,29 @@ func (uc *CheckEligibility) Execute(ctx context.Context, cmd domain.CheckEligibi
 	var sessionID string
 	var qualifiedOffers []domain.QualifiedOffer
 
-	if isQualified && cmd.CustomerID != "" {
+	if isQualified {
+		// Authenticated callers (CustomerID set) get segment/tier pricing;
+		// anonymous callers get the generic catalog base price.
+		anonymous := cmd.CustomerID == ""
 		for _, category := range eligible {
-			price, err := uc.pricingCalc.CalculatePrice(ctx, category.ID, cmd.CustomerID)
+			var price *domain.Price
+			var err error
+			priceType := domain.PriceTypeCustomer
+			if anonymous {
+				priceType = domain.PriceTypeGeneric
+				price, err = uc.pricingCalc.CalculateGenericPrice(ctx, category.ID)
+			} else {
+				price, err = uc.pricingCalc.CalculatePrice(ctx, category.ID, cmd.CustomerID)
+			}
 			if err != nil {
-				logger.Warn("Failed to calculate price", "offeringId", category.ID, "error", err)
+				logger.Warn("Failed to calculate price", "offeringId", category.ID, "priceType", priceType, "error", err)
 				continue
 			}
 			qualifiedOffers = append(qualifiedOffers, domain.QualifiedOffer{
 				OfferingID:   category.ID,
 				OfferingName: category.Name,
 				Price:        *price,
+				PriceType:    priceType,
 				Eligibility:  "QUALIFIED",
 			})
 		}

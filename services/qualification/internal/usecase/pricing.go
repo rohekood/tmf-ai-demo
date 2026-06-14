@@ -20,6 +20,25 @@ func NewPricingCalculator(catalogClient ports.CatalogPricingClient, customerClie
 	}
 }
 
+// CalculateGenericPrice returns the offering's catalog base price without any
+// customer-specific adjustment. It is used for anonymous (unauthenticated)
+// qualification, where no customer — and therefore no segment/tier — is known.
+func (p *PricingCalculator) CalculateGenericPrice(
+	ctx context.Context,
+	offeringID string,
+) (*domain.Price, error) {
+	offering, err := p.catalogClient.GetOffering(ctx, offeringID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.Price{
+		Amount:      offering.BasePrice,
+		Currency:    offering.Currency,
+		TaxIncluded: false,
+	}, nil
+}
+
 // CalculatePrice calculates customer-specific price for an offering
 func (p *PricingCalculator) CalculatePrice(
 	ctx context.Context,
