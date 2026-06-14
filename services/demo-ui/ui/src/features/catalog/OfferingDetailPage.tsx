@@ -1,8 +1,10 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Edit, Loader2, Tag, Clock, CheckCircle, XCircle, AlertCircle, DollarSign, Paperclip, Layers } from 'lucide-react';
+import { ArrowLeft, Edit, Loader2, Tag, Clock, CheckCircle, XCircle, AlertCircle, Coins, Paperclip, Layers } from 'lucide-react';
 import { useOffering } from './api';
 import type { ProductOfferingPrice } from './types';
+import { formatDate, formatDateTime } from '../../lib/date';
 import './SpecificationListPage.css';
+import './CatalogDetail.css';
 
 const PRICE_TYPE_LABELS: Record<ProductOfferingPrice['priceType'], string> = {
     recurring: 'Recurring',
@@ -106,15 +108,15 @@ export default function OfferingDetailPage() {
                                 </div>
                                 <div className="metadata-item">
                                     <span className="label">Last Updated</span>
-                                    <span className="value">{new Date(offering.lastUpdate).toLocaleString()}</span>
+                                    <span className="value">{formatDateTime(offering.lastUpdate)}</span>
                                 </div>
                                 {offering.validFor && (
                                     <div className="metadata-item">
                                         <span className="label">Validity Period</span>
                                         <span className="value">
-                                            {offering.validFor.startDateTime ? new Date(offering.validFor.startDateTime).toLocaleDateString() : 'Start'}
+                                            {formatDate(offering.validFor.startDateTime, 'Start')}
                                             {' - '}
-                                            {offering.validFor.endDateTime ? new Date(offering.validFor.endDateTime).toLocaleDateString() : 'End'}
+                                            {formatDate(offering.validFor.endDateTime, 'End')}
                                         </span>
                                     </div>
                                 )}
@@ -135,7 +137,7 @@ export default function OfferingDetailPage() {
                                     <div key={price.id ?? idx} className="char-item card">
                                         <div className="char-header">
                                             <div className="char-title">
-                                                <DollarSign size={16} />
+                                                <Coins size={16} />
                                                 <strong>{formatMoney(price)}</strong>
                                                 <span className="char-type-badge">{PRICE_TYPE_LABELS[price.priceType]}</span>
                                             </div>

@@ -4,6 +4,7 @@ import { Save, Loader2 } from 'lucide-react';
 import { useCreateSpecification, useUpdateSpecification } from './api';
 import type { ProductSpecification, LifecycleStatus, ProductSpecCharacteristic, CreateProductSpecificationPayload } from './types';
 import CharacteristicEditor from './components/CharacteristicEditor';
+import { DateInput } from '../../design-system/components/common/DateInput';
 import '../parties/PartyFormPage.css';
 
 interface SpecificationEditFormProps {
@@ -147,18 +148,16 @@ export default function SpecificationEditForm({ specification, isNew }: Specific
                     <div className="form-grid">
                         <div className="form-group">
                             <label htmlFor="startDate">Start Date</label>
-                            <input
+                            <DateInput
                                 id="startDate"
-                                type="date"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
                             />
                         </div>
                         <div className="form-group">
                             <label htmlFor="endDate">End Date</label>
-                            <input
+                            <DateInput
                                 id="endDate"
-                                type="date"
                                 value={endDate}
                                 onChange={(e) => setEndDate(e.target.value)}
                             />

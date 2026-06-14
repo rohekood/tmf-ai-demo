@@ -37,7 +37,7 @@ export function MessageFeed({ messages, selectedId, onSelect }: MessageFeedProps
                         <div className="feed-item-header">
                             <span className="feed-topic">{msg.topic}</span>
                             <span className="feed-time">
-                                {new Date(msg.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 })}
+                                {new Date(msg.timestamp).toLocaleTimeString('et-EE', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 })}
                             </span>
                         </div>
                         <div className="feed-item-meta">

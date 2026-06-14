@@ -17,9 +17,11 @@ const SpecificationDetailPage = lazy(() => import('./features/catalog/Specificat
 const SpecificationEditPage = lazy(() => import('./features/catalog/SpecificationEditPage'));
 
 const CatalogListPage = lazy(() => import('./features/catalog/CatalogListPage'));
+const CatalogDetailPage = lazy(() => import('./features/catalog/CatalogDetailPage'));
 const CatalogEditPage = lazy(() => import('./features/catalog/CatalogEditPage'));
 
 const CategoryListPage = lazy(() => import('./features/catalog/CategoryListPage'));
+const CategoryDetailPage = lazy(() => import('./features/catalog/CategoryDetailPage'));
 const CategoryEditPage = lazy(() => import('./features/catalog/CategoryEditPage'));
 
 const OfferingListPage = lazy(() => import('./features/catalog/OfferingListPage'));
@@ -150,7 +152,7 @@ export const router = createBrowserRouter([
                                 path: ':id',
                                 element: (
                                     <Suspense fallback={<PageLoader />}>
-                                        <CatalogEditPage />
+                                        <CatalogDetailPage />
                                     </Suspense>
                                 ),
                             },
@@ -187,7 +189,7 @@ export const router = createBrowserRouter([
                                 path: ':id',
                                 element: (
                                     <Suspense fallback={<PageLoader />}>
-                                        <CategoryEditPage />
+                                        <CategoryDetailPage />
                                     </Suspense>
                                 ),
                             },

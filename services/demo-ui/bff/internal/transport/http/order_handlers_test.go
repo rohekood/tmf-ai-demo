@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestOrderHandler_CheckQualification(t *testing.T) {
@@ -26,12 +27,19 @@ func TestOrderHandler_CheckQualification(t *testing.T) {
 			return nil
 		}
 
+		var queriedRoutingKey string
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
+			queriedRoutingKey = routingKey
+			p := payload.(map[string]string)
+			return []byte(`{"id":"` + p["sessionId"] + `","status":"Qualified","qualifiedOffers":[{"offeringId":"o1","offeringName":"Fiber","price":{"amount":10,"currency":"EUR","taxIncluded":true},"eligibility":"QUALIFIED"}]}`), nil
+		}
+
 		req := httptest.NewRequest("POST", "/api/qualification/check", strings.NewReader(`{"partyId":"p1"}`))
 		w := httptest.NewRecorder()
 		handler.CheckQualification(w, req)
 
-		if w.Code != http.StatusAccepted {
-			t.Errorf("Expected status Accepted, got %v", w.Code)
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status OK, got %v", w.Code)
 		}
 		if publishedExchange != orderExchange {
 			t.Errorf("Expected exchange %q, got %q", orderExchange, publishedExchange)
@@ -39,29 +47,121 @@ func TestOrderHandler_CheckQualification(t *testing.T) {
 		if publishedRoutingKey != cmdQualEligibilityCheck {
 			t.Errorf("Expected routing key %q, got %q", cmdQualEligibilityCheck, publishedRoutingKey)
 		}
+		if queriedRoutingKey != queryQualSessionGet {
+			t.Errorf("Expected query routing key %q, got %q", queryQualSessionGet, queriedRoutingKey)
+		}
 
-		var resp map[string]string
+		var resp qualificationResult
 		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 			t.Fatalf("Failed to decode response: %v", err)
 		}
-		sessionID := resp["sessionId"]
-		if sessionID == "" {
+		if resp.SessionID == "" {
 			t.Fatal("Expected non-empty sessionId in response")
 		}
-		if resp["status"] != "PENDING" {
-			t.Errorf("Expected status PENDING, got %q", resp["status"])
+		if resp.Status != "Qualified" {
+			t.Errorf("Expected status Qualified, got %q", resp.Status)
+		}
+		if len(resp.QualifiedOffers) == 0 {
+			t.Error("Expected qualifiedOffers in response")
 		}
 
 		payloadMap, ok := publishedPayload.(map[string]any)
 		if !ok {
 			t.Fatalf("Published payload is not map[string]any: %T", publishedPayload)
 		}
-		if payloadMap["sessionId"] != sessionID {
-			t.Errorf("Expected published sessionId %q, got %v", sessionID, payloadMap["sessionId"])
+		if payloadMap["sessionId"] != resp.SessionID {
+			t.Errorf("Expected published sessionId %q, got %v", resp.SessionID, payloadMap["sessionId"])
+		}
+	})
+
+	t.Run("PollsUntilSessionReady", func(t *testing.T) {
+		mockClient.PublishCommandFunc = func(ctx context.Context, exchange, routingKey string, payload any) error {
+			return nil
+		}
+		// First lookups reply with the not-ready error payload, then a session.
+		calls := 0
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
+			calls++
+			if calls < 3 {
+				return []byte(`{"error":"session not found"}`), nil
+			}
+			// null offers must be normalised to [] for the UI.
+			return []byte(`{"id":"s1","status":"Unqualified","qualifiedOffers":null}`), nil
+		}
+
+		req := httptest.NewRequest("POST", "/api/qualification/check", strings.NewReader(`{"partyId":"p1"}`))
+		w := httptest.NewRecorder()
+		handler.CheckQualification(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("Expected status OK, got %v", w.Code)
+		}
+		if calls < 3 {
+			t.Errorf("Expected at least 3 lookup attempts, got %d", calls)
+		}
+		var resp qualificationResult
+		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+			t.Fatalf("Failed to decode response: %v", err)
+		}
+		if resp.Status != "Unqualified" {
+			t.Errorf("Expected status Unqualified, got %q", resp.Status)
+		}
+		// Empty offers must serialize as [] rather than null for the UI.
+		if string(resp.QualifiedOffers) != "[]" {
+			t.Errorf("Expected empty offers array, got %q", string(resp.QualifiedOffers))
+		}
+	})
+
+	t.Run("LookupError", func(t *testing.T) {
+		mockClient.PublishCommandFunc = func(ctx context.Context, exchange, routingKey string, payload any) error {
+			return nil
+		}
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
+			return nil, errors.New("rpc transport error")
+		}
+		req := httptest.NewRequest("POST", "/api/qualification/check", strings.NewReader(`{"partyId":"p1"}`))
+		w := httptest.NewRecorder()
+		handler.CheckQualification(w, req)
+		if w.Code != http.StatusInternalServerError {
+			t.Errorf("Expected status InternalServerError, got %v", w.Code)
+		}
+	})
+
+	t.Run("LookupTimeout", func(t *testing.T) {
+		mockClient.PublishCommandFunc = func(ctx context.Context, exchange, routingKey string, payload any) error {
+			return nil
+		}
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
+			return nil, context.DeadlineExceeded
+		}
+		req := httptest.NewRequest("POST", "/api/qualification/check", strings.NewReader(`{"partyId":"p1"}`))
+		w := httptest.NewRecorder()
+		handler.CheckQualification(w, req)
+		if w.Code != http.StatusGatewayTimeout {
+			t.Errorf("Expected status GatewayTimeout, got %v", w.Code)
+		}
+	})
+
+	t.Run("MalformedSessionResponse", func(t *testing.T) {
+		mockClient.PublishCommandFunc = func(ctx context.Context, exchange, routingKey string, payload any) error {
+			return nil
+		}
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
+			return []byte(`not json`), nil
+		}
+		req := httptest.NewRequest("POST", "/api/qualification/check", strings.NewReader(`{"partyId":"p1"}`))
+		w := httptest.NewRecorder()
+		handler.CheckQualification(w, req)
+		if w.Code != http.StatusInternalServerError {
+			t.Errorf("Expected status InternalServerError, got %v", w.Code)
 		}
 	})
 
 	t.Run("InvalidBody", func(t *testing.T) {
+		// Reset the lookup to a successful session for the remaining subtests.
+		mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
+			return []byte(`{"id":"s1","status":"Qualified","qualifiedOffers":[]}`), nil
+		}
 		req := httptest.NewRequest("POST", "/api/qualification/check", strings.NewReader(`invalid json`))
 		w := httptest.NewRecorder()
 		handler.CheckQualification(w, req)
@@ -93,6 +193,25 @@ func TestOrderHandler_CheckQualification(t *testing.T) {
 			t.Errorf("Expected status InternalServerError, got %v", w.Code)
 		}
 	})
+}
+
+func TestOrderHandler_awaitQualificationResult_ContextDeadline(t *testing.T) {
+	mockClient := &MockRPCClient{}
+	handler := NewOrderHandler(mockClient)
+
+	// Always reply "not ready" so the poll loop keeps waiting until the
+	// caller's context deadline elapses between ticks.
+	mockClient.CallRPCFunc = func(ctx context.Context, exchange, routingKey string, payload any, headers map[string]any) ([]byte, error) {
+		return []byte(`{"error":"session not found"}`), nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	_, err := handler.awaitQualificationResult(ctx, "s1", nil)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("Expected context deadline exceeded, got %v", err)
+	}
 }
 
 func TestOrderHandler_GetQualificationSession(t *testing.T) {

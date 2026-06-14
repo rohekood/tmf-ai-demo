@@ -30,6 +30,11 @@ const (
 	qualRPCTimeout = 30 * time.Second
 	cartRPCTimeout = 15 * time.Second
 	sagaRPCTimeout = 30 * time.Second
+
+	// qualPollInterval is how often CheckQualification re-queries the
+	// qualification session while waiting for the async scatter-gather to
+	// persist a result.
+	qualPollInterval = 300 * time.Millisecond
 )
 
 // OrderHandler handles ordering workflow API endpoints
@@ -74,13 +79,14 @@ func (h *OrderHandler) CheckQualification(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Generate the session ID here so we can return it immediately.
-	// The qualification service uses this ID when storing the result, allowing
-	// the UI to poll GET /api/qualification/session/{sessionId} for the outcome.
+	// Generate the session ID up front. The qualification service stores its
+	// result under this ID. We publish the (fire-and-forget) check command and
+	// then poll the session via RPC until the async scatter-gather has
+	// persisted a result, presenting a synchronous response to the UI.
 	sessionID := uuid.New().String()
 	payload["sessionId"] = sessionID
 
-	ctx, cancel := context.WithTimeout(r.Context(), cartRPCTimeout)
+	ctx, cancel := context.WithTimeout(r.Context(), qualRPCTimeout)
 	defer cancel()
 
 	if err := h.rpcClient.PublishCommand(ctx, orderExchange, cmdQualEligibilityCheck, payload); err != nil {
@@ -89,9 +95,73 @@ func (h *OrderHandler) CheckQualification(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	result, err := h.awaitQualificationResult(ctx, sessionID, getHeaders(r))
+	if err != nil {
+		slog.Error("error awaiting qualification result", "error", err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			http.Error(w, "Qualification timed out", http.StatusGatewayTimeout)
+			return
+		}
+		http.Error(w, "Failed to check qualification: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusAccepted)
-	json.NewEncoder(w).Encode(map[string]string{"sessionId": sessionID, "status": "PENDING"})
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+// qualificationResult mirrors the QualificationResult shape the UI expects from
+// POST /api/qualification/check.
+type qualificationResult struct {
+	SessionID            string          `json:"sessionId"`
+	Status               string          `json:"status"`
+	QualifiedOffers      json.RawMessage `json:"qualifiedOffers"`
+	UnavailabilityReason string          `json:"unavailabilityReason,omitempty"`
+}
+
+// awaitQualificationResult polls query.qual.session.get until the qualification
+// service has persisted a session for sessionID, then maps it to the response
+// the UI expects. The session lookup replies with {"error": ...} until the
+// async scatter-gather completes, so an empty status means "not ready yet".
+func (h *OrderHandler) awaitQualificationResult(ctx context.Context, sessionID string, headers map[string]any) (*qualificationResult, error) {
+	ticker := time.NewTicker(qualPollInterval)
+	defer ticker.Stop()
+
+	for {
+		respBytes, err := h.rpcClient.CallRPC(ctx, orderExchange, queryQualSessionGet, map[string]string{"sessionId": sessionID}, headers)
+		if err != nil {
+			return nil, err
+		}
+
+		var session struct {
+			ID              string          `json:"id"`
+			Status          string          `json:"status"`
+			QualifiedOffers json.RawMessage `json:"qualifiedOffers"`
+		}
+		if err := json.Unmarshal(respBytes, &session); err != nil {
+			return nil, err
+		}
+
+		if session.Status != "" {
+			// Normalise a missing/null offers field to an empty array so the UI
+			// can safely read qualifiedOffers.length.
+			offers := session.QualifiedOffers
+			if len(offers) == 0 || string(offers) == "null" {
+				offers = json.RawMessage("[]")
+			}
+			return &qualificationResult{
+				SessionID:       session.ID,
+				Status:          session.Status,
+				QualifiedOffers: offers,
+			}, nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-ticker.C:
+		}
+	}
 }
 
 func (h *OrderHandler) GetQualificationSession(w http.ResponseWriter, r *http.Request) {

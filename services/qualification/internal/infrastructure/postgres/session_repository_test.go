@@ -104,6 +104,26 @@ func TestSessionRepository(t *testing.T) {
 		assert.Equal(t, "off-1", retrieved.QualifiedOffers[0].OfferingID)
 	})
 
+	t.Run("Create and Get Anonymous Session (no customer)", func(t *testing.T) {
+		// Availability checks have no customer attached; an empty CustomerID
+		// must persist as NULL rather than failing the UUID column.
+		session := &domain.QualificationSession{
+			CustomerID:      "",
+			Address:         domain.Address{Street: "Kapa vkt"},
+			QualifiedOffers: []domain.QualifiedOffer{},
+			Status:          "Qualified",
+		}
+
+		id, err := repo.Create(ctx, session)
+		require.NoError(t, err)
+		assert.NotEmpty(t, id)
+
+		retrieved, err := repo.Get(ctx, id)
+		require.NoError(t, err)
+		assert.Empty(t, retrieved.CustomerID)
+		assert.Equal(t, "Qualified", retrieved.Status)
+	})
+
 	t.Run("Update Session", func(t *testing.T) {
 		id, err := repo.Create(ctx, &domain.QualificationSession{
 			CustomerID: uuid.New().String(),

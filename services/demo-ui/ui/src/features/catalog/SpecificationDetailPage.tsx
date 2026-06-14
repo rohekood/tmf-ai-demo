@@ -1,7 +1,9 @@
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Edit, Loader2, Tag, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useSpecification } from './api';
+import { formatDate, formatDateTime } from '../../lib/date';
 import './SpecificationListPage.css';
+import './CatalogDetail.css';
 
 export default function SpecificationDetailPage() {
     const { id } = useParams<{ id: string }>();
@@ -83,15 +85,15 @@ export default function SpecificationDetailPage() {
                                 </div>
                                 <div className="metadata-item">
                                     <span className="label">Last Updated</span>
-                                    <span className="value">{new Date(spec.lastUpdate).toLocaleString()}</span>
+                                    <span className="value">{formatDateTime(spec.lastUpdate)}</span>
                                 </div>
                                 {spec.validFor && (
                                     <div className="metadata-item">
                                         <span className="label">Validity Period</span>
                                         <span className="value">
-                                            {spec.validFor.startDateTime ? new Date(spec.validFor.startDateTime).toLocaleDateString() : 'Start'}
+                                            {formatDate(spec.validFor.startDateTime, 'Start')}
                                             {' - '}
-                                            {spec.validFor.endDateTime ? new Date(spec.validFor.endDateTime).toLocaleDateString() : 'End'}
+                                            {formatDate(spec.validFor.endDateTime, 'End')}
                                         </span>
                                     </div>
                                 )}

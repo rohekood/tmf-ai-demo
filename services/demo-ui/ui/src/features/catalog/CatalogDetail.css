@@ -1,0 +1,246 @@
+/*
+ * Shared layout styles for catalog detail (read-only) pages:
+ * Catalog, Category, Specification, Offering.
+ *
+ * These classes were previously referenced by the detail markup but defined
+ * nowhere (only `.detail-grid` existed, in parties/PartyDetailPage.css, which
+ * these pages do not import). Without them the two columns and the per-block
+ * cards collapsed with no spacing between them. Keep this file imported by every
+ * catalog detail page so spacing is guaranteed regardless of CSS load order.
+ */
+
+/* Page wrapper */
+.specification-detail-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* Header */
+.specification-detail-page .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.title-with-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.875rem;
+}
+
+.back-link:hover {
+    color: var(--text);
+}
+
+/* Two-column body */
+.detail-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+@media (max-width: 1024px) {
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Each column stacks its cards with a consistent vertical spacer */
+.main-content,
+.sidebar-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-width: 0;
+}
+
+/* Section + info cards */
+.detail-section h3,
+.info-card h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    color: var(--text);
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.section-header h3 {
+    margin: 0;
+}
+
+/* Overview metadata */
+.metadata-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+}
+
+.metadata-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.metadata-item .label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-faint);
+}
+
+.metadata-item .value {
+    color: var(--text);
+}
+
+.value-with-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.description-text {
+    margin: 0;
+    color: var(--text);
+}
+
+/* Characteristics / price / attachment list */
+.characteristics-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.char-item {
+    padding: 1rem;
+}
+
+.char-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.char-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.char-type-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--r-pill);
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: var(--surface-3);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+}
+
+.char-desc {
+    margin: 0;
+}
+
+.char-values {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.char-values .label {
+    font-size: 0.75rem;
+    color: var(--text-faint);
+}
+
+/* Tag cloud (valid values, categories) */
+.values-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.value-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--r-pill);
+    font-size: 0.8125rem;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+
+/* Sidebar quick stats */
+.stats-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.stat-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.stat-value {
+    color: var(--text);
+    font-weight: 500;
+}
+
+.empty-text {
+    margin: 0;
+    color: var(--text-muted);
+}
+
+/* Extra badge variants used by the detail markup */
+.badge-secondary {
+    background: var(--surface-3);
+    color: var(--text-muted);
+    border-color: var(--border);
+}
+
+.badge-info-outline {
+    background: var(--info-soft);
+    color: #7dd3fc;
+    border-color: rgba(56, 189, 248, 0.4);
+}
+
+.badge-success-outline {
+    background: var(--success-soft);
+    color: #6ee7b7;
+    border-color: rgba(16, 185, 129, 0.4);
+}

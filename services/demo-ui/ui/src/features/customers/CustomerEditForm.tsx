@@ -6,6 +6,7 @@ import type { Customer, CustomerStatus, PrivacyConsent, CreditProfile, CustomerA
 import PartyPicker from '../parties/components/PartyPicker';
 import RelatedPartiesForm from './components/RelatedPartiesForm';
 import { getPartyDisplayName } from '../parties/types';
+import { DateInput } from '../../design-system/components/common/DateInput';
 import '../parties/PartyFormPage.css';
 
 interface CustomerEditFormProps {
@@ -216,9 +217,8 @@ export default function CustomerEditForm({ customer }: CustomerEditFormProps) {
                             </div>
                             <div className="form-group">
                                 <label htmlFor="credit-valid-from">Valid From</label>
-                                <input
+                                <DateInput
                                     id="credit-valid-from"
-                                    type="date"
                                     value={creditProfile.validForStart?.split('T')[0] || ''}
                                     onChange={(e) => setCreditProfile({ ...creditProfile, validForStart: e.target.value })}
                                 />

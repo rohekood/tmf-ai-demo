@@ -56,4 +56,17 @@ describe('MessageFeed', () => {
         fireEvent.click(screen.getByText('cmd.party.create'));
         expect(mockOnSelect).toHaveBeenCalledWith(mockMessages[0]);
     });
+
+    it('renders query/unknown types and a truncated correlation id', () => {
+        const messages: DebugMessage[] = [
+            { id: 'q', type: 'query', topic: 'qry.get', service: 'svc', timestamp: new Date().toISOString(), payload: {}, correlationId: 'abcdef12345678' },
+            { id: 'u', type: 'unknown', topic: 'unk', service: 'svc', timestamp: new Date().toISOString(), payload: {} },
+        ];
+        render(<MessageFeed messages={messages} selectedId={null} onSelect={mockOnSelect} />);
+
+        expect(screen.getByText('qry.get')).toBeInTheDocument();
+        expect(screen.getByText('unk')).toBeInTheDocument();
+        // correlationId present -> last 8 chars shown
+        expect(screen.getByText('CID: 12345678')).toBeInTheDocument();
+    });
 });

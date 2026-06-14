@@ -1,4 +1,5 @@
 import type { CustomerInteraction } from '../types';
+import { formatDateTime } from '../../../lib/date';
 
 interface InteractionsListProps {
     items: CustomerInteraction[];
@@ -14,7 +15,7 @@ export default function InteractionsList({ items }: InteractionsListProps) {
             {items.map((item) => (
                 <div key={item.id} className="timeline-item">
                     <div className="timeline-header">
-                        <span className="timeline-date">{new Date(item.interactionDate).toLocaleString()}</span>
+                        <span className="timeline-date">{formatDateTime(item.interactionDate)}</span>
                         <span className="timeline-agent">by {item.agentId}</span>
                     </div>
                     <div className="timeline-content">

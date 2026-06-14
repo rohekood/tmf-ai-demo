@@ -147,6 +147,34 @@ services:
       valkey:
         condition: service_healthy
 
+  # Stand-in GIS provider for qualification scatter-gather (query.gis.geography.check).
+  mock-gis:
+    build:
+      context: .
+      dockerfile: services/qualification/Dockerfile
+      args:
+        CMD_PATH: ./cmd/mock-gis/main.go
+    container_name: tmf-mock-gis
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  # Stand-in Inventory provider: qualification capacity query + POCV saga reservation.
+  mock-inventory:
+    build:
+      context: .
+      dockerfile: services/qualification/Dockerfile
+      args:
+        CMD_PATH: ./cmd/mock-inventory/main.go
+    container_name: tmf-mock-inventory
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
   shopping-cart:
     build:
       context: .

@@ -10,6 +10,7 @@ import {
 import { useReactTable } from '../../hooks/useReactTable';
 import { Plus, Search, ChevronUp, ChevronDown, Eye, Edit, Trash2, Loader2, Book } from 'lucide-react';
 import { EmptyState } from '../../design-system/components/common/EmptyState';
+import { formatDate } from '../../lib/date';
 import { useCatalogs, useCatalogDelete } from './api';
 import type { Catalog } from './types';
 import './SpecificationListPage.css'; // Reuse common catalog styles
@@ -57,7 +58,7 @@ export default function CatalogListPage() {
             }),
             columnHelper.accessor('lastUpdate', {
                 header: 'Last Updated',
-                cell: (info) => <span className="count-text">{new Date(info.getValue()).toLocaleDateString()}</span>,
+                cell: (info) => <span className="count-text">{formatDate(info.getValue())}</span>,
                 size: 150,
             }),
             columnHelper.display({

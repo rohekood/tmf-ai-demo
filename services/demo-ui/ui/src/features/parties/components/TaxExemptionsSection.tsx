@@ -1,6 +1,7 @@
 import React from 'react';
 import { FileText } from 'lucide-react';
 import type { TaxExemption } from '../types';
+import { formatDate } from '../../../lib/date';
 
 interface TaxExemptionsSectionProps {
     exemptions?: TaxExemption[];
@@ -24,8 +25,8 @@ export const TaxExemptionsSection: React.FC<TaxExemptionsSectionProps> = ({ exem
                                 <span className="detail-subtext">
                                     {exemption.validFor ? (
                                         <>
-                                            Valid: {new Date(exemption.validFor.startDateTime).toLocaleDateString()}
-                                            {exemption.validFor.endDateTime ? ` - ${new Date(exemption.validFor.endDateTime).toLocaleDateString()}` : ' (Indefinite)'}
+                                            Valid: {formatDate(exemption.validFor.startDateTime)}
+                                            {exemption.validFor.endDateTime ? ` - ${formatDate(exemption.validFor.endDateTime)}` : ' (Indefinite)'}
                                         </>
                                     ) : (
                                         <span className="text-muted">No validity period</span>

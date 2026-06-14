@@ -17,6 +17,15 @@ type sessionRepository struct {
 	db *sql.DB
 }
 
+// nullableCustomerID maps an empty customer ID to a SQL NULL so anonymous
+// availability checks satisfy the UUID column, while real IDs pass through.
+func nullableCustomerID(customerID string) any {
+	if customerID == "" {
+		return nil
+	}
+	return customerID
+}
+
 // NewSessionRepository creates a new PostgreSQL-backed session repository
 func NewSessionRepository(db *sql.DB) ports.SessionRepository {
 	return &sessionRepository{db: db}
@@ -54,7 +63,7 @@ func (r *sessionRepository) Create(ctx context.Context, session *domain.Qualific
 
 	_, err = r.db.ExecContext(ctx, query,
 		session.ID,
-		session.CustomerID,
+		nullableCustomerID(session.CustomerID),
 		addressJSON,
 		offersJSON,
 		session.Status,
@@ -79,10 +88,11 @@ func (r *sessionRepository) Get(ctx context.Context, sessionID string) (*domain.
 
 	var session domain.QualificationSession
 	var addressJSON, offersJSON []byte
+	var customerID sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, sessionID).Scan(
 		&session.ID,
-		&session.CustomerID,
+		&customerID,
 		&addressJSON,
 		&offersJSON,
 		&session.Status,
@@ -96,6 +106,7 @@ func (r *sessionRepository) Get(ctx context.Context, sessionID string) (*domain.
 	if err != nil {
 		return nil, fmt.Errorf("failed to get session: %w", err)
 	}
+	session.CustomerID = customerID.String
 
 	// Use UTC for time comparison
 	session.ExpiresAt = session.ExpiresAt.UTC()
@@ -133,7 +144,7 @@ func (r *sessionRepository) Update(ctx context.Context, session *domain.Qualific
 
 	result, err := r.db.ExecContext(ctx, query,
 		session.ID,
-		session.CustomerID,
+		nullableCustomerID(session.CustomerID),
 		addressJSON,
 		offersJSON,
 		session.Status,
@@ -202,10 +213,11 @@ func (r *sessionRepository) FindExpired(ctx context.Context) ([]*domain.Qualific
 	for rows.Next() {
 		var session domain.QualificationSession
 		var addressJSON, offersJSON []byte
+		var customerID sql.NullString
 
 		err := rows.Scan(
 			&session.ID,
-			&session.CustomerID,
+			&customerID,
 			&addressJSON,
 			&offersJSON,
 			&session.Status,
@@ -215,6 +227,7 @@ func (r *sessionRepository) FindExpired(ctx context.Context) ([]*domain.Qualific
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan session: %w", err)
 		}
+		session.CustomerID = customerID.String
 
 		if err := json.Unmarshal(addressJSON, &session.Address); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal address: %w", err)

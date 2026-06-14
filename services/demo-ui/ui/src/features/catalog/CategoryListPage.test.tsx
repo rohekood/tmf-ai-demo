@@ -67,6 +67,21 @@ describe('CategoryListPage', () => {
         expect(screen.getByText('ROOT')).toBeInTheDocument(); // Badge
     });
 
+    it('renders View and Edit links for each category', () => {
+        vi.mocked(api.useCategories).mockReturnValue({
+            data: [
+                { id: '1', name: 'Electronics', isRoot: true, parentId: undefined },
+            ],
+            isLoading: false,
+            isError: false,
+        } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+        renderComponent();
+
+        expect(screen.getByTitle('View')).toHaveAttribute('href', '/catalog/categories/1');
+        expect(screen.getByTitle('Edit')).toHaveAttribute('href', '/catalog/categories/1/edit');
+    });
+
     it('shows empty state when no categories', () => {
         vi.mocked(api.useCategories).mockReturnValue({
             data: [],
@@ -76,5 +91,62 @@ describe('CategoryListPage', () => {
 
         renderComponent();
         expect(screen.getByText('No categories found.')).toBeInTheDocument();
+    });
+
+    it('shows an error state when the query fails', () => {
+        vi.mocked(api.useCategories).mockReturnValue({
+            data: undefined,
+            isLoading: false,
+            isError: true,
+        } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+        renderComponent();
+        expect(screen.getByText('Error loading categories.')).toBeInTheDocument();
+    });
+
+    it('navigates to the new category page from the empty state', () => {
+        vi.mocked(api.useCategories).mockReturnValue({
+            data: [],
+            isLoading: false,
+            isError: false,
+        } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+        renderComponent();
+        screen.getByText('Create your first category').click();
+        expect(window.location.pathname).toBe('/catalog/categories/new');
+    });
+
+    it('deletes a category after confirmation', async () => {
+        const mutateAsync = vi.fn().mockResolvedValue(undefined);
+        vi.mocked(api.useDeleteCategory).mockReturnValue({ mutateAsync } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+        vi.mocked(api.useCategories).mockReturnValue({
+            data: [{ id: '1', name: 'Electronics', isRoot: true, parentId: undefined }],
+            isLoading: false,
+            isError: false,
+        } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+        renderComponent();
+        screen.getByTitle('Delete category').click();
+
+        await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith('1'));
+        confirmSpy.mockRestore();
+    });
+
+    it('does not delete when confirmation is cancelled', () => {
+        const mutateAsync = vi.fn();
+        vi.mocked(api.useDeleteCategory).mockReturnValue({ mutateAsync } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+        vi.mocked(api.useCategories).mockReturnValue({
+            data: [{ id: '1', name: 'Electronics', isRoot: true, parentId: undefined }],
+            isLoading: false,
+            isError: false,
+        } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+        renderComponent();
+        screen.getByTitle('Delete category').click();
+
+        expect(mutateAsync).not.toHaveBeenCalled();
+        confirmSpy.mockRestore();
     });
 });

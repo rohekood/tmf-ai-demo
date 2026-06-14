@@ -4,6 +4,7 @@ import { Save, Loader2 } from 'lucide-react';
 import { useCreateCatalog, useCatalogUpdate, useCategories, useUpdateCategory } from './api';
 import type { Catalog, LifecycleStatus, CreateCatalogPayload } from './types';
 import CategoryPicker from './components/CategoryPicker';
+import { DateInput } from '../../design-system/components/common/DateInput';
 import '../parties/PartyFormPage.css';
 
 interface CatalogEditFormProps {
@@ -135,18 +136,16 @@ export default function CatalogEditForm({ catalog, isNew }: CatalogEditFormProps
                     <div className="form-grid">
                         <div className="form-group">
                             <label htmlFor="startDate">Start Date</label>
-                            <input
+                            <DateInput
                                 id="startDate"
-                                type="date"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
                             />
                         </div>
                         <div className="form-group">
                             <label htmlFor="endDate">End Date</label>
-                            <input
+                            <DateInput
                                 id="endDate"
-                                type="date"
                                 value={endDate}
                                 onChange={(e) => setEndDate(e.target.value)}
                             />

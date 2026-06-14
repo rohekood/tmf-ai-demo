@@ -7,6 +7,7 @@ import { useNotification } from '../../design-system/components/common/Toast';
 import { ExternalReferencesSection } from './components/ExternalReferencesSection';
 import { TaxExemptionsSection } from './components/TaxExemptionsSection';
 import { AttachmentsSection } from './components/AttachmentsSection';
+import { formatDate } from '../../lib/date';
 import './PartyDetailPage.css';
 
 export default function PartyDetailPage() {
@@ -167,7 +168,7 @@ export default function PartyDetailPage() {
                                 {party.birthDate && (
                                     <div className="detail-item">
                                         <dt>Birth Date</dt>
-                                        <dd>{party.birthDate}</dd>
+                                        <dd>{formatDate(party.birthDate)}</dd>
                                     </div>
                                 )}
                                 {party.gender && (

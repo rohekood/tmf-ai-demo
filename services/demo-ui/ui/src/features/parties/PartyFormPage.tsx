@@ -5,6 +5,7 @@ import { useParty, useCreateParty, useUpdateParty } from './api';
 import type { PartyType, CreatePartyPayload, UpdatePartyPayload, ContactMedium, Identification, TaxExemption, ExternalReference, Attachment, RelatedParty } from './types';
 import PartyPicker from './components/PartyPicker';
 import { getPartyDisplayName } from './types';
+import { DateInput } from '../../design-system/components/common/DateInput';
 
 interface FormState {
     type: PartyType;
@@ -366,9 +367,8 @@ export default function PartyFormPage() {
                             </div>
                             <div className="form-group">
                                 <label htmlFor="birthDate">Birth Date</label>
-                                <input
+                                <DateInput
                                     id="birthDate"
-                                    type="date"
                                     value={form.birthDate}
                                     onChange={(e) => setForm((prev) => ({ ...prev, birthDate: e.target.value }))}
                                 />
@@ -589,8 +589,7 @@ export default function PartyFormPage() {
                                         </div>
                                         <div className="form-group">
                                             <label>Start Date</label>
-                                            <input
-                                                type="date"
+                                            <DateInput
                                                 value={ex.validFor?.startDateTime ? new Date(ex.validFor.startDateTime).toISOString().split('T')[0] : ''}
                                                 onChange={(e) => {
                                                     const newExemptions = [...form.taxExemptions];

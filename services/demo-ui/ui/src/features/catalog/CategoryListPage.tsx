@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, ChevronRight, ChevronDown, FolderTree } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, ChevronRight, ChevronDown, FolderTree } from 'lucide-react';
 import { EmptyState } from '../../design-system/components/common/EmptyState';
 import { useCategories, useDeleteCategory } from './api';
 import type { Category } from './types';
@@ -77,6 +77,9 @@ export default function CategoryListPage() {
                     </div>
 
                     <div className="category-actions">
+                        <Link to={`/catalog/categories/${node.id}`} className="btn-outline btn-outline-primary" title="View">
+                            <Eye size={14} />
+                        </Link>
                         <Link to={`/catalog/categories/${node.id}/edit`} className="btn-outline btn-outline-primary" title="Edit">
                             <Edit size={14} />
                         </Link>

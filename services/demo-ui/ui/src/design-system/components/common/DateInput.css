@@ -1,0 +1,42 @@
+/*
+ * Dark-theme date picker input.
+ *
+ * `input[type="date"]` is intentionally excluded from the global input styling
+ * in index.css, so it is styled here to match the other form fields and to fix
+ * the calendar indicator, which renders black (invisible) in dark mode.
+ */
+
+.date-input {
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    border-radius: var(--r-md);
+    border: 1px solid var(--border);
+    background: var(--surface-input);
+    color: var(--text);
+    font-size: 0.9375rem;
+    font-family: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    color-scheme: dark;
+}
+
+.date-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+.date-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Recolour the (black) calendar icon to white and show a pointer on hover. */
+.date-input::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.8;
+    cursor: pointer;
+}
+
+.date-input::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}
