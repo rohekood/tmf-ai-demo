@@ -8,7 +8,8 @@ import {
     type SortingState,
 } from '@tanstack/react-table';
 import { useReactTable } from '../../hooks/useReactTable';
-import { Plus, Search, ChevronUp, ChevronDown, Eye, Edit, Trash2, Loader2, ExternalLink } from 'lucide-react';
+import { Plus, Search, ChevronUp, ChevronDown, Eye, Edit, Trash2, Loader2, ExternalLink, UserPlus } from 'lucide-react';
+import { EmptyState } from '../../design-system/components/common/EmptyState';
 import { useCustomers, useDeleteCustomer } from './api';
 import type { Customer } from './types';
 import '../parties/PartyListPage.css'; // Reuse party list styles
@@ -122,7 +123,7 @@ export default function CustomerListPage() {
         <div className="customer-list-page">
             <div className="page-header">
                 <div className="page-header-content">
-                    <h2>Customers</h2>
+                    <h1 className="page-title">Customers</h1>
                     <p className="page-description">Manage customer relationships</p>
                 </div>
                 <Link to="/customers/new" className="btn btn-primary">
@@ -155,12 +156,16 @@ export default function CustomerListPage() {
                     <p>Loading customers...</p>
                 </div>
             ) : customers.length === 0 ? (
-                <div className="card empty-card" role="status">
-                    <p>No customers found.</p>
-                    <Link to="/customers/new" className="btn btn-primary">
-                        Onboard your first customer
-                    </Link>
-                </div>
+                <EmptyState
+                    icon={<UserPlus size={48} />}
+                    title="No customers found."
+                    description="Onboard a customer to manage their relationships."
+                    action={
+                        <Link to="/customers/new" className="btn btn-primary">
+                            Onboard your first customer
+                        </Link>
+                    }
+                />
             ) : (
                 <div className="card table-card">
                     <table className="data-table">

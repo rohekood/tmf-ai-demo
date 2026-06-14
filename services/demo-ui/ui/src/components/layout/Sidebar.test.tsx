@@ -37,7 +37,7 @@ describe('Sidebar', () => {
         expect(screen.getByRole('link', { name: 'Parties' })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Customers' })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Debug Console' })).toBeInTheDocument();
-        expect(screen.getByRole('status')).toHaveTextContent('Connected');
+        expect(screen.getByRole('status')).toHaveTextContent('API online');
     });
 
     it('renders user avatar but hides info when collapsed', () => {

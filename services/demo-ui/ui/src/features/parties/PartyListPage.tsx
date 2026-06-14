@@ -10,6 +10,7 @@ import {
 } from '@tanstack/react-table';
 import { useReactTable } from '../../hooks/useReactTable';
 import { Plus, Search, User, Building2, ChevronUp, ChevronDown, Eye, Edit, Trash2, Loader2 } from 'lucide-react';
+import { EmptyState } from '../../design-system/components/common/EmptyState';
 import { useParties, useDeleteParty, usePurgeParty } from './api';
 import { type PartyUnion, getPartyDisplayName, isIndividual } from './types';
 import { useNotification } from '../../design-system/components/common/Toast';
@@ -245,7 +246,7 @@ export default function PartyListPage() {
         <div className="party-list-page">
             <div className="page-header">
                 <div className="page-header-content">
-                    <h2>Parties</h2>
+                    <h1 className="page-title">Parties</h1>
                     <p className="page-description">Manage Individuals and Organizations</p>
                 </div>
                 <Link to="/parties/new" className="btn btn-primary">
@@ -288,12 +289,16 @@ export default function PartyListPage() {
                     <p>Loading parties...</p>
                 </div>
             ) : parties.length === 0 ? (
-                <div className="card empty-card" role="status">
-                    <p>No parties found.</p>
-                    <Link to="/parties/new" className="btn btn-primary">
-                        Create your first party
-                    </Link>
-                </div>
+                <EmptyState
+                    icon={<User size={48} />}
+                    title="No parties found."
+                    description="Create an individual or organization to get started."
+                    action={
+                        <Link to="/parties/new" className="btn btn-primary">
+                            Create your first party
+                        </Link>
+                    }
+                />
             ) : (
                 <div className="card table-card">
                     <table className="data-table">

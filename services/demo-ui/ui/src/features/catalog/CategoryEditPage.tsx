@@ -189,7 +189,7 @@ export default function CategoryEditPage() {
     return (
         <div className="container-fluid py-4">
             <div className="mb-4">
-                <button className="btn btn-link p-0 text-decoration-none d-flex align-items-center mb-2" onClick={() => navigate('/catalog/categories')}>
+                <button className="btn btn-link mb-2" style={{ display: 'inline-flex', alignItems: 'center' }} onClick={() => navigate('/catalog/categories')}>
                     <ArrowLeft size={16} className="me-1" />
                     Back to Categories
                 </button>

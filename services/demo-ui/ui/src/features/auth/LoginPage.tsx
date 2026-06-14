@@ -3,7 +3,15 @@ import { useAuth } from "../../auth/context";
 import "./LoginPage.css";
 
 export function LoginPage() {
-    const { loginWithRedirect, enabled } = useAuth();
+    const { loginWithRedirect, enabled, disabledReason } = useAuth();
+
+    const disabledLabel = disabledReason === 'not-configured'
+        ? 'Auth Not Configured'
+        : 'Auth Requires HTTPS or localhost';
+
+    const disabledHint = disabledReason === 'not-configured'
+        ? 'Auth0 is not configured. Set the AUTH0_* environment variables and reload.'
+        : 'Auth0 browser login requires a secure origin. Open this app via HTTPS or localhost.';
 
     return (
         <div className="login">
@@ -28,12 +36,12 @@ export function LoginPage() {
                     })}
                     className="btn btn-primary btn--block btn--lg"
                 >
-                    {enabled ? 'Log In' : 'Auth Requires HTTPS or localhost'}
+                    {enabled ? 'Log In' : disabledLabel}
                 </button>
 
                 {!enabled && (
                     <p className="login-note">
-                        Auth0 browser login requires a secure origin. Open this app via HTTPS or localhost.
+                        {disabledHint}
                     </p>
                 )}
             </div>

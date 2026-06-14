@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-table';
 import { useReactTable } from '../../hooks/useReactTable';
 import { Plus, Search, ChevronUp, ChevronDown, Eye, Edit, Trash2, Loader2, Book } from 'lucide-react';
+import { EmptyState } from '../../design-system/components/common/EmptyState';
 import { useCatalogs, useCatalogDelete } from './api';
 import type { Catalog } from './types';
 import './SpecificationListPage.css'; // Reuse common catalog styles
@@ -102,7 +103,7 @@ export default function CatalogListPage() {
         <div className="specification-list-page">
             <div className="page-header">
                 <div className="page-header-content">
-                    <h2>Product Catalogs</h2>
+                    <h1 className="page-title">Product Catalogs</h1>
                     <p className="page-description">Organizational collections of product offerings</p>
                 </div>
                 <Link to="/catalog/catalogs/new" className="btn btn-primary">
@@ -132,15 +133,17 @@ export default function CatalogListPage() {
                     <p>Loading catalogs...</p>
                 </div>
             ) : filteredCatalogs.length === 0 ? (
-                <div className="card empty-card" role="status">
-                    <Book size={48} className="empty-icon" />
-                    <p>{searchTerm ? 'No catalogs match your search.' : 'No product catalogs found.'}</p>
-                    {!searchTerm && (
-                        <Link to="/catalog/catalogs/new" className="btn btn-primary">
-                            Create your first catalog
-                        </Link>
-                    )}
-                </div>
+                <EmptyState
+                    icon={<Book size={48} />}
+                    title={searchTerm ? 'No catalogs match your search.' : 'No product catalogs found.'}
+                    action={
+                        !searchTerm ? (
+                            <Link to="/catalog/catalogs/new" className="btn btn-primary">
+                                Create your first catalog
+                            </Link>
+                        ) : undefined
+                    }
+                />
             ) : (
                 <div className="card table-card">
                     <table className="data-table">

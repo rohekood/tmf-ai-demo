@@ -28,6 +28,9 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
+    /* Allow the action button / extra controls to wrap below the input on
+       narrow screens instead of squeezing the input to nothing. */
+    flex-wrap: wrap;
 }
 
 .search-icon {
@@ -36,7 +39,10 @@
 }
 
 .search-input {
-    flex: 1;
+    /* min-width: 0 lets the input shrink within the flex row; flex-basis keeps
+       it usably wide (and forces wrapping rather than collapsing on mobile). */
+    flex: 1 1 12rem;
+    min-width: 0;
     background: transparent;
     border: none;
     color: #f8fafc;

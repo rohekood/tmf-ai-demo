@@ -18,8 +18,12 @@ type LogoutOptions = {
   };
 };
 
+export type AuthDisabledReason = 'insecure-origin' | 'not-configured' | null;
+
 export type AuthClient = {
   enabled: boolean;
+  /** When `enabled` is false, why auth is unavailable. */
+  disabledReason?: AuthDisabledReason;
   isAuthenticated: boolean;
   isLoading: boolean;
   user?: AuthUser;

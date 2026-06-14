@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Edit, Trash2, ChevronRight, ChevronDown, FolderTree } from 'lucide-react';
+import { EmptyState } from '../../design-system/components/common/EmptyState';
 import { useCategories, useDeleteCategory } from './api';
 import type { Category } from './types';
 import './CategoryListPage.css';
@@ -106,7 +107,7 @@ export default function CategoryListPage() {
         <div className="category-page">
             <div className="category-header">
                 <div>
-                    <h2>Categories</h2>
+                    <h1 className="page-title">Categories</h1>
                     <p>Manage product catalog hierarchy</p>
                 </div>
                 <button className="btn btn-primary" onClick={() => navigate('/catalog/categories/new')}>
@@ -118,13 +119,16 @@ export default function CategoryListPage() {
             <div className="category-tree-card">
                 <div className="category-list">
                     {categoryTree.length === 0 ? (
-                        <div className="empty-state">
-                            <FolderTree size={48} className="mb-3 opacity-25" />
-                            <p>No categories found.</p>
-                            <button className="btn btn-primary btn-sm mt-3" onClick={() => navigate('/catalog/categories/new')}>
-                                Create your first category
-                            </button>
-                        </div>
+                        <EmptyState
+                            bare
+                            icon={<FolderTree size={48} />}
+                            title="No categories found."
+                            action={
+                                <button className="btn btn-primary" onClick={() => navigate('/catalog/categories/new')}>
+                                    Create your first category
+                                </button>
+                            }
+                        />
                     ) : (
                         categoryTree.map(renderNode)
                     )}

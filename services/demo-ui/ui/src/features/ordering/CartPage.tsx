@@ -2,6 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCart, useRemoveCartItem } from './api';
 import { PageLoader } from '../../design-system/components/common/PageLoader';
+import { EmptyState } from '../../design-system/components/common/EmptyState';
+import { ShoppingCart } from 'lucide-react';
 import { CART_ID_KEY } from './storage';
 import './ordering.css';
 
@@ -40,12 +42,16 @@ export default function CartPage() {
             </div>
 
             {isEmpty ? (
-                <div className="card empty-state">
-                    <p style={{ fontSize: '1.0625rem' }}>Your cart is empty.</p>
-                    <button onClick={() => navigate('/order/qualify')} className="btn-link" style={{ marginTop: '0.75rem' }}>
-                        Browse Services
-                    </button>
-                </div>
+                <EmptyState
+                    icon={<ShoppingCart size={48} />}
+                    title="Your cart is empty."
+                    description="Check service availability for an address to add offerings to your cart."
+                    action={
+                        <button onClick={() => navigate('/order/qualify')} className="btn btn-primary">
+                            Browse Services
+                        </button>
+                    }
+                />
             ) : (
                 <div className="card card--flush">
                     <ul className="data-list">

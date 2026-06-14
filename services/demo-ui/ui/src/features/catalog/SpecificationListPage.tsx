@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-table';
 import { useReactTable } from '../../hooks/useReactTable';
 import { Plus, Search, ChevronUp, ChevronDown, Eye, Edit, Trash2, Loader2, Package } from 'lucide-react';
+import { EmptyState } from '../../design-system/components/common/EmptyState';
 import { useSpecifications, useDeleteSpecification } from './api';
 import type { ProductSpecification } from './types';
 import './SpecificationListPage.css';
@@ -117,7 +118,7 @@ export default function SpecificationListPage() {
         <div className="specification-list-page">
             <div className="page-header">
                 <div className="page-header-content">
-                    <h2>Product Specifications</h2>
+                    <h1 className="page-title">Product Specifications</h1>
                     <p className="page-description">Define the technical blueprints for your products</p>
                 </div>
                 <Link to="/catalog/specifications/new" className="btn btn-primary">
@@ -147,15 +148,17 @@ export default function SpecificationListPage() {
                     <p>Loading specifications...</p>
                 </div>
             ) : filteredSpecs.length === 0 ? (
-                <div className="card empty-card" role="status">
-                    <Package size={48} className="empty-icon" />
-                    <p>{searchTerm ? 'No specifications match your search.' : 'No product specifications found.'}</p>
-                    {!searchTerm && (
-                        <Link to="/catalog/specifications/new" className="btn btn-primary">
-                            Create your first specification
-                        </Link>
-                    )}
-                </div>
+                <EmptyState
+                    icon={<Package size={48} />}
+                    title={searchTerm ? 'No specifications match your search.' : 'No product specifications found.'}
+                    action={
+                        !searchTerm ? (
+                            <Link to="/catalog/specifications/new" className="btn btn-primary">
+                                Create your first specification
+                            </Link>
+                        ) : undefined
+                    }
+                />
             ) : (
                 <div className="card table-card">
                     <table className="data-table">

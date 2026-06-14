@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import { Auth0Provider, useAuth0 } from '@auth0/auth0-react';
-import { AuthContext, fallbackAuthClient, type AuthClient } from './context';
+import { AuthContext, fallbackAuthClient, type AuthClient, type AuthDisabledReason } from './context';
 import { getRuntimeConfig } from '../config/runtime';
 
 const isSecureOrigin = () => {
@@ -18,11 +18,18 @@ const isAuthConfigured = () => {
 
 const isAuthEnabled = () => isSecureOrigin() && isAuthConfigured();
 
+const getDisabledReason = (): AuthDisabledReason => {
+  if (!isSecureOrigin()) return 'insecure-origin';
+  if (!isAuthConfigured()) return 'not-configured';
+  return null;
+};
+
 function AuthBridge({ children }: { children: ReactNode }) {
   const auth0 = useAuth0();
 
   const authClient = useMemo<AuthClient>(() => ({
     enabled: true,
+    disabledReason: null,
     isAuthenticated: auth0.isAuthenticated,
     isLoading: auth0.isLoading,
     user: auth0.user,
@@ -47,7 +54,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.warn('Auth0 configuration missing, check AUTH0_* runtime env vars.');
     }
 
-    return <AuthContext.Provider value={fallbackAuthClient}>{children}</AuthContext.Provider>;
+    return (
+      <AuthContext.Provider value={{ ...fallbackAuthClient, disabledReason: getDisabledReason() }}>
+        {children}
+      </AuthContext.Provider>
+    );
   }
 
   return (
@@ -58,6 +69,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         redirect_uri: window.location.origin,
         audience,
       }}
+      // Persist the session across full page reloads. Without this the default
+      // in-memory cache drops the session on refresh and silent re-auth fails,
+      // bouncing the user back to the login screen.
+      cacheLocation="localstorage"
+      useRefreshTokens={true}
     >
       <AuthBridge>{children}</AuthBridge>
     </Auth0Provider>

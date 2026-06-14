@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-table';
 import { useReactTable } from '../../hooks/useReactTable';
 import { Plus, Search, ChevronUp, ChevronDown, Eye, Edit, Trash2, Loader2, ShoppingCart } from 'lucide-react';
+import { EmptyState } from '../../design-system/components/common/EmptyState';
 import { useOfferings, useDeleteOffering } from './api';
 import type { ProductOffering } from './types';
 import './SpecificationListPage.css'; // Reuse common catalog styles
@@ -110,7 +111,7 @@ export default function OfferingListPage() {
         <div className="specification-list-page">
             <div className="page-header">
                 <div className="page-header-content">
-                    <h2>Product Offerings</h2>
+                    <h1 className="page-title">Product Offerings</h1>
                     <p className="page-description">Commercial versions of your products available to customers</p>
                 </div>
                 <Link to="/catalog/offerings/new" className="btn btn-primary">
@@ -140,15 +141,17 @@ export default function OfferingListPage() {
                     <p>Loading offerings...</p>
                 </div>
             ) : filteredOfferings.length === 0 ? (
-                <div className="card empty-card" role="status">
-                    <ShoppingCart size={48} className="empty-icon" />
-                    <p>{searchTerm ? 'No offerings match your search.' : 'No product offerings found.'}</p>
-                    {!searchTerm && (
-                        <Link to="/catalog/offerings/new" className="btn btn-primary">
-                            Create your first offering
-                        </Link>
-                    )}
-                </div>
+                <EmptyState
+                    icon={<ShoppingCart size={48} />}
+                    title={searchTerm ? 'No offerings match your search.' : 'No product offerings found.'}
+                    action={
+                        !searchTerm ? (
+                            <Link to="/catalog/offerings/new" className="btn btn-primary">
+                                Create your first offering
+                            </Link>
+                        ) : undefined
+                    }
+                />
             ) : (
                 <div className="card table-card">
                     <table className="data-table">

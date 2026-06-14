@@ -49,7 +49,8 @@ export function Layout() {
                 <header className="layout-header">
                     <div className="layout-header-content">
                         <div className="layout-header-title">
-                            <h1>TMF Demo Dashboard</h1>
+                            {/* App branding, not the page heading — each page provides its own <h1>. */}
+                            <div className="layout-header-brand">TMF Demo Dashboard</div>
                             <p className="layout-subtitle">Managed via Golang BFF & RabbitMQ</p>
                         </div>
                         {!isMobileMenuOpen && (

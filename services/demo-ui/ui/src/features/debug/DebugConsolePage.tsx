@@ -8,7 +8,7 @@ import { Wifi, WifiOff } from 'lucide-react';
 import './DebugConsolePage.css';
 
 export default function DebugConsolePage() {
-    const { messages, isConnected, clearMessages } = useDebugWebSocket();
+    const { messages, isConnected, status, reconnectAttempt, clearMessages, reconnect } = useDebugWebSocket();
     const [selectedId, setSelectedId] = useState<string | null>(null);
 
     const [filter, setFilter] = useState<DebugFilterState>({
@@ -56,7 +56,20 @@ export default function DebugConsolePage() {
                     <h2>Debug Console</h2>
                     <div className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`} role="status">
                         {isConnected ? <Wifi size={16} /> : <WifiOff size={16} />}
-                        <span>{isConnected ? 'Live' : 'Disconnected'}</span>
+                        <span>
+                            {isConnected
+                                ? 'Live'
+                                : status === 'reconnecting'
+                                    ? `Reconnecting… (${reconnectAttempt})`
+                                    : status === 'connecting'
+                                        ? 'Connecting…'
+                                        : 'Event stream offline'}
+                        </span>
+                        {status === 'offline' && (
+                            <button type="button" className="btn-link btn--sm" onClick={reconnect}>
+                                Retry
+                            </button>
+                        )}
                     </div>
                 </div>
                 <div className="header-right">

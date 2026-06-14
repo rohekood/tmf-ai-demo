@@ -26,7 +26,7 @@
   /* ---- Text ---- */
   --text: #f1f5f9;            /* primary */
   --text-muted: #94a3b8;      /* secondary */
-  --text-faint: #64748b;      /* tertiary / placeholders */
+  --text-faint: #74829a;      /* tertiary / placeholders — ~4.9:1 on --bg-app (WCAG AA) */
 
   /* ---- Brand / accents ---- */
   --primary: #6366f1;
@@ -122,6 +122,17 @@ a {
 
 a:hover {
   color: var(--primary-hover);
+}
+
+/* Visible keyboard focus for interactive elements (mouse clicks unaffected). */
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
 }
 
 ::placeholder {

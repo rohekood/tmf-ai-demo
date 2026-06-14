@@ -113,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}
                         <div className="sidebar-nav-group">
                             {group.items.map((item) => {
-                                const linkClass = `sidebar-nav-item ${item.isActive ? 'sidebar-nav-item--active' : ''} ${collapsed ? 'justify-center px-0' : ''}`;
+                                const linkClass = `sidebar-nav-item ${item.isActive ? 'sidebar-nav-item--active' : ''}`;
 
                                 const content = (
                                     <>
@@ -142,7 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {!isLoading && (
                         isAuthenticated ? (
                             <div className="sidebar-user-card">
-                                <div className={`sidebar-user-avatar-wrapper ${collapsed ? 'mx-auto' : ''}`}>
+                                <div className={`sidebar-user-avatar-wrapper ${collapsed ? 'sidebar-user-avatar-wrapper--center' : ''}`}>
                                     <div className="sidebar-user-avatar">
                                         {user?.picture ? (
                                             <img src={user.picture} alt={user.name} className="sidebar-user-avatar-img" />
@@ -190,7 +190,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     )}
                 </div>
 
-                <div className={`sidebar-status ${collapsed ? 'justify-center' : 'justify-between'}`}>
+                <div className={`sidebar-status ${collapsed ? 'sidebar-status--center' : ''}`}>
                     {!collapsed && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <span className="sidebar-status-dot sidebar-status-dot--connected"></span>

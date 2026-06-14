@@ -23,10 +23,10 @@ function NavItem({ to, icon, label, title, badge }: NavItemProps) {
                 `sidebar-nav-item ${isActive ? 'sidebar-nav-item--active' : ''}`
             }
         >
-            <span className="sidebar-nav-icon">{icon}</span>
+            <span className="sidebar-nav-icon" aria-hidden="true">{icon}</span>
             {label && <span className="sidebar-nav-label">{label}</span>}
             {badge}
-            {label && <ChevronRight className="sidebar-nav-arrow" size={16} />}
+            {label && <ChevronRight className="sidebar-nav-arrow" size={16} aria-hidden="true" />}
         </NavLink>
     );
 }
@@ -160,9 +160,13 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse }: SidebarProp
                     )}
                 </div>
 
-                <div className={`sidebar-status ${collapsed ? 'sidebar-status--center' : ''}`} role="status">
+                <div
+                    className={`sidebar-status ${collapsed ? 'sidebar-status--center' : ''}`}
+                    role="status"
+                    title="API connection online"
+                >
                     <span className="sidebar-status-dot sidebar-status-dot--connected"></span>
-                    {!collapsed && <span className="sidebar-status-text">Connected</span>}
+                    {!collapsed && <span className="sidebar-status-text">API online</span>}
                 </div>
 
                 <button

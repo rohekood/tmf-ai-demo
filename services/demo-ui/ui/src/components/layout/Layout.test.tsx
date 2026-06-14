@@ -32,10 +32,13 @@ describe('Layout', () => {
             </QueryClientProvider>
         );
 
-        // Check header
+        // Check header. The banner shows app branding as plain text (not a
+        // heading) so each page can own the document <h1>.
         expect(screen.getByRole('banner')).toBeInTheDocument();
-        expect(screen.getByRole('heading', { name: 'TMF Demo Dashboard' })).toBeInTheDocument();
-        // Assuming the subtitle isn't a heading, maybe text is fine or role="note"
+        expect(screen.getByText('TMF Demo Dashboard')).toBeInTheDocument();
+        expect(
+            screen.queryByRole('heading', { name: 'TMF Demo Dashboard' })
+        ).not.toBeInTheDocument();
         expect(screen.getByText('Managed via Golang BFF & RabbitMQ')).toBeInTheDocument();
 
         // Check Sidebar presence
