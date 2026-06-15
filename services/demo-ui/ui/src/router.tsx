@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { RequireAuth } from './components/auth/RequireAuth';
+import { ProvisioningGate } from './components/auth/ProvisioningGate';
 import { IndexRedirect } from './components/auth/IndexRedirect';
 import { lazy, Suspense } from 'react';
 
@@ -38,6 +39,8 @@ const OrderConfirmationPage = lazy(() => import('./features/ordering/OrderConfir
 
 const DebugConsolePage = lazy(() => import('./features/debug/DebugConsolePage'));
 
+const CompleteProfilePage = lazy(() => import('./features/provisioning/CompleteProfilePage'));
+
 // Loading fallback component
 import { PageLoader } from './design-system/components/common/PageLoader';
 
@@ -64,6 +67,20 @@ export const router = createBrowserRouter([
             {
                 element: <RequireAuth />,
                 children: [
+                    // Provisioning form: authenticated but NOT behind the
+                    // provisioning gate (otherwise it would redirect to itself).
+                    {
+                        path: 'complete-profile',
+                        element: (
+                            <Suspense fallback={<PageLoader />}>
+                                <CompleteProfilePage />
+                            </Suspense>
+                        ),
+                    },
+                    // Everything else also requires a provisioned customer.
+                    {
+                        element: <ProvisioningGate />,
+                        children: [
                     // Party routes
                     {
                         path: 'parties',
@@ -340,6 +357,8 @@ export const router = createBrowserRouter([
                                 <DebugConsolePage />
                             </Suspense>
                         ),
+                    },
+                        ],
                     },
                 ],
             },

@@ -13,6 +13,7 @@ import (
 
 type mockValidator struct {
 	valid bool
+	email string
 }
 
 func (m *mockValidator) ValidateToken(ctx context.Context, tokenString string) (any, error) {
@@ -21,6 +22,7 @@ func (m *mockValidator) ValidateToken(ctx context.Context, tokenString string) (
 			RegisteredClaims: validator.RegisteredClaims{
 				Subject: "test-user-id",
 			},
+			CustomClaims: &CustomClaims{Email: m.email},
 		}, nil
 	}
 	return nil, nil // error handling in middleware expects error or false validation
@@ -126,6 +128,44 @@ func TestOptionalToken_InjectsUserWhenValid(t *testing.T) {
 	}
 	if gotUser != "test-user-id" {
 		t.Errorf("expected user test-user-id injected, got %v", gotUser)
+	}
+}
+
+func TestOptionalToken_InjectsEmailFromClaim(t *testing.T) {
+	mw := OptionalToken(&mockValidator{valid: true, email: "user@example.com"})
+
+	var gotEmail string
+	var emailOK bool
+	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotEmail, emailOK = EmailFromContext(r.Context())
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest("POST", "/api/qualification/check", nil)
+	req.Header.Set("Authorization", "Bearer dummy-token")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if !emailOK || gotEmail != "user@example.com" {
+		t.Errorf("expected email user@example.com injected, got %q (ok=%v)", gotEmail, emailOK)
+	}
+}
+
+func TestEmailFromContext_AbsentWhenNoClaim(t *testing.T) {
+	mw := OptionalToken(&mockValidator{valid: true}) // no email claim
+
+	var emailOK bool
+	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, emailOK = EmailFromContext(r.Context())
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest("POST", "/api/qualification/check", nil)
+	req.Header.Set("Authorization", "Bearer dummy-token")
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	if emailOK {
+		t.Error("expected no email in context when claim is absent")
 	}
 }
 

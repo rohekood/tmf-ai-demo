@@ -206,6 +206,7 @@ type SearchPartyPayload struct {
 	TradingName       *string `json:"tradingName,omitempty"`
 	Type              *string `json:"type,omitempty"`
 	ExternalReference *string `json:"externalReference,omitempty"`
+	Email             *string `json:"email,omitempty"`
 	Status            *string `json:"status,omitempty"`
 }
 
@@ -989,6 +990,9 @@ func (h *Handlers) HandleSearchParty(ctx context.Context, d amqp.Delivery) error
 	}
 	if payload.ExternalReference != nil {
 		criteria["externalReference"] = *payload.ExternalReference
+	}
+	if payload.Email != nil {
+		criteria["email"] = *payload.Email
 	}
 	if payload.Status != nil {
 		criteria["status"] = *payload.Status

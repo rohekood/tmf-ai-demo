@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart, useCheckout } from './api';
+import { useProvisioning } from '../provisioning/useProvisioning';
 import { PageLoader } from '../../design-system/components/common/PageLoader';
 import './ordering.css';
 
@@ -10,15 +11,21 @@ export default function CheckoutPage() {
 
     const { data: cart, isLoading } = useCart(cartId);
     const { mutate: submitCheckout, isPending } = useCheckout();
+    // The provisioning gate guarantees a real customer before checkout is reached.
+    const { customerId } = useProvisioning();
 
     const [paymentMethod, setPaymentMethod] = useState('credit_card');
 
     const handleCheckout = (e: React.FormEvent) => {
         e.preventDefault();
+        if (!customerId) {
+            alert('Your customer account is not ready yet. Please try again in a moment.');
+            return;
+        }
         submitCheckout(
             {
                 cartId,
-                customerId: 'demo-customer-id', // Would be from auth context
+                customerId,
                 paymentDetails: {
                     method: paymentMethod,
                     token: 'tok_visa_demo'

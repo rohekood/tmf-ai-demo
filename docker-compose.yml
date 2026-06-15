@@ -48,6 +48,8 @@ services:
       AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID}
       AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
       API_URL: ${VITE_API_URL}
+      # Upstream host for the nginx /api proxy (see nginx.conf ${BFF_HOST}).
+      BFF_HOST: bff
     container_name: tmf-demo-ui
     ports:
       - "80:80"

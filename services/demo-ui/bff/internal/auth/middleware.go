@@ -23,6 +23,53 @@ const (
 	qualSessionPath = "/api/qualification/session/"
 )
 
+// EmailClaimKey is the namespaced custom claim that carries the user's email.
+// It must match the claim emitted by the Auth0 Login Action that enriches the
+// access token (see docs/plans/08_login_customer_provisioning.md, task A1).
+const EmailClaimKey = "https://tmf-demo/email"
+
+// emailContextKey is the context key under which the authenticated user's email
+// is stored. It is BFF-local: email is read by request handlers (provisioning),
+// not forwarded as an RPC transport header.
+type emailContextKey struct{}
+
+// CustomClaims captures the namespaced email claim from the access token. It
+// implements validator.CustomClaims so the Auth0 validator unmarshals it.
+type CustomClaims struct {
+	Email string `json:"https://tmf-demo/email"`
+}
+
+// Validate satisfies validator.CustomClaims. No extra validation is required.
+func (c *CustomClaims) Validate(_ context.Context) error { return nil }
+
+// EmailFromContext returns the authenticated user's email if it was present on
+// the validated token.
+func EmailFromContext(ctx context.Context) (string, bool) {
+	email, ok := ctx.Value(emailContextKey{}).(string)
+	return email, ok && email != ""
+}
+
+// ContextWithEmail returns a copy of ctx carrying the given authenticated email.
+// Exported for composition and testing.
+func ContextWithEmail(ctx context.Context, email string) context.Context {
+	return context.WithValue(ctx, emailContextKey{}, email)
+}
+
+// withIdentity injects the user id (sub) and, when present, the email from the
+// validated claims into the context.
+func withIdentity(ctx context.Context, vc *validator.ValidatedClaims) context.Context {
+	if vc == nil {
+		return ctx
+	}
+	if sub := vc.RegisteredClaims.Subject; sub != "" {
+		ctx = context.WithValue(ctx, rabbitmq.ContextKeyUser, sub)
+	}
+	if cc, ok := vc.CustomClaims.(*CustomClaims); ok && cc.Email != "" {
+		ctx = context.WithValue(ctx, emailContextKey{}, cc.Email)
+	}
+	return ctx
+}
+
 // IsPublicRoute reports whether the given HTTP method and path may be called
 // without authentication. The match is method-aware and prefix-safe so that
 // look-alike paths (e.g. "/api/qualification/checkfoo") are NOT treated as
@@ -55,8 +102,7 @@ func OptionalToken(tokenValidator TokenValidator) func(next http.Handler) http.H
 				token := strings.TrimPrefix(authHeader, bearerPrefix)
 				if claims, err := tokenValidator.ValidateToken(r.Context(), token); err == nil {
 					if vc, ok := claims.(*validator.ValidatedClaims); ok && vc.RegisteredClaims.Subject != "" {
-						ctx := context.WithValue(r.Context(), rabbitmq.ContextKeyUser, vc.RegisteredClaims.Subject)
-						r = r.WithContext(ctx)
+						r = r.WithContext(withIdentity(r.Context(), vc))
 					}
 				}
 			}
@@ -85,6 +131,9 @@ func NewAuth0Validator(domain, audience string) (TokenValidator, error) {
 		issuerURL.String(),
 		[]string{audience},
 		validator.WithAllowedClockSkew(time.Minute),
+		validator.WithCustomClaims(func() validator.CustomClaims {
+			return &CustomClaims{}
+		}),
 	)
 	if err != nil {
 		return nil, err
@@ -113,11 +162,10 @@ func EnsureValidToken(tokenValidator TokenValidator, domain, audience string) fu
 			// Extract claims and inject into context if needed for application logic
 			claims, ok := r.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
 			if ok {
-				// Inject the User ID (sub) into the context as "user"
-				// This is relied upon by customer_handlers.go
-				userID := claims.RegisteredClaims.Subject
-				ctx := context.WithValue(r.Context(), rabbitmq.ContextKeyUser, userID)
-				next.ServeHTTP(w, r.WithContext(ctx))
+				// Inject the User ID (sub) — relied upon by customer_handlers.go —
+				// and the email (when the access token carries the namespaced
+				// claim) into the context.
+				next.ServeHTTP(w, r.WithContext(withIdentity(r.Context(), claims)))
 			} else {
 				// Should not happen if CheckJWT passes, but safe fallback
 				next.ServeHTTP(w, r)

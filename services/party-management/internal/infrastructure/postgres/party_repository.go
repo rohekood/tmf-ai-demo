@@ -456,6 +456,16 @@ func (r *PartyRepository) SearchParties(ctx context.Context, criteria map[string
 		query = query.Where("organizations.is_legal_entity = ?", val)
 	}
 
+	// Email lookup: match a party owning a contact medium of type "email" with
+	// the given value. A subquery is used (rather than a JOIN) to avoid
+	// duplicate party rows when a party has multiple contact mediums.
+	if val, ok := criteria["email"]; ok {
+		emailSubquery := GetTx(ctx, r.db).Table("party_contact_mediums").
+			Select("party_id").
+			Where("medium_type = ? AND value = ?", "email", val)
+		query = query.Where("parties.id IN (?)", emailSubquery)
+	}
+
 	if err := query.Find(&parties).Error; err != nil {
 		return nil, err
 	}
