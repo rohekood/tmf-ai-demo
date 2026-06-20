@@ -2,6 +2,7 @@ services:
   rabbitmq:
     image: rabbitmq:3.12-management
     container_name: tmf-rabbitmq
+    restart: unless-stopped
     ports:
       - "5672:5672"   # AMQP protocol
       - "15672:15672" # Management UI
@@ -19,6 +20,7 @@ services:
   postgres:
     image: postgres:15
     container_name: tmf-postgres
+    restart: unless-stopped
     ports:
       - "5433:5432"
     environment:
@@ -51,6 +53,7 @@ services:
       # Upstream host for the nginx /api proxy (see nginx.conf ${BFF_HOST}).
       BFF_HOST: bff
     container_name: tmf-demo-ui
+    restart: unless-stopped
     ports:
       - "80:80"
     depends_on:
@@ -61,12 +64,15 @@ services:
       context: .
       dockerfile: services/demo-ui/bff/Dockerfile
     container_name: tmf-bff
+    restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBITMQ_AUTO_DECLARE=true
       - AUTH0_DOMAIN=${AUTH0_DOMAIN}
       - AUTH0_AUDIENCE=${AUTH0_AUDIENCE}
+      - EMAIL_CLAIM_KEY=https://tmf.rohekood.com/email
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -76,11 +82,13 @@ services:
       context: .
       dockerfile: services/customer-management/Dockerfile
     container_name: tmf-customer-management
+    restart: unless-stopped
     ports:
       - "8081:8081"
     environment:
       - POSTGRES_URL=postgres://postgres:password@postgres:5432/tmf_customer_db?sslmode=disable
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBITMQ_AUTO_DECLARE=true
     depends_on:
       postgres:
         condition: service_healthy
@@ -92,11 +100,13 @@ services:
       context: .
       dockerfile: services/party-management/Dockerfile
     container_name: tmf-party-management
+    restart: unless-stopped
     ports:
       - "8082:8080"
     environment:
       - POSTGRES_URL=postgres://postgres:password@postgres:5432/tmf_party_db?sslmode=disable
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBITMQ_AUTO_DECLARE=true
     depends_on:
       postgres:
         condition: service_healthy
@@ -108,9 +118,11 @@ services:
       context: .
       dockerfile: services/product-catalog-management/Dockerfile
     container_name: tmf-product-catalog-management
+    restart: unless-stopped
     environment:
       - POSTGRES_URL=postgres://postgres:password@postgres:5432/tmf_catalog_db?sslmode=disable
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBITMQ_AUTO_DECLARE=true
     depends_on:
       postgres:
         condition: service_healthy
@@ -122,9 +134,11 @@ services:
       context: .
       dockerfile: services/pocv/Dockerfile
     container_name: tmf-pocv
+    restart: unless-stopped
     environment:
       - DATABASE_URL=postgres://postgres:password@postgres:5432/tmf_pocv_db?sslmode=disable
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBITMQ_AUTO_DECLARE=true
     depends_on:
       postgres:
         condition: service_healthy
@@ -136,9 +150,11 @@ services:
       context: .
       dockerfile: services/qualification/Dockerfile
     container_name: tmf-qualification
+    restart: unless-stopped
     environment:
       - POSTGRES_URL=postgres://postgres:password@postgres:5432/tmf_qualification_db?sslmode=disable
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBITMQ_AUTO_DECLARE=true
       - REDIS_ADDR=redis:6379
       - REDIS_PASSWORD=
     depends_on:
@@ -157,8 +173,10 @@ services:
       args:
         CMD_PATH: ./cmd/mock-gis/main.go
     container_name: tmf-mock-gis
+    restart: unless-stopped
     environment:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBITMQ_AUTO_DECLARE=true
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -171,8 +189,10 @@ services:
       args:
         CMD_PATH: ./cmd/mock-inventory/main.go
     container_name: tmf-mock-inventory
+    restart: unless-stopped
     environment:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBITMQ_AUTO_DECLARE=true
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -182,9 +202,11 @@ services:
       context: .
       dockerfile: services/shopping-cart/Dockerfile
     container_name: tmf-shopping-cart
+    restart: unless-stopped
     environment:
       - DB_URL=postgres://postgres:password@postgres:5432/tmf_cart_db?sslmode=disable
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBITMQ_AUTO_DECLARE=true
     depends_on:
       postgres:
         condition: service_healthy
@@ -194,6 +216,7 @@ services:
   valkey:
     image: valkey/valkey:8-alpine
     container_name: tmf-valkey
+    restart: unless-stopped
     ports:
       - "6379:6379"
     healthcheck:

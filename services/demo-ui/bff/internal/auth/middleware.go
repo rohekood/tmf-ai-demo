@@ -26,21 +26,30 @@ const (
 // EmailClaimKey is the namespaced custom claim that carries the user's email.
 // It must match the claim emitted by the Auth0 Login Action that enriches the
 // access token (see docs/plans/08_login_customer_provisioning.md, task A1).
-const EmailClaimKey = "https://tmf-demo/email"
+// It is a package var (not const) so deployments can override it from config to
+// match their tenant's claim namespace.
+var EmailClaimKey = "https://tmf.rohekood.com/email"
 
 // emailContextKey is the context key under which the authenticated user's email
 // is stored. It is BFF-local: email is read by request handlers (provisioning),
 // not forwarded as an RPC transport header.
 type emailContextKey struct{}
 
-// CustomClaims captures the namespaced email claim from the access token. It
-// implements validator.CustomClaims so the Auth0 validator unmarshals it.
-type CustomClaims struct {
-	Email string `json:"https://tmf-demo/email"`
-}
+// CustomClaims captures all custom claims from the access token as a map so the
+// email claim can be read under a configurable, namespaced key (EmailClaimKey).
+// It implements validator.CustomClaims so the Auth0 validator unmarshals into it.
+type CustomClaims map[string]any
 
 // Validate satisfies validator.CustomClaims. No extra validation is required.
-func (c *CustomClaims) Validate(_ context.Context) error { return nil }
+func (c CustomClaims) Validate(_ context.Context) error { return nil }
+
+// email returns the value of the configured email claim, if present and a string.
+func (c CustomClaims) email() string {
+	if v, ok := c[EmailClaimKey].(string); ok {
+		return v
+	}
+	return ""
+}
 
 // EmailFromContext returns the authenticated user's email if it was present on
 // the validated token.
@@ -64,8 +73,10 @@ func withIdentity(ctx context.Context, vc *validator.ValidatedClaims) context.Co
 	if sub := vc.RegisteredClaims.Subject; sub != "" {
 		ctx = context.WithValue(ctx, rabbitmq.ContextKeyUser, sub)
 	}
-	if cc, ok := vc.CustomClaims.(*CustomClaims); ok && cc.Email != "" {
-		ctx = context.WithValue(ctx, emailContextKey{}, cc.Email)
+	if cc, ok := vc.CustomClaims.(*CustomClaims); ok {
+		if email := cc.email(); email != "" {
+			ctx = context.WithValue(ctx, emailContextKey{}, email)
+		}
 	}
 	return ctx
 }

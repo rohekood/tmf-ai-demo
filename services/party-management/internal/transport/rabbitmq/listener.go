@@ -11,10 +11,52 @@ import (
 
 type Listener struct {
 	conn *amqp.Connection
+	// autoDeclare creates exchanges/queues on startup (dev/local). When false
+	// (production) the topology must already exist and is only verified/bound.
+	autoDeclare bool
 }
 
-func NewListener(conn *amqp.Connection) (*Listener, error) {
-	return &Listener{conn: conn}, nil
+func NewListener(conn *amqp.Connection, autoDeclare bool) (*Listener, error) {
+	return &Listener{conn: conn, autoDeclare: autoDeclare}, nil
+}
+
+// declareQueue creates the queue (durable) when autoDeclare is on, otherwise
+// verifies it exists passively. Returns the resolved queue name.
+func (l *Listener) declareQueue(ch *amqp.Channel, name string, args amqp.Table) (string, error) {
+	if l.autoDeclare {
+		q, err := ch.QueueDeclare(name, true, false, false, false, args)
+		if err != nil {
+			return "", err
+		}
+		return q.Name, nil
+	}
+	q, err := ch.QueueDeclarePassive(name, true, false, false, false, nil)
+	if err != nil {
+		return "", err
+	}
+	return q.Name, nil
+}
+
+// declareExchanges creates the exchanges this service uses. No-op unless
+// autoDeclare is on (in production they are provisioned out-of-band).
+func (l *Listener) declareExchanges(ch *amqp.Channel) error {
+	if !l.autoDeclare {
+		return nil
+	}
+	exchanges := []struct {
+		name string
+		kind string
+	}{
+		{CommandExchange, "topic"},
+		{EventExchange, "topic"},
+		{DeadLetterExchange, "fanout"},
+	}
+	for _, e := range exchanges {
+		if err := ch.ExchangeDeclare(e.name, e.kind, true, false, false, false, nil); err != nil {
+			return fmt.Errorf("failed to declare exchange %s: %w", e.name, err)
+		}
+	}
+	return nil
 }
 
 func (l *Listener) GetHandler(routingKey string, h *Handlers) (func(context.Context, amqp.Delivery) error, bool) {
@@ -49,8 +91,11 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 	}
 	defer func() { _ = ch.Close() }()
 
-	_, err = ch.QueueDeclarePassive(DeadLetterQueue, true, false, false, false, nil)
-	if err != nil {
+	if err := l.declareExchanges(ch); err != nil {
+		return err
+	}
+
+	if _, err = l.declareQueue(ch, DeadLetterQueue, nil); err != nil {
 		return fmt.Errorf("failed to declare DLQ: %w", err)
 	}
 
@@ -59,10 +104,16 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		slog.Warn("failed to bind DLQ to DLX (ignoring)", "error", err)
 	}
 
-	q, err := ch.QueueDeclarePassive(PartyQueue, true, false, false, false, nil)
+	// Main command queue dead-letters to the DLX when auto-declared.
+	var partyQueueArgs amqp.Table
+	if l.autoDeclare {
+		partyQueueArgs = amqp.Table{"x-dead-letter-exchange": DeadLetterExchange}
+	}
+	partyQueueName, err := l.declareQueue(ch, PartyQueue, partyQueueArgs)
 	if err != nil {
 		return fmt.Errorf("failed to declare queue: %w", err)
 	}
+	q := amqp.Queue{Name: partyQueueName}
 
 	routingKeys := []string{
 		CmdPartyCreate,
@@ -85,8 +136,7 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 
 	// Bind to Event Queue
 	eventQueueName := "party.events"
-	_, err = ch.QueueDeclarePassive(eventQueueName, true, false, false, false, nil)
-	if err != nil {
+	if _, err = l.declareQueue(ch, eventQueueName, nil); err != nil {
 		return fmt.Errorf("failed to declare event queue: %w", err)
 	}
 

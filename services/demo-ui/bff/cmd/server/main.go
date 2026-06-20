@@ -40,6 +40,8 @@ var (
 func main() {
 	// 0. Load Config
 	cfg := config.Load()
+	// Match the email claim namespace the Auth0 tenant emits.
+	auth.EmailClaimKey = cfg.EmailClaimKey
 
 	// 1. Initialize RabbitMQ RPC Client
 	rpcClient, err := newClientFunc(cfg.RabbitMQURL)

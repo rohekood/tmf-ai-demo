@@ -66,8 +66,8 @@ func main() {
 	newPublisherFn := func(connMgr rmqConnManager) (rabbitmq.Publisher, error) {
 		return rabbitmq.NewPublisherWithConnection(connMgr.GetConnection())
 	}
-	newListenerFn := func(connMgr rmqConnManager) (*rabbitTransport.Listener, error) {
-		return rabbitTransport.NewListener(connMgr.GetConnection())
+	newListenerFn := func(connMgr rmqConnManager, autoDeclare bool) (*rabbitTransport.Listener, error) {
+		return rabbitTransport.NewListener(connMgr.GetConnection(), autoDeclare)
 	}
 
 	if err := run(ctx, envFn, dbDialFn, rabbitConnFn, runMigrationsFn, newPublisherFn, newListenerFn, logger); err != nil {
@@ -89,7 +89,7 @@ func run(
 	rabbitConnFn func(string) rmqConnManager,
 	runMigrationsFn func(string) error,
 	newPublisherFn func(rmqConnManager) (rabbitmq.Publisher, error),
-	newListenerFn func(rmqConnManager) (*rabbitTransport.Listener, error),
+	newListenerFn func(rmqConnManager, bool) (*rabbitTransport.Listener, error),
 	logger *slog.Logger,
 ) error {
 	cfg := config.Load()
@@ -130,7 +130,7 @@ func run(
 		handlers.WithCustomerChecker(infraRabbit.NewCustomerCheckerRPC(customerRPCClient))
 	}
 
-	listener, err := newListenerFn(connMgr)
+	listener, err := newListenerFn(connMgr, cfg.AutoDeclareTopology)
 	if err != nil {
 		return fmt.Errorf("failed to create listener: %w", err)
 	}

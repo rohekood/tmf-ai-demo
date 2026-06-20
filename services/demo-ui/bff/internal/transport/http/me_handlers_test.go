@@ -99,8 +99,9 @@ func TestResolveCustomer_NoEmail(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.ResolveCustomer(rr, req)
 
-	if rr.Code != http.StatusBadRequest {
-		t.Errorf("status = %d, want 400", rr.Code)
+	// Fail closed: no verified email claim -> 401, no provisioning.
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", rr.Code)
 	}
 }
 
@@ -170,23 +171,21 @@ func TestProvision_ReadyWhenCustomerExists(t *testing.T) {
 	}
 }
 
-func TestProvision_FallbackToBodyEmail(t *testing.T) {
-	rec := &callRecorder{replies: map[string][]byte{
-		queryPartySearch:    []byte(`[]`),
-		queryCustomerSearch: []byte(`[]`),
-		cmdPartyCreate:      []byte(`{"id":"p"}`),
-		cmdCustomerOnboard:  []byte(`{"id":"c"}`),
-	}}
+func TestProvision_FailsClosedWithoutEmailClaim(t *testing.T) {
+	rec := &callRecorder{replies: map[string][]byte{}}
 	h := newMeHandler(rec)
 
-	// No email in context; provided in body (demo fallback).
-	body := `{"email":"body@example.com","givenName":"Jane","familyName":"Doe"}`
+	// No email in context; a body email must NOT be trusted as identity.
+	body := `{"email":"attacker@example.com","givenName":"Jane","familyName":"Doe"}`
 	req := httptest.NewRequest("POST", "/api/me/provision", strings.NewReader(body))
 	rr := httptest.NewRecorder()
 	h.Provision(rr, req)
 
-	if rr.Code != http.StatusCreated {
-		t.Fatalf("status = %d, want 201; body=%s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rr.Code)
+	}
+	if len(rec.calls) != 0 {
+		t.Errorf("no RPC calls expected when identity is unverified, got %v", rec.calls)
 	}
 }
 

@@ -24,8 +24,8 @@ func (l *Listener) GetHandler(routingKey string, h *Handlers) (func(context.Cont
 		return h.HandleOnboardCustomer, true
 	case "cmd.customer.update":
 		return h.HandleUpdateCustomer, true
-	// case "query.customer.get":
-	// 	return h.HandleGetCustomer, true
+	case "query.customer.get":
+		return h.HandleGetCustomer, true
 	case "query.customer.search":
 		return h.HandleSearchCustomer, true
 	case "cmd.customer.delete":
@@ -67,7 +67,11 @@ func (l *Listener) Start(ctx context.Context, h *Handlers) error {
 		"cmd.customer.onboard",
 		"cmd.customer.update",
 		"cmd.customer.patch",
-		// "query.customer.get", // Removed: Handled by RPCHandler on dedicated queue
+		// query.customer.get serves the BFF's full-customer fetch on the command
+		// exchange (tmf.customer). The RPCHandler on customer_rpc_queue handles the
+		// same routing key on a different exchange (customer.events) for the
+		// pricing-summary RPC used by qualification/cart/pocv — the two coexist.
+		"query.customer.get",
 		"query.customer.search",
 		"cmd.customer.delete",
 		CmdCustomerLogInteraction,

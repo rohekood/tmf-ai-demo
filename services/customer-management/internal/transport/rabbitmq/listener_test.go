@@ -22,7 +22,7 @@ func TestListener_GetHandler(t *testing.T) {
 	}{
 		{"Onboard Customer", "cmd.customer.onboard", true},
 		{"Update Customer", "cmd.customer.update", true},
-		{"Get Customer", "query.customer.get", false},
+		{"Get Customer", "query.customer.get", true},
 		{"Search Customer", "query.customer.search", true},
 		{"Delete Customer", "cmd.customer.delete", true},
 		{"Unknown Key", "unknown.key", false},

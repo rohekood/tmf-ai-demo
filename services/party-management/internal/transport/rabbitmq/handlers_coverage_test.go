@@ -627,7 +627,7 @@ func TestExtractUser_NoHeaders(t *testing.T) {
 // ========== Listener GetHandler expanded tests ==========
 
 func TestListener_GetHandler_FinalizeDeletion(t *testing.T) {
-	l, _ := NewListener(nil)
+	l, _ := NewListener(nil, false)
 	h := &Handlers{}
 	handler, ok := l.GetHandler(CmdPartyFinalizeDeletion, h)
 	assert.True(t, ok)
@@ -635,7 +635,7 @@ func TestListener_GetHandler_FinalizeDeletion(t *testing.T) {
 }
 
 func TestListener_GetHandler_CancelDeletion(t *testing.T) {
-	l, _ := NewListener(nil)
+	l, _ := NewListener(nil, false)
 	h := &Handlers{}
 	handler, ok := l.GetHandler(CmdPartyCancelDeletion, h)
 	assert.True(t, ok)

@@ -39,10 +39,9 @@ export default function CompleteProfilePage() {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        // Include the email so the backend can fall back to it when the Auth0
-        // email claim (A1) is not configured. When the claim IS present, the BFF
-        // prefers it and ignores this value.
-        provision({ ...form, email: user?.email }, {
+        // Email is NOT sent: the backend derives identity from the verified
+        // access-token claim. The email field below is display-only.
+        provision(form, {
             onSuccess: (result) => {
                 // Seed the resolve cache directly with the provisioned result so
                 // the gate passes immediately — without depending on a re-resolve

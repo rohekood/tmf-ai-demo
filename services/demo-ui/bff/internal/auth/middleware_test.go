@@ -22,7 +22,7 @@ func (m *mockValidator) ValidateToken(ctx context.Context, tokenString string) (
 			RegisteredClaims: validator.RegisteredClaims{
 				Subject: "test-user-id",
 			},
-			CustomClaims: &CustomClaims{Email: m.email},
+			CustomClaims: &CustomClaims{EmailClaimKey: m.email},
 		}, nil
 	}
 	return nil, nil // error handling in middleware expects error or false validation

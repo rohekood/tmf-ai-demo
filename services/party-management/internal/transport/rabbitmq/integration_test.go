@@ -216,7 +216,7 @@ func setupTestSuite(t *testing.T) *IntegrationTestSuite {
 	events, err := ch.Consume(eventQueue.Name, "", true, false, false, false, nil)
 	require.NoError(t, err)
 
-	listener, err := NewListener(sharedConn)
+	listener, err := NewListener(sharedConn, false)
 	require.NoError(t, err)
 
 	tm := postgres.NewTransactionManager(sharedDB)

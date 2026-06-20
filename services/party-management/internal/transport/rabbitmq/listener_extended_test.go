@@ -13,10 +13,10 @@ import (
 )
 
 func TestNewListener(t *testing.T) {
-	_, err := NewListener(nil)
+	_, err := NewListener(nil, false)
 	assert.NoError(t, err)
 
-	l, err := NewListener(&amqp.Connection{})
+	l, err := NewListener(&amqp.Connection{}, false)
 	assert.NoError(t, err)
 	assert.NotNil(t, l)
 }
@@ -32,7 +32,7 @@ func TestListener_Start_ChannelError(t *testing.T) {
 	// because internal allocator is nil. This is the error path of Start().
 	conn := &amqp.Connection{}
 
-	l, err := NewListener(conn)
+	l, err := NewListener(conn, false)
 	require.NoError(t, err)
 
 	// Run Start in a goroutine so we can recover from the panic
@@ -75,7 +75,7 @@ func TestListener_Start_WithRealRabbitMQ(t *testing.T) {
 		t.Skip("Skipping integration test: testcontainers unavailable")
 	}
 
-	l, err := NewListener(sharedConn)
+	l, err := NewListener(sharedConn, false)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
@@ -94,7 +94,7 @@ func TestListener_MessageProcessing(t *testing.T) {
 	mockRepo.On("CreateIndividual", testifymock.Anything, testifymock.Anything).Return(nil)
 	h := NewHandlers(mockRepo, nil, nil, &NoOpTransactionManager{})
 
-	l, err := NewListener(sharedConn)
+	l, err := NewListener(sharedConn, false)
 	require.NoError(t, err)
 
 	ctx := t.Context()

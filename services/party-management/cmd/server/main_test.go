@@ -64,7 +64,7 @@ func TestRun_Success(t *testing.T) {
 		return &mockPublisher{}, nil
 	}
 
-	newListenerFn := func(connMgr rmqConnManager) (*rabbitTransport.Listener, error) {
+	newListenerFn := func(connMgr rmqConnManager, _ bool) (*rabbitTransport.Listener, error) {
 		return nil, nil
 	}
 
@@ -169,7 +169,7 @@ func TestRun_ListenerError(t *testing.T) {
 		return &mockPublisher{}, nil
 	}
 
-	newListenerFn := func(connMgr rmqConnManager) (*rabbitTransport.Listener, error) {
+	newListenerFn := func(connMgr rmqConnManager, _ bool) (*rabbitTransport.Listener, error) {
 		return nil, fmt.Errorf("mock listener error")
 	}
 

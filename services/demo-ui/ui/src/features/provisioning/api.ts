@@ -10,7 +10,6 @@ export interface ResolveCustomerResponse {
 }
 
 export interface ProvisionRequest {
-    email?: string;
     givenName: string;
     familyName: string;
     phone?: string;

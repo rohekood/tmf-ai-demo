@@ -117,29 +117,40 @@ On form submit:
   they require a valid JWT automatically. No anonymous provisioning.
 - **PartyType.** Provisioned parties are `Individual`; given/family name are the
   minimal required fields the token usually cannot supply → the form collects them.
-- **Trust boundary.** Prefer the server-derived email claim over client-sent email.
-  If the demo trusts the client value, the form's email field must be read-only and
-  the caveat documented (a malicious client could claim another email).
+- **Trust boundary (product-grade, fail closed).** Identity comes **only** from a
+  signed, server-verified source — never from the request body. The BFF resolves
+  the caller's email in this order (`MeHandler.resolveEmail`):
+  1. the namespaced **access-token claim** (`https://tmf-demo/email`) if the Auth0
+     Action sets it — zero round-trip; then
+  2. a **server-side `/userinfo` lookup** with the caller's own bearer token,
+     cached per `sub` (5 min). This works because the SPA requests the `openid`
+     scope alongside the custom API audience, so the access token's `aud` includes
+     `https://<tenant>/userinfo` and is valid there. (The earlier claim that
+     `/userinfo` was unusable held only for tokens minted *without* `openid`.)
+
+  If neither yields a verified email, `/api/me/*` return **401** (fail closed). The
+  form's email field is display-only (from the ID token) and is **not** sent. The
+  claim path (A1) is still preferred for production (no per-request round-trip) and
+  should be managed as Auth0 tenant-as-code; the `/userinfo` fallback makes the
+  feature work securely even before the Action is in place.
 
 ## Task List
 
 ### Group A — Server-side email identity (BFF + Auth0)
 
-- [~] **A1.** Configure an Auth0 **Action** to add a namespaced `email` custom
-  claim to the **access token**. *Tenant config — must be applied in the Auth0
-  dashboard (cannot be done from this repo).* The BFF expects the claim key
-  `https://tmf-demo/email` (see `auth.EmailClaimKey`). Add a **Login / M2M Action**:
+- [~] **A1. REQUIRED tenant config (no client fallback).** Configure an Auth0
+  **Login Action** to add a namespaced `email` custom claim to the **access
+  token**. The BFF expects the claim key `https://tmf-demo/email` (see
+  `auth.EmailClaimKey`) and **fails closed (401)** without it. Should be committed
+  as Auth0 tenant-as-code (Terraform `auth0_action` / Deploy CLI), not a manual
+  dashboard step.
 
   ```js
   // Auth0 Action: "Add email to access token"
   exports.onExecutePostLogin = async (event, api) => {
-    if (event.authorization) {
-      api.accessToken.setCustomClaim('https://tmf-demo/email', event.user.email);
-    }
+    api.accessToken.setCustomClaim('https://tmf-demo/email', event.user.email);
   };
   ```
-
-  Until applied, the BFF falls back to the client-provided email (A3).
 - [x] **A2.** In the BFF auth middleware
   ([middleware.go](../../services/demo-ui/bff/internal/auth/middleware.go)), extract
   the email claim from validated claims and inject it into context. — **Done**
@@ -148,10 +159,13 @@ On form submit:
   **BFF-local** (read directly by the provisioning handlers) rather than forwarded
   as an RPC header — downstream services receive the email inside command payloads
   (contact medium / search criterion), so no transport header is needed.
-- [x] **A3.** Demo fallback: accept a client-provided email in the provisioning
-  request body **only** when no verified claim is present; log when the fallback is
-  used. Tests for both paths. — **Done** (`Provision` prefers `EmailFromContext`,
-  falls back to body email with a warning log; `TestProvision_FallbackToBodyEmail`).
+- [x] **A3. Fail closed (client fallback REMOVED).** The earlier demo fallback that
+  accepted a client-supplied email has been removed — it is not acceptable for a
+  product-grade trust boundary. Both `/api/me/*` handlers now require the verified
+  claim and return **401** otherwise; the `email` field was dropped from the
+  provision request (BFF and frontend). Tests: `TestProvision_FailsClosedWithoutEmailClaim`,
+  `TestResolveCustomer_NoEmail` (both assert 401, no RPC calls). **Consequence:**
+  provisioning is non-functional until the A1 Action is applied — intentional.
 
 ### Group B — Party lookup by email (party-management)
 

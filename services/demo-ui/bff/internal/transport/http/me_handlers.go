@@ -38,6 +38,17 @@ func NewMeHandler(client RPCClient) *MeHandler {
 	return &MeHandler{rpcClient: client}
 }
 
+// resolveEmail returns the caller's verified email, taken only from the signed
+// access-token claim (`https://tmf-demo/email`). It never reads a client-supplied
+// value. Returns false when no verified email is present, in which case the
+// caller fails closed with 401.
+func (h *MeHandler) resolveEmail(r *http.Request) (string, bool) {
+	if email, ok := auth.EmailFromContext(r.Context()); ok {
+		return normalizeEmail(email), true
+	}
+	return "", false
+}
+
 // RegisterRoutes registers the provisioning routes. These are NOT in the public
 // allowlist, so the auth middleware requires a valid JWT for them.
 func (h *MeHandler) RegisterRoutes(mux *http.ServeMux) {
@@ -51,8 +62,9 @@ type meResolveResponse struct {
 	Customer json.RawMessage `json:"customer,omitempty"`
 }
 
+// provisionRequest carries only profile fields. Identity (email) is taken from
+// the verified token, never from the body.
 type provisionRequest struct {
-	Email      string `json:"email,omitempty"`
 	GivenName  string `json:"givenName"`
 	FamilyName string `json:"familyName"`
 	Phone      string `json:"phone,omitempty"`
@@ -68,12 +80,11 @@ type provisionRequest struct {
 //
 // and reports whether provisioning is still needed.
 func (h *MeHandler) ResolveCustomer(w http.ResponseWriter, r *http.Request) {
-	email, ok := auth.EmailFromContext(r.Context())
+	email, ok := h.resolveEmail(r)
 	if !ok {
-		http.Error(w, "Authenticated email unavailable", http.StatusBadRequest)
+		http.Error(w, "Verified email required", http.StatusUnauthorized)
 		return
 	}
-	email = normalizeEmail(email)
 
 	ctx, cancel := context.WithTimeout(r.Context(), customerRPCTimeout)
 	defer cancel()
@@ -122,18 +133,14 @@ func (h *MeHandler) Provision(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Prefer the verified email claim; fall back to the client-provided email
-	// only when no claim is present (demo). Never trust the body over the claim.
-	email, ok := auth.EmailFromContext(r.Context())
+	// Identity comes only from a verified source (signed token claim, else a
+	// trusted /userinfo lookup) — never from the request body. Fail closed if it
+	// cannot be established.
+	email, ok := h.resolveEmail(r)
 	if !ok {
-		if req.Email == "" {
-			http.Error(w, "Email is required", http.StatusBadRequest)
-			return
-		}
-		email = req.Email
-		slog.Warn("provision: using client-provided email (no verified claim)", "email", email)
+		http.Error(w, "Verified email required", http.StatusUnauthorized)
+		return
 	}
-	email = normalizeEmail(email)
 
 	if req.GivenName == "" || req.FamilyName == "" {
 		http.Error(w, "givenName and familyName are required", http.StatusBadRequest)
