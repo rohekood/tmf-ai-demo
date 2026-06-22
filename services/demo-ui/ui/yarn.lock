@@ -1892,12 +1892,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@storybook/addon-onboarding@npm:^10.1.11":
-  version: 10.3.6
-  resolution: "@storybook/addon-onboarding@npm:10.3.6"
+"@storybook/addon-onboarding@npm:^10.4.2":
+  version: 10.4.2
+  resolution: "@storybook/addon-onboarding@npm:10.4.2"
   peerDependencies:
-    storybook: ^10.3.6
-  checksum: eccf7406f0b7d23cb74ef689c0278c2153b8739b9e14d74fb9b303cfd1b03eeb8bfbedd880fe497e43105aaea143d3d7a641cdf7c7adfb9dd3fea3958af5f1ce
+    storybook: ^10.4.2
+  checksum: 2e2a3d4b8999072c4d3d1ed6c9d176d27e65c6c6ffa133e90db1e5d450171d7f67c12398d086a6189e119a7ce633c5e2507bf1b6289d1f77d881edace4a44507
   languageName: node
   linkType: hard
 
@@ -5554,7 +5554,7 @@ __metadata:
     "@radix-ui/react-slot": "npm:^1.2.4"
     "@storybook/addon-a11y": "npm:^10.1.11"
     "@storybook/addon-docs": "npm:^10.1.11"
-    "@storybook/addon-onboarding": "npm:^10.1.11"
+    "@storybook/addon-onboarding": "npm:^10.4.2"
     "@storybook/addon-vitest": "npm:^10.1.11"
     "@storybook/react-vite": "npm:^10.4.1"
     "@tanstack/react-query": "npm:^5.90.12"
