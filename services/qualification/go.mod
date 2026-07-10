@@ -17,7 +17,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/testcontainers/testcontainers-go v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.40.0
-	github.com/testcontainers/testcontainers-go/modules/rabbitmq v0.40.0
+	github.com/testcontainers/testcontainers-go/modules/rabbitmq v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/redis v0.40.0
 )
 
@@ -71,8 +71,8 @@ require (
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	golang.org/x/crypto v0.50.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/crypto v0.52.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
