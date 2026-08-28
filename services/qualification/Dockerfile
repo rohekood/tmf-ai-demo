@@ -1,5 +1,5 @@
 # Build Stage
-FROM golang:1.26.3 AS builder
+FROM golang:1.27.0 AS builder
 # CMD_PATH selects which binary to build (server by default; mocks override it).
 ARG CMD_PATH=./cmd/server/main.go
 WORKDIR /workspace
